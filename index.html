@@ -325,7 +325,7 @@ async function lookupEmployee() {
   showToast('Looking up...');
   try {
     const res = await fetch(
-      `${PB_URL}/api/collections/employees/records?filter=(pin="${currentPin}"&&is_active=true)`
+    `${PB_URL}/api/collections/employees/records?filter=(pin='${currentPin}'%26%26is_active=true)`
     );
     const data = await res.json();
 
