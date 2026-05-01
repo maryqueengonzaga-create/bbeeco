@@ -340,7 +340,7 @@ async function lookupEmployee() {
     // Check open DTR
     const today = new Date().toISOString().split('T')[0];
     const dtrRes = await fetch(
-      `${PB_URL}/api/collections/dtr_logs/records?filter=(employee_id="${currentEmployee.id}"&&date="${today}"&&status="open")&sort=-created`
+    `${PB_URL}/api/collections/dtr_logs/records?filter=(employee_id='${currentEmployee.id}'%26%26date='${today}'%26%26status='open')&sort=-created`
     );
     const dtrData = await dtrRes.json();
     currentDTR = dtrData.items && dtrData.items.length > 0 ? dtrData.items[0] : null;
