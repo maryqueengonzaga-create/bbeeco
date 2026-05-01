@@ -443,16 +443,22 @@ async function doAction() {
 // ─── ACTION LOG ───────────────────────────────────────
 async function logAction(action, collection, recordId, newValue) {
   try {
-    await fetch(`${PB_URL}/api/collections/action_log/records`, {
+    const body = {
+      module: 'hr', 
+      action: action, 
+      collection: collection,
+      record_id: recordId || '',
+      new_value: JSON.stringify(newValue)
+    };
+    console.log('logAction body:', JSON.stringify(body));
+    const res = await fetch(`${PB_URL}/api/collections/action_log/records`, {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({
-        module: 'hr', action, collection,
-        record_id: recordId || '',
-        new_value: JSON.stringify(newValue)
-      })
+      body: JSON.stringify(body)
     });
-  } catch(e) { /* silent fail */ }
+    const data = await res.json();
+    console.log('logAction response:', JSON.stringify(data));
+  } catch(e) { console.log('logAction error:', e); }
 }
 
 // ─── SUCCESS ──────────────────────────────────────────
