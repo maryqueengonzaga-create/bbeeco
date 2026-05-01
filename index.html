@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Bbee.Co Kiosk</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600&family=DM+Mono:wght@400;500&display=swap');
+
+:root {
+  --honey: #F5A623;
+  --honey-dark: #C8841A;
+  --honey-light: #FEF3DC;
+  --black: #1A1208;
+  --gray: #6B6355;
+  --gray-light: #F2EDE4;
+  --white: #FFFBF5;
+  --green: #2D7A4F;
+  --green-light: #E8F5EE;
+  --red: #C0392B;
+  --red-light: #FDECEA;
+  --radius: 16px;
+  --shadow: 0 4px 24px rgba(26,18,8,0.10);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--white);
+  color: var(--black);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 16px;
+}
+
+.header {
+  width: 100%; max-width: 420px;
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 28px;
+}
+.logo { display: flex; align-items: center; gap: 10px; }
+.logo-hex {
+  width: 38px; height: 38px;
+  background: var(--honey);
+  clip-path: polygon(50% 0%,95% 25%,95% 75%,50% 100%,5% 75%,5% 25%);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+}
+.logo-text { font-size: 18px; font-weight: 600; }
+.logo-text span { color: var(--honey-dark); }
+.clock { text-align: right; }
+.clock-date { font-size: 11px; color: var(--gray); }
+.clock-time { font-family: 'DM Mono', monospace; font-size: 17px; font-weight: 500; }
+
+.card {
+  width: 100%; max-width: 420px;
+  background: var(--white);
+  border: 1.5px solid #E8E0D4;
+  border-radius: var(--radius);
+  padding: 28px 24px;
+  box-shadow: var(--shadow);
+  margin-bottom: 16px;
+}
+.card-title {
+  font-size: 12px; font-weight: 500;
+  color: var(--gray); text-transform: uppercase;
+  letter-spacing: 0.08em; margin-bottom: 16px;
+}
+
+.status-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: 99px;
+  font-size: 12px; font-weight: 500; margin-bottom: 20px;
+}
+.status-badge.online { background: var(--green-light); color: var(--green); }
+.status-badge.offline { background: var(--red-light); color: var(--red); }
+.status-dot { width: 7px; height: 7px; border-radius: 50%; }
+.status-badge.online .status-dot { background: var(--green); }
+.status-badge.offline .status-dot { background: var(--red); }
+
+.pin-display {
+  background: var(--gray-light); border-radius: 10px;
+  padding: 14px 20px;
+  font-family: 'DM Mono', monospace;
+  font-size: 28px; letter-spacing: 8px;
+  text-align: center; margin-bottom: 16px;
+  min-height: 58px; color: var(--black);
+}
+
+.pin-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
+.pin-btn {
+  background: var(--white); border: 1.5px solid #E8E0D4;
+  border-radius: 12px; padding: 18px 0;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 20px; font-weight: 500; color: var(--black);
+  cursor: pointer; transition: all 0.15s; user-select: none;
+}
+.pin-btn:active { background: var(--honey-light); border-color: var(--honey); transform: scale(0.97); }
+.pin-btn.del { font-size: 16px; color: var(--gray); }
+.pin-btn.clr { font-size: 13px; color: var(--red); }
+
+.emp-card {
+  background: var(--honey-light); border: 1.5px solid #F0D9A8;
+  border-radius: 12px; padding: 16px 18px;
+  margin-bottom: 16px;
+  display: flex; align-items: center; gap: 14px;
+}
+.emp-avatar {
+  width: 46px; height: 46px; background: var(--honey);
+  border-radius: 50%; display: flex; align-items: center;
+  justify-content: center; font-size: 18px; font-weight: 600;
+  color: var(--white); flex-shrink: 0;
+}
+.emp-name { font-size: 16px; font-weight: 600; }
+.emp-role { font-size: 12px; color: var(--gray); margin-top: 2px; }
+.emp-shift {
+  margin-left: auto; font-size: 11px; font-weight: 500;
+  padding: 3px 10px; border-radius: 99px;
+}
+.emp-shift.clocked-in { background: var(--green-light); color: var(--green); }
+.emp-shift.clocked-out { background: var(--gray-light); color: var(--gray); }
+
+.btn {
+  width: 100%; padding: 16px; border-radius: 12px; border: none;
+  font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 600;
+  cursor: pointer; transition: all 0.18s; margin-bottom: 10px;
+}
+.btn-primary { background: var(--honey); color: var(--white); }
+.btn-primary:hover { background: var(--honey-dark); }
+.btn-danger { background: var(--red-light); color: var(--red); }
+.btn-ghost { background: transparent; color: var(--gray); border: 1.5px solid #E8E0D4; }
+
+.toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  background: var(--black); color: var(--white);
+  padding: 12px 24px; border-radius: 99px;
+  font-size: 14px; font-weight: 500;
+  opacity: 0; transition: opacity 0.3s;
+  pointer-events: none; z-index: 999; white-space: nowrap;
+}
+.toast.show { opacity: 1; }
+.toast.success { background: var(--green); }
+.toast.error { background: var(--red); }
+
+.screen { display: none; width: 100%; max-width: 420px; }
+.screen.active { display: block; }
+
+.info-row {
+  display: flex; justify-content: space-between;
+  font-size: 13px; padding: 6px 0;
+  border-bottom: 1px solid var(--gray-light);
+}
+.info-row:last-child { border-bottom: none; }
+.info-label { color: var(--gray); }
+.info-value { font-weight: 500; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="logo">
+    <div class="logo-hex">🐝</div>
+    <div class="logo-text">Bbee<span>.Co</span></div>
+  </div>
+  <div class="clock">
+    <div class="clock-date" id="clockDate"></div>
+    <div class="clock-time" id="clockTime"></div>
+  </div>
+</div>
+
+<!-- SCREEN 1: PIN ENTRY -->
+<div class="screen active" id="screenPin">
+  <div class="card">
+    <div class="card-title">Staff Time-In / Time-Out</div>
+    <div class="status-badge online" id="connStatus">
+      <div class="status-dot"></div>
+      <span id="connText">Connected</span>
+    </div>
+    <div class="pin-display" id="pinDisplay">____</div>
+    <div class="pin-grid">
+      <button class="pin-btn" onclick="pinPress('1')">1</button>
+      <button class="pin-btn" onclick="pinPress('2')">2</button>
+      <button class="pin-btn" onclick="pinPress('3')">3</button>
+      <button class="pin-btn" onclick="pinPress('4')">4</button>
+      <button class="pin-btn" onclick="pinPress('5')">5</button>
+      <button class="pin-btn" onclick="pinPress('6')">6</button>
+      <button class="pin-btn" onclick="pinPress('7')">7</button>
+      <button class="pin-btn" onclick="pinPress('8')">8</button>
+      <button class="pin-btn" onclick="pinPress('9')">9</button>
+      <button class="pin-btn clr" onclick="pinClear()">CLR</button>
+      <button class="pin-btn" onclick="pinPress('0')">0</button>
+      <button class="pin-btn del" onclick="pinDelete()">⌫</button>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN 2: EMPLOYEE FOUND -->
+<div class="screen" id="screenEmployee">
+  <div class="card">
+    <div class="card-title">Employee Found</div>
+    <div class="emp-card">
+      <div class="emp-avatar" id="empAvatar"></div>
+      <div>
+        <div class="emp-name" id="empName"></div>
+        <div class="emp-role" id="empRole"></div>
+      </div>
+      <div class="emp-shift" id="empShift"></div>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Current Status</span>
+      <span class="info-value" id="empStatusText"></span>
+    </div>
+    <div class="info-row" id="timeInRow" style="display:none">
+      <span class="info-label">Time In</span>
+      <span class="info-value" id="empTimeIn"></span>
+    </div>
+    <br/>
+    <button class="btn btn-primary" id="btnAction" onclick="doAction()"></button>
+    <button class="btn btn-ghost" onclick="goBack()">Cancel</button>
+  </div>
+</div>
+
+<!-- SCREEN 3: SUCCESS -->
+<div class="screen" id="screenSuccess">
+  <div class="card" style="text-align:center; padding: 40px 24px;">
+    <div style="font-size: 52px; margin-bottom: 16px;" id="successEmoji"></div>
+    <div style="font-size: 20px; font-weight: 600; margin-bottom: 8px;" id="successTitle"></div>
+    <div style="font-size: 14px; color: var(--gray); margin-bottom: 24px;" id="successSub"></div>
+    <button class="btn btn-primary" onclick="goBack()">Done</button>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── CONFIG ───────────────────────────────────────────
+const PB_URL = 'https://pocketbase-production-2d49.up.railway.app';
+
+// ─── STATE ────────────────────────────────────────────
+let currentPin = '';
+let currentEmployee = null;
+let currentDTR = null;
+let isOnline = navigator.onLine;
+
+// ─── CLOCK ────────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clockTime').textContent =
+    now.toLocaleTimeString('en-PH', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+  document.getElementById('clockDate').textContent =
+    now.toLocaleDateString('en-PH', {weekday:'short', month:'short', day:'numeric'});
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ─── CONNECTIVITY ─────────────────────────────────────
+function updateConnStatus() {
+  isOnline = navigator.onLine;
+  const badge = document.getElementById('connStatus');
+  const text = document.getElementById('connText');
+  badge.className = 'status-badge ' + (isOnline ? 'online' : 'offline');
+  text.textContent = isOnline ? 'Connected' : 'Offline';
+}
+window.addEventListener('online', updateConnStatus);
+window.addEventListener('offline', updateConnStatus);
+updateConnStatus();
+
+// ─── TOAST ────────────────────────────────────────────
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + type;
+  setTimeout(() => t.className = 'toast', 2500);
+}
+
+// ─── SCREEN NAV ───────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function goBack() {
+  pinClear();
+  currentEmployee = null;
+  currentDTR = null;
+  showScreen('screenPin');
+}
+
+// ─── PIN PAD ──────────────────────────────────────────
+function updatePinDisplay() {
+  const masked = currentPin.replace(/./g, '●');
+  const padded = masked.padEnd(4, '_');
+  document.getElementById('pinDisplay').textContent = padded.substring(0, 4);
+  if (currentPin.length === 4) setTimeout(lookupEmployee, 300);
+}
+
+function pinPress(num) {
+  if (currentPin.length >= 4) return;
+  currentPin += num;
+  updatePinDisplay();
+}
+
+function pinDelete() {
+  currentPin = currentPin.slice(0, -1);
+  updatePinDisplay();
+}
+
+function pinClear() {
+  currentPin = '';
+  document.getElementById('pinDisplay').textContent = '____';
+}
+
+// ─── LOOKUP EMPLOYEE ──────────────────────────────────
+async function lookupEmployee() {
+  if (!isOnline) {
+    showToast('No connection. Try again.', 'error');
+    setTimeout(goBack, 1500);
+    return;
+  }
+  showToast('Looking up...');
+  try {
+    const res = await fetch(
+      `${PB_URL}/api/collections/employees/records?filter=(pin="${currentPin}"&&is_active=true)`
+    );
+    const data = await res.json();
+
+    if (!data.items || data.items.length === 0) {
+      showToast('PIN not found. Try again.', 'error');
+      setTimeout(goBack, 1500);
+      return;
+    }
+
+    currentEmployee = data.items[0];
+
+    // Check open DTR
+    const today = new Date().toISOString().split('T')[0];
+    const dtrRes = await fetch(
+      `${PB_URL}/api/collections/dtr_logs/records?filter=(employee_id="${currentEmployee.id}"&&date="${today}"&&status="open")&sort=-created`
+    );
+    const dtrData = await dtrRes.json();
+    currentDTR = dtrData.items && dtrData.items.length > 0 ? dtrData.items[0] : null;
+
+    showEmployeeScreen();
+  } catch (err) {
+    showToast('Connection error. Try again.', 'error');
+    setTimeout(goBack, 2000);
+  }
+}
+
+// ─── EMPLOYEE SCREEN ──────────────────────────────────
+function showEmployeeScreen() {
+  const emp = currentEmployee;
+  const isClockedIn = currentDTR !== null;
+
+  const initials = emp.name.split(' ').map(w => w[0]).slice(0, 2).join('');
+  document.getElementById('empAvatar').textContent = initials;
+  document.getElementById('empName').textContent = emp.name;
+  document.getElementById('empRole').textContent =
+    emp.role === 'live_seller' ? 'Live Seller' : 'Regular Staff';
+
+  const shift = document.getElementById('empShift');
+  shift.textContent = isClockedIn ? 'Clocked In' : 'Clocked Out';
+  shift.className = 'emp-shift ' + (isClockedIn ? 'clocked-in' : 'clocked-out');
+
+  document.getElementById('empStatusText').textContent =
+    isClockedIn ? '🟢 Currently working' : '⚪ Not clocked in';
+
+  const timeInRow = document.getElementById('timeInRow');
+  if (isClockedIn && currentDTR) {
+    timeInRow.style.display = 'flex';
+    const tin = new Date(currentDTR.time_in);
+    document.getElementById('empTimeIn').textContent =
+      tin.toLocaleTimeString('en-PH', {hour:'2-digit', minute:'2-digit'});
+  } else {
+    timeInRow.style.display = 'none';
+  }
+
+  const btn = document.getElementById('btnAction');
+  btn.textContent = isClockedIn ? '🔴  Time Out' : '🟢  Time In';
+  btn.className = 'btn ' + (isClockedIn ? 'btn-danger' : 'btn-primary');
+
+  showScreen('screenEmployee');
+}
+
+// ─── TIME IN / OUT ────────────────────────────────────
+async function doAction() {
+  if (!isOnline) { showToast('No connection.', 'error'); return; }
+
+  const isClockedIn = currentDTR !== null;
+  const now = new Date();
+  const today = now.toISOString().split('T')[0];
+
+  try {
+    if (!isClockedIn) {
+      // TIME IN
+      const body = {
+        employee_id: currentEmployee.id,
+        time_in: now.toISOString(),
+        date: today,
+        type: currentEmployee.role === 'live_seller' ? 'live_sell' : 'regular',
+        status: 'open',
+        is_auto_timeout: false
+      };
+      const res = await fetch(`${PB_URL}/api/collections/dtr_logs/records`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) throw new Error();
+      logAction('create', 'dtr_logs', null, body);
+      showSuccess('🟢', 'Time In Recorded!',
+        `${currentEmployee.name} clocked in at ${now.toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit'})}`);
+
+    } else {
+      // TIME OUT
+      const tin = new Date(currentDTR.time_in);
+      const totalHours = Math.round(((now - tin) / 3600000) * 100) / 100;
+      const updates = { time_out: now.toISOString(), status: 'closed', total_hours: totalHours };
+
+      const res = await fetch(`${PB_URL}/api/collections/dtr_logs/records/${currentDTR.id}`, {
+        method: 'PATCH',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(updates)
+      });
+      if (!res.ok) throw new Error();
+      logAction('update', 'dtr_logs', currentDTR.id, updates);
+
+      const hrs = Math.floor(totalHours);
+      const mins = Math.round((totalHours - hrs) * 60);
+      showSuccess('🔴', 'Time Out Recorded!',
+        `${currentEmployee.name} worked ${hrs}h ${mins}m today`);
+    }
+  } catch (err) {
+    showToast('Error recording. Try again.', 'error');
+  }
+}
+
+// ─── ACTION LOG ───────────────────────────────────────
+async function logAction(action, collection, recordId, newValue) {
+  try {
+    await fetch(`${PB_URL}/api/collections/action_log/records`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        actor_id: currentEmployee.id,
+        module: 'hr', action, collection,
+        record_id: recordId || '',
+        new_value: JSON.stringify(newValue)
+      })
+    });
+  } catch(e) { /* silent fail */ }
+}
+
+// ─── SUCCESS ──────────────────────────────────────────
+function showSuccess(emoji, title, sub) {
+  document.getElementById('successEmoji').textContent = emoji;
+  document.getElementById('successTitle').textContent = title;
+  document.getElementById('successSub').textContent = sub;
+  showScreen('screenSuccess');
+  setTimeout(goBack, 4000);
+}
+</script>
+</body>
+</html>
