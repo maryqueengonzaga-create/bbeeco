@@ -447,7 +447,6 @@ async function logAction(action, collection, recordId, newValue) {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({
-        actor_id: currentEmployee.id,
         module: 'hr', action, collection,
         record_id: recordId || '',
         new_value: JSON.stringify(newValue)
