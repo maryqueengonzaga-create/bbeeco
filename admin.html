@@ -685,7 +685,7 @@ function filterEmps(){
 async function loadTodayDTR(){
   try{
     var t=todayStr();
-    var r=await fetch(PB+'/api/collections/dtr_logs/records?filter=(date%3D%22'+t+'%2000%3A00%3A00%22)&sort=-time_in&perPage=50&expand=employee_id');
+    var r=await fetch(PB+'/api/collections/dtr_logs/records?filter=(time_in%3E%3D%22'+t+'%2000%3A00%3A00%22)&sort=-time_in&perPage=50&expand=employee_id');
     var d=await r.json(); var items=d.items||[];
     if(!items.length){ document.getElementById('dtrTableBody').innerHTML='<tr><td colspan="7"><div class="empty">No attendance records today.</div></td></tr>'; return; }
     document.getElementById('dtrTableBody').innerHTML=items.map(function(dtr){
