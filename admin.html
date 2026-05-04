@@ -465,6 +465,14 @@ tr:hover td{background:var(--gray-light)}
   </div>
 </div>
 
+<!-- MODAL: VIEW PHOTO -->
+<div class="modal-overlay" id="photoModal">
+  <div class="modal" style="text-align:center;max-width:340px">
+    <div class="modal-title" id="photoModalTitle">Photo</div>
+    <img id="photoModalImg" style="width:100%;border-radius:12px;margin-bottom:16px"/>
+    <button class="btn btn-ghost" onclick="closeModal('photoModal')" style="width:100%">Close</button>
+  </div>
+</div>
 <!-- MODAL: EDIT DTR -->
 <div class="modal-overlay" id="dtrModal">
   <div class="modal">
@@ -729,7 +737,9 @@ async function loadTodayDTR(){
       var hrs=dtr.total_hours?dtr.total_hours.toFixed(2)+'h':'--';
       var typeBadge=dtr.type==='live_sell'?'<span class="badge badge-blue">Live</span>':'<span class="badge badge-gray">Regular</span>';
       var statusBadge=dtr.status==='open'?'<span class="badge badge-green">Open</span>':dtr.is_auto_timeout?'<span class="badge badge-orange">Auto-closed</span>':'<span class="badge badge-gray">Closed</span>';
-      return '<tr><td>'+empName+'</td><td>'+tin+'</td><td>'+tout+'</td><td>'+hrs+'</td><td>'+typeBadge+'</td><td>'+statusBadge+'</td><td><button class="btn btn-ghost btn-sm" onclick="openEditDTR(\''+dtr.id+'\',\''+empName+'\',\''+dtr.time_in+'\',\''+dtr.time_out+'\')">Edit</button></td></tr>';
+      var photoIn=dtr.time_in_photo?'<img src="'+PB+'/api/files/dtr_logs/'+dtr.id+'/'+dtr.time_in_photo+'" style="width:32px;height:32px;border-radius:50%;object-fit:cover;cursor:pointer;border:2px solid var(--green)" onclick="viewPhoto(this.src,\'Time In\')"/>':"<span style='color:var(--gray);font-size:11px'>No photo</span>";
+      var photoOut=dtr.time_out_photo?'<img src="'+PB+'/api/files/dtr_logs/'+dtr.id+'/'+dtr.time_out_photo+'" style="width:32px;height:32px;border-radius:50%;object-fit:cover;cursor:pointer;border:2px solid var(--red)" onclick="viewPhoto(this.src,\'Time Out\')"/>':"<span style='color:var(--gray);font-size:11px'>--</span>";
+      return '<tr><td>'+empName+'</td><td>'+tin+' '+photoIn+'</td><td>'+tout+' '+photoOut+'</td><td>'+hrs+'</td><td>'+typeBadge+'</td><td>'+statusBadge+'</td><td><button class="btn btn-ghost btn-sm" onclick="openEditDTR(\''+dtr.id+'\',\''+empName+'\',\''+dtr.time_in+'\',\''+dtr.time_out+'\')">Edit</button></td></tr>';
     }).join('');
   }catch(e){ document.getElementById('dtrTableBody').innerHTML='<tr><td colspan="7"><div class="empty">Error loading attendance.</div></td></tr>'; }
 }
@@ -1039,6 +1049,12 @@ document.querySelectorAll('.modal-overlay').forEach(function(m){
   m.addEventListener('click',function(e){ if(e.target===m) m.classList.remove('show'); });
 });
 
+
+function viewPhoto(src, label){
+  document.getElementById('photoModalTitle').textContent=label+' Photo';
+  document.getElementById('photoModalImg').src=src;
+  document.getElementById('photoModal').classList.add('show');
+}
 // ══════════════════════════════
 // HELPERS
 // ══════════════════════════════
