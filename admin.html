@@ -896,11 +896,12 @@ function applyPermissions(){
       var addBtn=document.querySelector('#content-hr button.btn-primary');
       if(addBtn) addBtn.style.display='none';
     }
-  } else {
-    // owner — show everything
-    document.getElementById('tab-settings').style.display='block';
-    document.getElementById('tab-sales').style.display='block';
-  }
+ } else {
+  // owner — show everything
+  document.getElementById('tab-settings').style.display='block';
+  document.getElementById('tab-sales').style.display='block';
+  document.getElementById('tab-payroll').style.display='block';
+}
 }
 
 function logout(){
