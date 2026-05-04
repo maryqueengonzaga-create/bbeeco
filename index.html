@@ -692,6 +692,14 @@ async function execAction(action){
       var r=await fetch(PB+'/api/collections/dtr_logs/records',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
       if(!r.ok)throw new Error();
       openDTR=await r.json();
+      if(photo&&openDTR.id){
+        try{
+          var blob=dataURLtoBlob(photo);
+          var fd=new FormData();
+          fd.append('time_in_photo',blob,'timein_'+selEmp.id+'_'+Date.now()+'.jpg');
+          await fetch(PB+'/api/collections/dtr_logs/records/'+openDTR.id,{method:'PATCH',body:fd});
+        }catch(e){ console.log('Photo upload error',e); }
+      }
       logAct('create','dtr_logs',openDTR.id,body);
       showSuccess('🟢','Time In Recorded!',selEmp.name+'\n'+ts,photo);
     }catch(e){ toast('Error. Try again.','err'); startCam(); }
@@ -736,6 +744,15 @@ async function execAction(action){
       var upd={time_out:now.toISOString(),status:'closed',total_hours:hrs};
       var r=await fetch(PB+'/api/collections/dtr_logs/records/'+openDTR.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(upd)});
       if(!r.ok)throw new Error();
+      // upload timeout photo
+      if(photo&&openDTR.id){
+        try{
+          var blob=dataURLtoBlob(photo);
+          var fd=new FormData();
+          fd.append('time_out_photo',blob,'timeout_'+selEmp.id+'_'+Date.now()+'.jpg');
+          await fetch(PB+'/api/collections/dtr_logs/records/'+openDTR.id,{method:'PATCH',body:fd});
+        }catch(e){ console.log('Photo upload error',e); }
+      }
       logAct('update','dtr_logs',openDTR.id,upd);
       // reset incomplete_sessions on successful timeout
       await fetch(PB+'/api/collections/employees/records/'+selEmp.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({incomplete_sessions:0})});
@@ -853,7 +870,12 @@ function logoTapped(){
     window.location.href='admin.html';
   }
 }
-  
+function dataURLtoBlob(dataURL){
+  var arr=dataURL.split(','), mime=arr[0].match(/:(.*?);/)[1];
+  var bstr=atob(arr[1]), n=bstr.length, u8arr=new Uint8Array(n);
+  while(n--){ u8arr[n]=bstr.charCodeAt(n); }
+  return new Blob([u8arr],{type:mime});
+}
 loadEmps();
 setInterval(autoTimeout, 30*60*1000);
 </script>
