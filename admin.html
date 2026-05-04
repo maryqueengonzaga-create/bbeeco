@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
+<title>Bbee.Co Admin</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=DM+Mono:wght@400;500&display=swap');
+:root{
+  --honey:#F5A623;--honey-dark:#C8841A;--honey-light:#FEF3DC;
+  --black:#1A1208;--gray:#6B6355;--gray-light:#F2EDE4;--white:#FFFBF5;
+  --green:#2D7A4F;--green-light:#E8F5EE;
+  --red:#C0392B;--red-light:#FDECEA;
+  --blue:#1A6FB0;--blue-light:#E6F1FB;
+  --orange:#E67E22;--orange-light:#FEF0E6;
+  --purple:#6C3483;--purple-light:#F4ECF7;
+  --radius:14px;--shadow:0 4px 24px rgba(26,18,8,.10)
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:var(--gray-light);color:var(--black);min-height:100vh}
+
+/* LOGIN */
+.login-wrap{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
+.login-card{background:var(--white);border-radius:var(--radius);padding:32px 28px;width:100%;max-width:380px;box-shadow:var(--shadow)}
+.login-logo{display:flex;align-items:center;gap:10px;margin-bottom:28px;justify-content:center}
+.login-hex{width:40px;height:40px;background:var(--honey);clip-path:polygon(50% 0%,95% 25%,95% 75%,50% 100%,5% 75%,5% 25%);display:flex;align-items:center;justify-content:center;font-size:19px}
+.login-title{font-size:18px;font-weight:600}
+.login-title span{color:var(--honey-dark)}
+.login-sub{text-align:center;font-size:13px;color:var(--gray);margin-bottom:24px}
+.pin-dots{display:flex;justify-content:center;gap:12px;margin-bottom:20px}
+.pin-dot{width:14px;height:14px;border-radius:50%;border:2px solid #E8E0D4;background:var(--white);transition:all .2s}
+.pin-dot.filled{background:var(--honey);border-color:var(--honey)}
+.pin-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.pin-btn{background:var(--white);border:1.5px solid #E8E0D4;border-radius:12px;padding:18px 0;font-family:'DM Sans',sans-serif;font-size:20px;font-weight:500;color:var(--black);cursor:pointer;transition:all .12s}
+.pin-btn:active{background:var(--honey-light);border-color:var(--honey);transform:scale(.96)}
+.pin-btn.del{font-size:14px;color:var(--gray)}
+.pin-btn.clr{font-size:12px;color:var(--red)}
+.login-err{text-align:center;font-size:13px;color:var(--red);margin-top:8px;min-height:20px}
+
+/* MAIN LAYOUT */
+.app{display:none;min-height:100vh;flex-direction:column}
+.app.active{display:flex}
+.topbar{background:var(--white);border-bottom:1px solid #E8E0D4;padding:0 20px;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:50}
+.topbar-logo{display:flex;align-items:center;gap:8px}
+.topbar-hex{width:28px;height:28px;background:var(--honey);clip-path:polygon(50% 0%,95% 25%,95% 75%,50% 100%,5% 75%,5% 25%);display:flex;align-items:center;justify-content:center;font-size:13px}
+.topbar-title{font-size:15px;font-weight:600}
+.topbar-title span{color:var(--honey-dark)}
+.topbar-right{display:flex;align-items:center;gap:12px}
+.session-badge{font-size:11px;color:var(--gray);font-family:'DM Mono',monospace}
+.admin-badge{font-size:11px;font-weight:600;padding:3px 8px;border-radius:99px}
+.badge-owner{background:var(--honey-light);color:var(--honey-dark)}
+.badge-subadmin{background:var(--blue-light);color:var(--blue)}
+.logout-btn{font-size:13px;color:var(--red);cursor:pointer;font-weight:500;padding:6px 12px;border-radius:8px;border:1.5px solid var(--red-light);background:var(--red-light)}
+
+/* TABS */
+.tabs{display:flex;background:var(--white);border-bottom:1px solid #E8E0D4;padding:0 20px}
+.tab{padding:14px 18px;font-size:13px;font-weight:500;color:var(--gray);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s}
+.tab.active{color:var(--honey-dark);border-bottom-color:var(--honey)}
+.tab-content{display:none;padding:20px;flex:1}
+.tab-content.active{display:block}
+
+/* SECTION */
+.section-title{font-size:13px;font-weight:600;color:var(--gray);text-transform:uppercase;letter-spacing:.07em;margin-bottom:14px;margin-top:8px}
+.card{background:var(--white);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);margin-bottom:16px}
+
+/* STATS ROW */
+.stats-row{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:16px}
+.stat-card{background:var(--white);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);text-align:center}
+.stat-num{font-size:28px;font-weight:600;margin-bottom:4px}
+.stat-label{font-size:11px;color:var(--gray);font-weight:500}
+.stat-green{color:var(--green)}
+.stat-blue{color:var(--blue)}
+.stat-orange{color:var(--orange)}
+.stat-red{color:var(--red)}
+
+/* TABLE */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:10px 12px;font-size:11px;font-weight:600;color:var(--gray);text-transform:uppercase;letter-spacing:.06em;border-bottom:1.5px solid #E8E0D4}
+td{padding:10px 12px;border-bottom:1px solid var(--gray-light);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--gray-light)}
+
+/* BADGES */
+.badge{font-size:10px;font-weight:600;padding:2px 8px;border-radius:99px;display:inline-block}
+.badge-green{background:var(--green-light);color:var(--green)}
+.badge-blue{background:var(--blue-light);color:var(--blue)}
+.badge-orange{background:var(--orange-light);color:var(--orange)}
+.badge-red{background:var(--red-light);color:var(--red)}
+.badge-gray{background:var(--gray-light);color:var(--gray)}
+.badge-purple{background:var(--purple-light);color:var(--purple)}
+
+/* BUTTONS */
+.btn{padding:8px 14px;border-radius:8px;border:none;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px}
+.btn-primary{background:var(--honey);color:var(--white)}
+.btn-danger{background:var(--red-light);color:var(--red);border:1px solid #f5c6c2}
+.btn-ghost{background:transparent;color:var(--gray);border:1.5px solid #E8E0D4}
+.btn-success{background:var(--green-light);color:var(--green);border:1px solid #b8dfc8}
+.btn-sm{padding:5px 10px;font-size:12px}
+
+/* FORM */
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.form-group{margin-bottom:12px}
+.form-label{font-size:12px;font-weight:500;color:var(--gray);margin-bottom:5px;display:block}
+.form-input{width:100%;padding:10px 12px;border:1.5px solid #E8E0D4;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--black);background:var(--white);outline:none}
+.form-input:focus{border-color:var(--honey)}
+.form-select{width:100%;padding:10px 12px;border:1.5px solid #E8E0D4;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--black);background:var(--white);outline:none}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(26,18,8,.5);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;transition:opacity .2s;pointer-events:none}
+.modal-overlay.show{opacity:1;pointer-events:all}
+.modal{background:var(--white);border-radius:var(--radius);padding:24px;max-width:420px;width:100%;box-shadow:0 8px 40px rgba(26,18,8,.2);max-height:90vh;overflow-y:auto}
+.modal-title{font-size:16px;font-weight:600;margin-bottom:16px}
+.modal-btns{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}
+
+/* TOGGLE */
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--gray-light)}
+.toggle-row:last-child{border-bottom:none}
+.toggle-label{font-size:13px;font-weight:500}
+.toggle-sub{font-size:11px;color:var(--gray);margin-top:2px}
+.toggle{position:relative;width:40px;height:22px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0}
+.toggle-slider{position:absolute;inset:0;background:#E8E0D4;border-radius:99px;cursor:pointer;transition:.3s}
+.toggle-slider:before{content:'';position:absolute;width:16px;height:16px;left:3px;top:3px;background:white;border-radius:50%;transition:.3s}
+.toggle input:checked+.toggle-slider{background:var(--honey)}
+.toggle input:checked+.toggle-slider:before{transform:translateX(18px)}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--black);color:var(--white);padding:11px 22px;border-radius:99px;font-size:13px;font-weight:500;opacity:0;transition:opacity .25s;pointer-events:none;z-index:999;white-space:nowrap}
+.toast.show{opacity:1}
+.toast.ok{background:var(--green)}
+.toast.err{background:var(--red)}
+
+.loading{text-align:center;padding:32px;color:var(--gray);font-size:14px}
+.spinner{width:22px;height:22px;border:2px solid var(--gray-light);border-top-color:var(--honey);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 10px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty{text-align:center;padding:32px;color:var(--gray);font-size:14px}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div class="login-wrap" id="loginWrap">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="login-hex">🐝</div>
+      <div class="login-title">Bbee<span>.Co</span> Admin</div>
+    </div>
+    <div class="login-sub">Enter your admin PIN to continue</div>
+    <div class="pin-dots">
+      <div class="pin-dot" id="d0"></div>
+      <div class="pin-dot" id="d1"></div>
+      <div class="pin-dot" id="d2"></div>
+      <div class="pin-dot" id="d3"></div>
+      <div class="pin-dot" id="d4"></div>
+      <div class="pin-dot" id="d5"></div>
+    </div>
+    <div class="pin-grid">
+      <button class="pin-btn" onclick="lp('1')">1</button>
+      <button class="pin-btn" onclick="lp('2')">2</button>
+      <button class="pin-btn" onclick="lp('3')">3</button>
+      <button class="pin-btn" onclick="lp('4')">4</button>
+      <button class="pin-btn" onclick="lp('5')">5</button>
+      <button class="pin-btn" onclick="lp('6')">6</button>
+      <button class="pin-btn" onclick="lp('7')">7</button>
+      <button class="pin-btn" onclick="lp('8')">8</button>
+      <button class="pin-btn" onclick="lp('9')">9</button>
+      <button class="pin-btn clr" onclick="lc()">CLR</button>
+      <button class="pin-btn" onclick="lp('0')">0</button>
+      <button class="pin-btn del" onclick="ld()">&#9003;</button>
+    </div>
+    <div class="login-err" id="loginErr"></div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div class="app" id="mainApp">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-logo">
+      <div class="topbar-hex">🐝</div>
+      <div class="topbar-title">Bbee<span>.Co</span> Admin</div>
+    </div>
+    <div class="topbar-right">
+      <span class="session-badge" id="sessionTimer"></span>
+      <span class="admin-badge" id="adminBadge"></span>
+      <div class="logout-btn" onclick="logout()">Logout</div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <div class="tab active" id="tab-hr" onclick="switchTab('hr')">HR</div>
+    <div class="tab" id="tab-sales" onclick="switchTab('sales')">Sales</div>
+    <div class="tab" id="tab-settings" onclick="switchTab('settings')">Settings</div>
+  </div>
+
+  <!-- HR TAB -->
+  <div class="tab-content active" id="content-hr">
+
+    <!-- STATS -->
+    <div class="stats-row" id="hrStats">
+      <div class="stat-card"><div class="stat-num stat-green" id="statIn">-</div><div class="stat-label">Clocked In</div></div>
+      <div class="stat-card"><div class="stat-num stat-blue" id="statLive">-</div><div class="stat-label">Live Now</div></div>
+      <div class="stat-card"><div class="stat-num stat-orange" id="statIncidents">-</div><div class="stat-label">Pending Reports</div></div>
+      <div class="stat-card"><div class="stat-num stat-red" id="statLocked">-</div><div class="stat-label">Locked</div></div>
+    </div>
+
+    <!-- EMPLOYEES -->
+    <div class="section-title">Employees</div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <input class="form-input" id="empSearch" placeholder="Search employee..." oninput="filterEmps()" style="max-width:240px"/>
+        <button class="btn btn-primary" onclick="openAddEmp()">+ Add Employee</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Role</th>
+              <th>Schedule</th>
+              <th>Reg Rate</th>
+              <th>Live Rate</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="empTableBody">
+            <tr><td colspan="7"><div class="loading"><div class="spinner"></div>Loading...</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ATTENDANCE TODAY -->
+    <div class="section-title">Today's Attendance</div>
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Employee</th>
+              <th>Time In</th>
+              <th>Time Out</th>
+              <th>Hours</th>
+              <th>Type</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="dtrTableBody">
+            <tr><td colspan="7"><div class="loading"><div class="spinner"></div>Loading...</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- INCIDENT REPORTS -->
+    <div class="section-title">Incident Reports</div>
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Employee</th>
+              <th>Date</th>
+              <th>Reason</th>
+              <th>Reg Hrs</th>
+              <th>Live Hrs</th>
+              <th>Strike</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="incidentTableBody">
+            <tr><td colspan="8"><div class="loading"><div class="spinner"></div>Loading...</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- SALES TAB -->
+  <div class="tab-content" id="content-sales">
+    <div class="section-title">Today's Live Sessions</div>
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Employee</th>
+              <th>Start</th>
+              <th>End</th>
+              <th>Duration</th>
+              <th>Platform</th>
+              <th>Sales</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="salesTableBody">
+            <tr><td colspan="7"><div class="loading"><div class="spinner"></div>Loading...</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- PLATFORM BREAKDOWN -->
+    <div class="section-title">Platform Breakdown (Today)</div>
+    <div class="card" id="platformBreakdown">
+      <div class="loading"><div class="spinner"></div>Loading...</div>
+    </div>
+  </div>
+
+  <!-- SETTINGS TAB -->
+  <div class="tab-content" id="content-settings">
+
+    <!-- ADMIN ACCOUNTS -->
+    <div class="section-title">Admin Accounts</div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <span style="font-size:13px;color:var(--gray)">Manage admin access and permissions</span>
+        <button class="btn btn-primary" onclick="openAddAdmin()" id="btnAddAdmin">+ Add Admin</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Role</th>
+              <th>Permissions</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="adminTableBody">
+            <tr><td colspan="5"><div class="loading"><div class="spinner"></div>Loading...</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- CHANGE PIN -->
+    <div class="section-title">Change My PIN</div>
+    <div class="card">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">New PIN (6 digits)</label>
+          <input class="form-input" id="newPin" type="password" maxlength="6" placeholder="••••••" inputmode="numeric"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Confirm PIN</label>
+          <input class="form-input" id="confirmPin" type="password" maxlength="6" placeholder="••••••" inputmode="numeric"/>
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="changePin()">Update PIN</button>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- MODAL: ADD/EDIT EMPLOYEE -->
+<div class="modal-overlay" id="empModal">
+  <div class="modal">
+    <div class="modal-title" id="empModalTitle">Add Employee</div>
+    <div class="form-group">
+      <label class="form-label">Full Name *</label>
+      <input class="form-input" id="empName" placeholder="JUAN DELA CRUZ"/>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Role</label>
+        <select class="form-select" id="empRole">
+          <option value="regular">Regular Staff</option>
+          <option value="live_seller">Live Seller</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Schedule</label>
+        <select class="form-select" id="empSchedule">
+          <option value="standard">Standard</option>
+          <option value="special">Special</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Regular Rate (₱/hr)</label>
+        <input class="form-input" id="empRegRate" type="number" placeholder="62.50"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Live Rate (₱/hr)</label>
+        <input class="form-input" id="empLiveRate" type="number" placeholder="83.33"/>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">PIN (4 digits)</label>
+        <input class="form-input" id="empPin" type="password" maxlength="4" placeholder="••••" inputmode="numeric"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email (optional)</label>
+        <input class="form-input" id="empEmail" type="email" placeholder="juan@email.com"/>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Phone (optional)</label>
+      <input class="form-input" id="empPhone" placeholder="09XX XXX XXXX"/>
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-ghost" onclick="closeModal('empModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEmployee()">Save Employee</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: ADD ADMIN -->
+<div class="modal-overlay" id="adminModal">
+  <div class="modal">
+    <div class="modal-title">Add Sub-Admin</div>
+    <div class="form-group">
+      <label class="form-label">Name *</label>
+      <input class="form-input" id="adminName" placeholder="Admin Name"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Email *</label>
+      <input class="form-input" id="adminEmail" type="email" placeholder="admin@email.com"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">PIN (6 digits) *</label>
+      <input class="form-input" id="adminPin" type="password" maxlength="6" placeholder="••••••" inputmode="numeric"/>
+    </div>
+    <div class="section-title" style="margin-top:16px">Permissions</div>
+    <div class="toggle-row">
+      <div><div class="toggle-label">View DTR Logs</div><div class="toggle-sub">See employee attendance records</div></div>
+      <label class="toggle"><input type="checkbox" id="perm_view_dtr" checked/><span class="toggle-slider"></span></label>
+    </div>
+    <div class="toggle-row">
+      <div><div class="toggle-label">Edit Employees</div><div class="toggle-sub">Change role, rate, schedule, PIN</div></div>
+      <label class="toggle"><input type="checkbox" id="perm_edit_emp"/><span class="toggle-slider"></span></label>
+    </div>
+    <div class="toggle-row">
+      <div><div class="toggle-label">Resolve Incidents</div><div class="toggle-sub">Approve or reject incident reports</div></div>
+      <label class="toggle"><input type="checkbox" id="perm_resolve_incidents" checked/><span class="toggle-slider"></span></label>
+    </div>
+    <div class="toggle-row">
+      <div><div class="toggle-label">View Payroll</div><div class="toggle-sub">Access payroll summaries</div></div>
+      <label class="toggle"><input type="checkbox" id="perm_view_payroll"/><span class="toggle-slider"></span></label>
+    </div>
+    <div class="toggle-row">
+      <div><div class="toggle-label">View Sales</div><div class="toggle-sub">See live session sales data</div></div>
+      <label class="toggle"><input type="checkbox" id="perm_view_sales" checked/><span class="toggle-slider"></span></label>
+    </div>
+    <div class="toggle-row">
+      <div><div class="toggle-label">Lock/Unlock Employees</div><div class="toggle-sub">Manage employee account locks</div></div>
+      <label class="toggle"><input type="checkbox" id="perm_lock_emp" checked/><span class="toggle-slider"></span></label>
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-ghost" onclick="closeModal('adminModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveAdmin()">Add Sub-Admin</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: EDIT DTR -->
+<div class="modal-overlay" id="dtrModal">
+  <div class="modal">
+    <div class="modal-title">Edit DTR Record</div>
+    <div class="form-group">
+      <label class="form-label">Employee</label>
+      <input class="form-input" id="dtrEmpName" readonly style="background:var(--gray-light)"/>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Time In</label>
+        <input class="form-input" id="dtrTimeIn" type="datetime-local"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Time Out</label>
+        <input class="form-input" id="dtrTimeOut" type="datetime-local"/>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notes / Reason for edit</label>
+      <input class="form-input" id="dtrNote" placeholder="Reason for correction..."/>
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-ghost" onclick="closeModal('dtrModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveDTR()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+var PB = 'https://pocketbase-production-2d49.up.railway.app';
+
+// ══════════════════════════════
+// ADMIN ACCOUNTS (hardcoded for now — will move to PocketBase later)
+// Owner PIN: 888888
+// ══════════════════════════════
+var ADMIN_ACCOUNTS = [
+  { id:'owner', name:'Mary Queen', email:'maryqueen.gonzaga@gmail.com', pin:'888888', role:'owner',
+    perms:{ view_dtr:true, edit_emp:true, resolve_incidents:true, view_payroll:true, view_sales:true, lock_emp:true } }
+];
+
+var currentAdmin = null;
+var sessionStart = null;
+var sessionTimer = null;
+var SESSION_DURATION = 4 * 60 * 60 * 1000; // 4 hours
+var IDLE_TIMEOUT = 30 * 60 * 1000; // 30 minutes
+var lastActivity = Date.now();
+var loginPin = '';
+var editingEmpId = null;
+var editingDtrId = null;
+var allEmps = [];
+
+// ══════════════════════════════
+// LOGIN
+// ══════════════════════════════
+function lp(n){
+  if(loginPin.length>=6)return;
+  loginPin+=n;
+  updateDots();
+  document.getElementById('loginErr').textContent='';
+  if(loginPin.length===6)setTimeout(verifyLogin,300);
+}
+function ld(){ loginPin=loginPin.slice(0,-1); updateDots(); }
+function lc(){ loginPin=''; updateDots(); }
+
+function updateDots(){
+  for(var i=0;i<6;i++){
+    var d=document.getElementById('d'+i);
+    d.classList.toggle('filled', i<loginPin.length);
+  }
+}
+
+function verifyLogin(){
+  var found=ADMIN_ACCOUNTS.find(function(a){return a.pin===loginPin});
+  if(!found){
+    document.getElementById('loginErr').textContent='Wrong PIN. Try again.';
+    loginPin=''; updateDots(); return;
+  }
+  currentAdmin=found;
+  sessionStart=Date.now();
+  lastActivity=Date.now();
+  document.getElementById('loginWrap').style.display='none';
+  document.getElementById('mainApp').classList.add('active');
+  document.getElementById('adminBadge').textContent=currentAdmin.name+' ('+currentAdmin.role+')';
+  document.getElementById('adminBadge').className='admin-badge '+(currentAdmin.role==='owner'?'badge-owner':'badge-subadmin');
+  applyPermissions();
+  startSessionTimer();
+  loadAll();
+}
+
+function applyPermissions(){
+  if(currentAdmin.role!=='owner'){
+    // hide tabs based on permissions
+    if(!currentAdmin.perms.view_sales) document.getElementById('tab-sales').style.display='none';
+    document.getElementById('tab-settings').style.display='none'; // sub-admin cannot access settings
+    document.getElementById('btnAddAdmin').style.display='none';
+  }
+}
+
+function logout(){
+  currentAdmin=null; loginPin='';
+  clearInterval(sessionTimer);
+  document.getElementById('mainApp').classList.remove('active');
+  document.getElementById('loginWrap').style.display='flex';
+  updateDots();
+}
+
+// ══════════════════════════════
+// SESSION TIMER
+// ══════════════════════════════
+function startSessionTimer(){
+  sessionTimer=setInterval(function(){
+    var now=Date.now();
+    // idle check
+    if(now-lastActivity>IDLE_TIMEOUT){ toast('Session expired due to inactivity.','err'); setTimeout(logout,1500); return; }
+    // session duration check
+    if(now-sessionStart>SESSION_DURATION){ toast('Session expired.','err'); setTimeout(logout,1500); return; }
+    // update timer display
+    var remaining=Math.max(0, SESSION_DURATION-(now-sessionStart));
+    var mins=Math.floor(remaining/60000);
+    var secs=Math.floor((remaining%60000)/1000);
+    document.getElementById('sessionTimer').textContent=
+      'Session: '+mins+'m '+String(secs).padStart(2,'0')+'s';
+  },1000);
+}
+
+// reset idle on any activity
+document.addEventListener('click',function(){lastActivity=Date.now()});
+document.addEventListener('keydown',function(){lastActivity=Date.now()});
+document.addEventListener('touchstart',function(){lastActivity=Date.now()});
+
+// ══════════════════════════════
+// TABS
+// ══════════════════════════════
+function switchTab(tab){
+  document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active')});
+  document.querySelectorAll('.tab-content').forEach(function(t){t.classList.remove('active')});
+  document.getElementById('tab-'+tab).classList.add('active');
+  document.getElementById('content-'+tab).classList.add('active');
+  if(tab==='hr') loadHR();
+  if(tab==='sales') loadSales();
+  if(tab==='settings') loadSettings();
+}
+
+// ══════════════════════════════
+// TOAST
+// ══════════════════════════════
+function toast(m,t){
+  var el=document.getElementById('toast');
+  el.textContent=m; el.className='toast show '+(t||'');
+  setTimeout(function(){el.className='toast'},2500);
+}
+
+// ══════════════════════════════
+// LOAD ALL
+// ══════════════════════════════
+function loadAll(){ loadHR(); }
+
+// ══════════════════════════════
+// HR TAB
+// ══════════════════════════════
+async function loadHR(){
+  await loadEmployees();
+  await loadTodayDTR();
+  await loadIncidents();
+  await loadHRStats();
+}
+
+async function loadHRStats(){
+  try{
+    var t=todayStr();
+    var dr=await fetch(PB+'/api/collections/dtr_logs/records?filter=(status%3D%22open%22)&perPage=50');
+    var dd=await dr.json(); var inCount=(dd.items||[]).length;
+    var lr=await fetch(PB+'/api/collections/live_sessions/records?filter=(status%3D%22active%22)&perPage=50');
+    var ld=await lr.json(); var liveCount=(ld.items||[]).length;
+    var ir=await fetch(PB+'/api/collections/incident_reports/records?filter=(status%3D%22pending%22)&perPage=50');
+    var id=await ir.json(); var incCount=(id.items||[]).length;
+    var er=await fetch(PB+'/api/collections/employees/records?filter=(is_locked%3Dtrue)&perPage=50');
+    var ed=await er.json(); var lockCount=(ed.items||[]).length;
+    document.getElementById('statIn').textContent=inCount;
+    document.getElementById('statLive').textContent=liveCount;
+    document.getElementById('statIncidents').textContent=incCount;
+    document.getElementById('statLocked').textContent=lockCount;
+  }catch(e){}
+}
+
+async function loadEmployees(){
+  try{
+    var r=await fetch(PB+'/api/collections/employees/records?sort=name&perPage=100');
+    var d=await r.json(); allEmps=d.items||[];
+    renderEmpTable(allEmps);
+  }catch(e){ document.getElementById('empTableBody').innerHTML='<tr><td colspan="7"><div class="empty">Error loading employees.</div></td></tr>'; }
+}
+
+function renderEmpTable(emps){
+  if(!emps.length){ document.getElementById('empTableBody').innerHTML='<tr><td colspan="7"><div class="empty">No employees found.</div></td></tr>'; return; }
+  document.getElementById('empTableBody').innerHTML=emps.map(function(e){
+    var roleBadge=e.role==='live_seller'?'<span class="badge badge-blue">Live Seller</span>':'<span class="badge badge-gray">Regular</span>';
+    var schedBadge=e.schedule_type==='special'?'<span class="badge badge-purple">Special</span>':'<span class="badge badge-gray">Standard</span>';
+    var statusBadge=e.is_locked?'<span class="badge badge-red">Locked</span>':e.is_active?'<span class="badge badge-green">Active</span>':'<span class="badge badge-gray">Inactive</span>';
+    var lockBtn=e.is_locked
+      ?'<button class="btn btn-success btn-sm" onclick="toggleLock(\''+e.id+'\',false)">Unlock</button>'
+      :'<button class="btn btn-danger btn-sm" onclick="toggleLock(\''+e.id+'\',true)">Lock</button>';
+    var canEdit=currentAdmin.role==='owner'||currentAdmin.perms.edit_emp;
+    var actions=canEdit?'<button class="btn btn-ghost btn-sm" onclick="openEditEmp(\''+e.id+'\')">Edit</button> '+lockBtn:lockBtn;
+    return '<tr><td><strong>'+e.name+'</strong><br><span style="font-size:11px;color:var(--gray)">Strikes: '+(e.incomplete_sessions||0)+'/3</span></td><td>'+roleBadge+'</td><td>'+schedBadge+'</td><td>₱'+e.reg_rate+'</td><td>₱'+e.live_rate+'</td><td>'+statusBadge+'</td><td style="display:flex;gap:6px">'+actions+'</td></tr>';
+  }).join('');
+}
+
+function filterEmps(){
+  var q=document.getElementById('empSearch').value.toLowerCase();
+  var filtered=allEmps.filter(function(e){return e.name.toLowerCase().includes(q)});
+  renderEmpTable(filtered);
+}
+
+async function loadTodayDTR(){
+  try{
+    var t=todayStr();
+    var r=await fetch(PB+'/api/collections/dtr_logs/records?filter=(date%3D%22'+t+'%2000%3A00%3A00%22)&sort=-time_in&perPage=50&expand=employee_id');
+    var d=await r.json(); var items=d.items||[];
+    if(!items.length){ document.getElementById('dtrTableBody').innerHTML='<tr><td colspan="7"><div class="empty">No attendance records today.</div></td></tr>'; return; }
+    document.getElementById('dtrTableBody').innerHTML=items.map(function(dtr){
+      var empName=dtr.expand&&dtr.expand.employee_id?dtr.expand.employee_id.name:dtr.employee_id;
+      var tin=dtr.time_in?new Date(dtr.time_in).toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit'}):'--';
+      var tout=dtr.time_out?new Date(dtr.time_out).toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit'}):'--';
+      var hrs=dtr.total_hours?dtr.total_hours.toFixed(2)+'h':'--';
+      var typeBadge=dtr.type==='live_sell'?'<span class="badge badge-blue">Live</span>':'<span class="badge badge-gray">Regular</span>';
+      var statusBadge=dtr.status==='open'?'<span class="badge badge-green">Open</span>':dtr.is_auto_timeout?'<span class="badge badge-orange">Auto-closed</span>':'<span class="badge badge-gray">Closed</span>';
+      return '<tr><td>'+empName+'</td><td>'+tin+'</td><td>'+tout+'</td><td>'+hrs+'</td><td>'+typeBadge+'</td><td>'+statusBadge+'</td><td><button class="btn btn-ghost btn-sm" onclick="openEditDTR(\''+dtr.id+'\',\''+empName+'\',\''+dtr.time_in+'\',\''+dtr.time_out+'\')">Edit</button></td></tr>';
+    }).join('');
+  }catch(e){ document.getElementById('dtrTableBody').innerHTML='<tr><td colspan="7"><div class="empty">Error loading attendance.</div></td></tr>'; }
+}
+
+async function loadIncidents(){
+  var canResolve=currentAdmin.role==='owner'||currentAdmin.perms.resolve_incidents;
+  try{
+    var r=await fetch(PB+'/api/collections/incident_reports/records?sort=-created&perPage=50&expand=employee_id');
+    var d=await r.json(); var items=d.items||[];
+    if(!items.length){ document.getElementById('incidentTableBody').innerHTML='<tr><td colspan="8"><div class="empty">No incident reports.</div></td></tr>'; return; }
+    document.getElementById('incidentTableBody').innerHTML=items.map(function(inc){
+      var empName=inc.expand&&inc.expand.employee_id?inc.expand.employee_id.name:inc.employee_id;
+      var statusBadge=inc.status==='pending'?'<span class="badge badge-orange">Pending</span>':'<span class="badge badge-green">Resolved</span>';
+      var actions=canResolve&&inc.status==='pending'?'<button class="btn btn-success btn-sm" onclick="resolveIncident(\''+inc.id+'\',\''+inc.employee_id+'\')">Resolve</button>':'';
+      return '<tr><td>'+empName+'</td><td>'+inc.date+'</td><td style="max-width:150px;word-break:break-word">'+inc.reason+'</td><td>'+(inc.reg_hours_claimed||0)+'h</td><td>'+(inc.live_hours_claimed||0)+'h</td><td><span class="badge badge-red">Strike '+inc.strike_number+'</span></td><td>'+statusBadge+'</td><td>'+actions+'</td></tr>';
+    }).join('');
+  }catch(e){ document.getElementById('incidentTableBody').innerHTML='<tr><td colspan="8"><div class="empty">Error loading incidents.</div></td></tr>'; }
+}
+
+// ══════════════════════════════
+// EMPLOYEE CRUD
+// ══════════════════════════════
+function openAddEmp(){
+  editingEmpId=null;
+  document.getElementById('empModalTitle').textContent='Add Employee';
+  document.getElementById('empName').value='';
+  document.getElementById('empRole').value='regular';
+  document.getElementById('empSchedule').value='standard';
+  document.getElementById('empRegRate').value='62.50';
+  document.getElementById('empLiveRate').value='83.33';
+  document.getElementById('empPin').value='';
+  document.getElementById('empEmail').value='';
+  document.getElementById('empPhone').value='';
+  document.getElementById('empModal').classList.add('show');
+}
+
+function openEditEmp(id){
+  var e=allEmps.find(function(x){return x.id===id});
+  if(!e)return;
+  editingEmpId=id;
+  document.getElementById('empModalTitle').textContent='Edit Employee';
+  document.getElementById('empName').value=e.name;
+  document.getElementById('empRole').value=e.role;
+  document.getElementById('empSchedule').value=e.schedule_type;
+  document.getElementById('empRegRate').value=e.reg_rate;
+  document.getElementById('empLiveRate').value=e.live_rate;
+  document.getElementById('empPin').value=e.pin;
+  document.getElementById('empEmail').value=e.email||'';
+  document.getElementById('empPhone').value=e.phone||'';
+  document.getElementById('empModal').classList.add('show');
+}
+
+async function saveEmployee(){
+  var name=document.getElementById('empName').value.trim().toUpperCase();
+  var pin=document.getElementById('empPin').value.trim();
+  if(!name){toast('Name is required.','err');return;}
+  if(!editingEmpId&&!pin){toast('PIN is required for new employee.','err');return;}
+
+  var body={
+    name:name,
+    role:document.getElementById('empRole').value,
+    schedule_type:document.getElementById('empSchedule').value,
+    reg_rate:parseFloat(document.getElementById('empRegRate').value)||62.50,
+    live_rate:parseFloat(document.getElementById('empLiveRate').value)||83.33,
+    email:document.getElementById('empEmail').value,
+    phone:document.getElementById('empPhone').value,
+    is_active:true
+  };
+  if(pin) body.pin=pin;
+
+  toast('Saving...');
+  try{
+    var r;
+    if(editingEmpId){
+      r=await fetch(PB+'/api/collections/employees/records/'+editingEmpId,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    } else {
+      body.incomplete_sessions=0; body.is_locked=false;
+      r=await fetch(PB+'/api/collections/employees/records',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    }
+    if(!r.ok)throw new Error();
+    toast('Employee saved!','ok');
+    closeModal('empModal');
+    await loadEmployees();
+  }catch(e){toast('Error saving employee.','err');}
+}
+
+async function toggleLock(id, lock){
+  var canLock=currentAdmin.role==='owner'||currentAdmin.perms.lock_emp;
+  if(!canLock){toast('No permission.','err');return;}
+  var reason=lock?prompt('Reason for locking:'):'';
+  if(lock&&!reason)return;
+  try{
+    await fetch(PB+'/api/collections/employees/records/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({is_locked:lock,lock_reason:reason||''})});
+    toast(lock?'Employee locked.':'Employee unlocked.','ok');
+    await loadEmployees();
+    await loadHRStats();
+  }catch(e){toast('Error.','err');}
+}
+
+// ══════════════════════════════
+// DTR EDIT
+// ══════════════════════════════
+function openEditDTR(id, empName, timeIn, timeOut){
+  editingDtrId=id;
+  document.getElementById('dtrEmpName').value=empName;
+  document.getElementById('dtrTimeIn').value=timeIn?timeIn.replace(' ','T').substring(0,16):'';
+  document.getElementById('dtrTimeOut').value=timeOut?timeOut.replace(' ','T').substring(0,16):'';
+  document.getElementById('dtrNote').value='';
+  document.getElementById('dtrModal').classList.add('show');
+}
+
+async function saveDTR(){
+  var tin=document.getElementById('dtrTimeIn').value;
+  var tout=document.getElementById('dtrTimeOut').value;
+  var note=document.getElementById('dtrNote').value;
+  if(!tin){toast('Time In is required.','err');return;}
+  var hrs=0;
+  if(tout){ hrs=Math.round(((new Date(tout)-new Date(tin))/3600000)*100)/100; }
+  try{
+    var body={time_in:new Date(tin).toISOString(),status:'closed'};
+    if(tout){ body.time_out=new Date(tout).toISOString(); body.total_hours=hrs; }
+    await fetch(PB+'/api/collections/dtr_logs/records/'+editingDtrId,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    // log the correction
+    await fetch(PB+'/api/collections/action_log/records',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({module:'hr',action:'update',collection:'dtr_logs',record_id:editingDtrId,new_value:JSON.stringify({note:note,corrected_by:currentAdmin.name})})});
+    toast('DTR updated!','ok');
+    closeModal('dtrModal');
+    await loadTodayDTR();
+  }catch(e){toast('Error updating DTR.','err');}
+}
+
+// ══════════════════════════════
+// INCIDENT RESOLVE
+// ══════════════════════════════
+async function resolveIncident(incId, empId){
+  try{
+    await fetch(PB+'/api/collections/incident_reports/records/'+incId,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'resolved',resolved_by:currentAdmin.name})});
+    // reset employee strikes and unlock if locked
+    await fetch(PB+'/api/collections/employees/records/'+empId,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({incomplete_sessions:0,is_locked:false,lock_reason:''})});
+    toast('Incident resolved. Employee unlocked.','ok');
+    await loadIncidents();
+    await loadHRStats();
+    await loadEmployees();
+  }catch(e){toast('Error resolving incident.','err');}
+}
+
+// ══════════════════════════════
+// SALES TAB
+// ══════════════════════════════
+async function loadSales(){
+  var canView=currentAdmin.role==='owner'||currentAdmin.perms.view_sales;
+  if(!canView){ document.getElementById('content-sales').innerHTML='<div class="empty">No permission to view sales.</div>'; return; }
+  try{
+    var t=todayStr();
+    var r=await fetch(PB+'/api/collections/live_sessions/records?filter=(date%3D%22'+t+'%2000%3A00%3A00%22)&sort=-start_time&perPage=50&expand=employee_id');
+    var d=await r.json(); var items=d.items||[];
+    if(!items.length){ document.getElementById('salesTableBody').innerHTML='<tr><td colspan="7"><div class="empty">No live sessions today.</div></td></tr>'; }
+    else{
+      document.getElementById('salesTableBody').innerHTML=items.map(function(s){
+        var empName=s.expand&&s.expand.employee_id?s.expand.employee_id.name:s.employee_id;
+        var start=s.start_time?new Date(s.start_time).toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit'}):'--';
+        var end=s.end_time?new Date(s.end_time).toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit'}):'--';
+        var dur=s.duration_hours?s.duration_hours.toFixed(2)+'h':'--';
+        var sales=s.sales_amount?'₱'+s.sales_amount.toLocaleString():'--';
+        var statusBadge=s.status==='active'?'<span class="badge badge-green">Active</span>':s.is_flagged?'<span class="badge badge-orange">Flagged</span>':'<span class="badge badge-gray">Done</span>';
+        return '<tr><td>'+empName+'</td><td>'+start+'</td><td>'+end+'</td><td>'+dur+'</td><td>'+(s.platform||'--')+'</td><td>'+sales+'</td><td>'+statusBadge+'</td></tr>';
+      }).join('');
+    }
+
+    // platform breakdown
+    var platTotals={};
+    items.forEach(function(s){
+      if(s.platform&&s.sales_amount){
+        platTotals[s.platform]=(platTotals[s.platform]||0)+s.sales_amount;
+      }
+    });
+    var totalSales=Object.values(platTotals).reduce(function(a,b){return a+b},0);
+    var breakdownHtml='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">';
+    ['FB Live','FB Post','TikTok','Shopee','Walk-in','Others'].forEach(function(p){
+      var amt=platTotals[p]||0;
+      breakdownHtml+='<div style="text-align:center;padding:14px;background:var(--gray-light);border-radius:10px"><div style="font-size:18px;font-weight:600;color:var(--honey-dark)">₱'+amt.toLocaleString()+'</div><div style="font-size:11px;color:var(--gray);margin-top:4px">'+p+'</div></div>';
+    });
+    breakdownHtml+='</div><div style="margin-top:14px;text-align:center;font-size:15px;font-weight:600">Total: ₱'+totalSales.toLocaleString()+'</div>';
+    document.getElementById('platformBreakdown').innerHTML=breakdownHtml;
+  }catch(e){ document.getElementById('salesTableBody').innerHTML='<tr><td colspan="7"><div class="empty">Error loading sales.</div></td></tr>'; }
+}
+
+// ══════════════════════════════
+// SETTINGS TAB
+// ══════════════════════════════
+function loadSettings(){
+  if(currentAdmin.role!=='owner')return;
+  renderAdminTable();
+}
+
+function renderAdminTable(){
+  document.getElementById('adminTableBody').innerHTML=ADMIN_ACCOUNTS.map(function(a){
+    var roleBadge=a.role==='owner'?'<span class="badge badge-orange">Owner</span>':'<span class="badge badge-blue">Sub-Admin</span>';
+    var perms=a.role==='owner'?'<span class="badge badge-green">Full Access</span>':Object.keys(a.perms).filter(function(k){return a.perms[k]}).map(function(k){return k.replace(/_/g,' ')}).join(', ');
+    var actions=a.role==='owner'?'':' <button class="btn btn-danger btn-sm" onclick="removeAdmin(\''+a.id+'\')">Remove</button>';
+    return '<tr><td><strong>'+a.name+'</strong></td><td>'+a.email+'</td><td>'+roleBadge+'</td><td style="font-size:11px">'+perms+'</td><td>'+actions+'</td></tr>';
+  }).join('');
+}
+
+function openAddAdmin(){
+  document.getElementById('adminName').value='';
+  document.getElementById('adminEmail').value='';
+  document.getElementById('adminPin').value='';
+  document.getElementById('adminModal').classList.add('show');
+}
+
+function saveAdmin(){
+  var name=document.getElementById('adminName').value.trim();
+  var email=document.getElementById('adminEmail').value.trim();
+  var pin=document.getElementById('adminPin').value.trim();
+  if(!name||!email||!pin){toast('All fields required.','err');return;}
+  if(pin.length!==6){toast('PIN must be 6 digits.','err');return;}
+
+  var perms={
+    view_dtr:document.getElementById('perm_view_dtr').checked,
+    edit_emp:document.getElementById('perm_edit_emp').checked,
+    resolve_incidents:document.getElementById('perm_resolve_incidents').checked,
+    view_payroll:document.getElementById('perm_view_payroll').checked,
+    view_sales:document.getElementById('perm_view_sales').checked,
+    lock_emp:document.getElementById('perm_lock_emp').checked
+  };
+
+  var newAdmin={ id:'admin_'+Date.now(), name:name, email:email, pin:pin, role:'subadmin', perms:perms };
+  ADMIN_ACCOUNTS.push(newAdmin);
+  toast('Sub-admin added!','ok');
+  closeModal('adminModal');
+  renderAdminTable();
+}
+
+function removeAdmin(id){
+  if(!confirm('Remove this admin?'))return;
+  ADMIN_ACCOUNTS=ADMIN_ACCOUNTS.filter(function(a){return a.id!==id});
+  renderAdminTable();
+  toast('Admin removed.','ok');
+}
+
+async function changePin(){
+  var np=document.getElementById('newPin').value;
+  var cp=document.getElementById('confirmPin').value;
+  if(np.length!==6){toast('PIN must be 6 digits.','err');return;}
+  if(np!==cp){toast('PINs do not match.','err');return;}
+  var admin=ADMIN_ACCOUNTS.find(function(a){return a.id===currentAdmin.id});
+  if(admin){ admin.pin=np; currentAdmin.pin=np; }
+  document.getElementById('newPin').value='';
+  document.getElementById('confirmPin').value='';
+  toast('PIN updated!','ok');
+}
+
+// ══════════════════════════════
+// MODAL
+// ══════════════════════════════
+function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+document.querySelectorAll('.modal-overlay').forEach(function(m){
+  m.addEventListener('click',function(e){ if(e.target===m) m.classList.remove('show'); });
+});
+
+// ══════════════════════════════
+// HELPERS
+// ══════════════════════════════
+function todayStr(){ return new Date().toISOString().split('T')[0]; }
+</script>
+</body>
+</html>
