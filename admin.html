@@ -257,6 +257,38 @@ tr:hover td{background:var(--gray-light)}
       </div>
     </div>
 
+    <!-- SCHEDULES -->
+<div class="section-title">Weekly Schedules</div>
+<div class="card">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+    <div style="display:flex;align-items:center;gap:10px">
+      <input type="week" class="form-input" id="schedWeek" style="max-width:200px" onchange="loadSchedules()"/>
+      <span style="font-size:12px;color:var(--gray)" id="schedWeekLabel"></span>
+    </div>
+    <button class="btn btn-primary" onclick="openAddSchedule()">+ Set Schedule</button>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Employee</th>
+          <th>Mon</th>
+          <th>Tue</th>
+          <th>Wed</th>
+          <th>Thu</th>
+          <th>Fri</th>
+          <th>Sat</th>
+          <th>Sun</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="schedTableBody">
+        <tr><td colspan="9"><div class="empty">Select a week to view schedules.</div></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+    
     <!-- INCIDENT REPORTS -->
     <div class="section-title">Incident Reports</div>
     <div class="card">
@@ -473,6 +505,105 @@ tr:hover td{background:var(--gray-light)}
     <button class="btn btn-ghost" onclick="closeModal('photoModal')" style="width:100%">Close</button>
   </div>
 </div>
+
+<!-- MODAL: SCHEDULE -->
+<div class="modal-overlay" id="schedModal">
+  <div class="modal">
+    <div class="modal-title" id="schedModalTitle">Set Weekly Schedule</div>
+    <div class="form-group">
+      <label class="form-label">Employee *</label>
+      <select class="form-select" id="schedEmpId"></select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Week *</label>
+      <input type="week" class="form-input" id="schedWeekInput"/>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="form-group">
+        <label class="form-label">Monday</label>
+        <select class="form-select" id="sMon">
+          <option value="">OFF</option>
+          <option value="07:00">7:00 AM</option>
+          <option value="08:00">8:00 AM</option>
+          <option value="09:00">9:00 AM</option>
+          <option value="11:00">11:00 AM</option>
+          <option value="13:00">1:00 PM</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Tuesday</label>
+        <select class="form-select" id="sTue">
+          <option value="">OFF</option>
+          <option value="07:00">7:00 AM</option>
+          <option value="08:00">8:00 AM</option>
+          <option value="09:00">9:00 AM</option>
+          <option value="11:00">11:00 AM</option>
+          <option value="13:00">1:00 PM</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Wednesday</label>
+        <select class="form-select" id="sWed">
+          <option value="">OFF</option>
+          <option value="07:00">7:00 AM</option>
+          <option value="08:00">8:00 AM</option>
+          <option value="09:00">9:00 AM</option>
+          <option value="11:00">11:00 AM</option>
+          <option value="13:00">1:00 PM</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Thursday</label>
+        <select class="form-select" id="sThu">
+          <option value="">OFF</option>
+          <option value="07:00">7:00 AM</option>
+          <option value="08:00">8:00 AM</option>
+          <option value="09:00">9:00 AM</option>
+          <option value="11:00">11:00 AM</option>
+          <option value="13:00">1:00 PM</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Friday</label>
+        <select class="form-select" id="sFri">
+          <option value="">OFF</option>
+          <option value="07:00">7:00 AM</option>
+          <option value="08:00">8:00 AM</option>
+          <option value="09:00">9:00 AM</option>
+          <option value="11:00">11:00 AM</option>
+          <option value="13:00">1:00 PM</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Saturday</label>
+        <select class="form-select" id="sSat">
+          <option value="">OFF</option>
+          <option value="07:00">7:00 AM</option>
+          <option value="08:00">8:00 AM</option>
+          <option value="09:00">9:00 AM</option>
+          <option value="11:00">11:00 AM</option>
+          <option value="13:00">1:00 PM</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Sunday</label>
+        <select class="form-select" id="sSun">
+          <option value="">OFF</option>
+          <option value="07:00">7:00 AM</option>
+          <option value="08:00">8:00 AM</option>
+          <option value="09:00">9:00 AM</option>
+          <option value="11:00">11:00 AM</option>
+          <option value="13:00">1:00 PM</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-ghost" onclick="closeModal('schedModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveSchedule()">Save Schedule</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: EDIT DTR -->
 <div class="modal-overlay" id="dtrModal">
   <div class="modal">
@@ -1055,6 +1186,150 @@ function viewPhoto(src, label){
   document.getElementById('photoModalImg').src=src;
   document.getElementById('photoModal').classList.add('show');
 }
+
+// ══════════════════════════════
+// SCHEDULES
+// ══════════════════════════════
+var editingSchedId=null;
+
+function getWeekDates(weekValue){
+  // weekValue format: "2026-W18"
+  var parts=weekValue.split('-W');
+  var year=parseInt(parts[0]), week=parseInt(parts[1]);
+  var d=new Date(year,0,1+((week-1)*7));
+  var day=d.getDay();
+  var diff=d.getDate()-day+(day===0?-6:1);
+  var monday=new Date(d.setDate(diff));
+  var sunday=new Date(monday);
+  sunday.setDate(monday.getDate()+6);
+  return {
+    start:monday.toISOString().split('T')[0],
+    end:sunday.toISOString().split('T')[0]
+  };
+}
+
+async function loadSchedules(){
+  var weekVal=document.getElementById('schedWeek').value;
+  if(!weekVal){ document.getElementById('schedTableBody').innerHTML='<tr><td colspan="9"><div class="empty">Select a week to view schedules.</div></td></tr>'; return; }
+  var dates=getWeekDates(weekVal);
+  document.getElementById('schedWeekLabel').textContent=dates.start+' to '+dates.end;
+  try{
+    var r=await fetch(PB+'/api/collections/schedules/records?filter=(week_start%3D%22'+dates.start+'%2000%3A00%3A00%22)&perPage=50&expand=employee_id');
+    var d=await r.json(); var items=d.items||[];
+    // build map of existing schedules
+    var schedMap={};
+    items.forEach(function(s){ schedMap[s.employee_id]=s; });
+    // show all employees
+    var rows=allEmps.map(function(emp){
+      var s=schedMap[emp.id];
+      var fmt=function(t){ return t?('<span class="badge badge-green">'+formatTime(t)+'</span>'):'<span class="badge badge-gray">OFF</span>'; };
+      var editBtn=s?'<button class="btn btn-ghost btn-sm" onclick="openEditSched(\''+s.id+'\')">Edit</button>':'<button class="btn btn-primary btn-sm" onclick="openAddScheduleFor(\''+emp.id+'\')">Set</button>';
+      return '<tr><td><strong>'+emp.name+'</strong></td><td>'+fmt(s&&s.mon_start)+'</td><td>'+fmt(s&&s.tue_start)+'</td><td>'+fmt(s&&s.wed_start)+'</td><td>'+fmt(s&&s.thu_start)+'</td><td>'+fmt(s&&s.fri_start)+'</td><td>'+fmt(s&&s.sat_start)+'</td><td>'+fmt(s&&s.sun_start)+'</td><td>'+editBtn+'</td></tr>';
+    });
+    document.getElementById('schedTableBody').innerHTML=rows.join('');
+  }catch(e){ document.getElementById('schedTableBody').innerHTML='<tr><td colspan="9"><div class="empty">Error loading schedules.</div></td></tr>'; }
+}
+
+function formatTime(t){
+  if(!t)return'OFF';
+  var parts=t.split(':');
+  var h=parseInt(parts[0]);
+  var ampm=h>=12?'PM':'AM';
+  var h12=h%12||12;
+  return h12+':00 '+ampm;
+}
+
+function populateSchedEmpDropdown(){
+  document.getElementById('schedEmpId').innerHTML=allEmps.map(function(e){
+    return '<option value="'+e.id+'">'+e.name+'</option>';
+  }).join('');
+}
+
+function openAddSchedule(){
+  editingSchedId=null;
+  populateSchedEmpDropdown();
+  var weekVal=document.getElementById('schedWeek').value;
+  document.getElementById('schedWeekInput').value=weekVal||'';
+  ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].forEach(function(d){ document.getElementById('s'+d).value=''; });
+  document.getElementById('schedModal').classList.add('show');
+}
+
+function openAddScheduleFor(empId){
+  editingSchedId=null;
+  populateSchedEmpDropdown();
+  document.getElementById('schedEmpId').value=empId;
+  var weekVal=document.getElementById('schedWeek').value;
+  document.getElementById('schedWeekInput').value=weekVal||'';
+  ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].forEach(function(d){ document.getElementById('s'+d).value=''; });
+  document.getElementById('schedModal').classList.add('show');
+}
+
+async function openEditSched(id){
+  try{
+    var r=await fetch(PB+'/api/collections/schedules/records/'+id);
+    var s=await r.json();
+    editingSchedId=id;
+    populateSchedEmpDropdown();
+    document.getElementById('schedEmpId').value=s.employee_id;
+    // set week input
+    var weekStart=s.week_start?s.week_start.substring(0,10):'';
+    if(weekStart){
+      var d=new Date(weekStart);
+      var week=getISOWeek(d);
+      var year=d.getFullYear();
+      document.getElementById('schedWeekInput').value=year+'-W'+String(week).padStart(2,'0');
+    }
+    document.getElementById('sMon').value=s.mon_start||'';
+    document.getElementById('sTue').value=s.tue_start||'';
+    document.getElementById('sWed').value=s.wed_start||'';
+    document.getElementById('sThu').value=s.thu_start||'';
+    document.getElementById('sFri').value=s.fri_start||'';
+    document.getElementById('sSat').value=s.sat_start||'';
+    document.getElementById('sSun').value=s.sun_start||'';
+    document.getElementById('schedModal').classList.add('show');
+  }catch(e){ toast('Error loading schedule.','err'); }
+}
+
+function getISOWeek(d){
+  var date=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
+  var dayNum=date.getUTCDay()||7;
+  date.setUTCDate(date.getUTCDate()+4-dayNum);
+  var yearStart=new Date(Date.UTC(date.getUTCFullYear(),0,1));
+  return Math.ceil((((date-yearStart)/86400000)+1)/7);
+}
+
+async function saveSchedule(){
+  var empId=document.getElementById('schedEmpId').value;
+  var weekVal=document.getElementById('schedWeekInput').value;
+  if(!empId||!weekVal){ toast('Employee and week are required.','err'); return; }
+  var dates=getWeekDates(weekVal);
+  var body={
+    employee_id:empId,
+    week_start:dates.start,
+    week_end:dates.end,
+    mon_start:document.getElementById('sMon').value,
+    tue_start:document.getElementById('sTue').value,
+    wed_start:document.getElementById('sWed').value,
+    thu_start:document.getElementById('sThu').value,
+    fri_start:document.getElementById('sFri').value,
+    sat_start:document.getElementById('sSat').value,
+    sun_start:document.getElementById('sSun').value
+  };
+  toast('Saving...');
+  try{
+    var r;
+    if(editingSchedId){
+      r=await fetch(PB+'/api/collections/schedules/records/'+editingSchedId,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    } else {
+      r=await fetch(PB+'/api/collections/schedules/records',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    }
+    if(!r.ok)throw new Error();
+    toast('Schedule saved!','ok');
+    closeModal('schedModal');
+    loadSchedules();
+  }catch(e){ toast('Error saving schedule.','err'); }
+}
+  
 // ══════════════════════════════
 // HELPERS
 // ══════════════════════════════
