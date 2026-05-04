@@ -503,10 +503,31 @@ var PB = 'https://pocketbase-production-2d49.up.railway.app';
 // ADMIN ACCOUNTS (hardcoded for now — will move to PocketBase later)
 // Owner PIN: 888888
 // ══════════════════════════════
-var ADMIN_ACCOUNTS = [
-  { id:'owner', name:'Mary Queen', email:'maryqueen.gonzaga@gmail.com', pin:'888888', role:'owner',
-    perms:{ view_dtr:true, edit_emp:true, resolve_incidents:true, view_payroll:true, view_sales:true, lock_emp:true } }
-];
+var ADMIN_ACCOUNTS = [];
+
+async function loadAdminAccounts(){
+  try{
+    var r=await fetch(PB+'/api/collections/admin_accounts/records?filter=(is_active%3Dtrue)&perPage=50');
+    var d=await r.json();
+    ADMIN_ACCOUNTS=(d.items||[]).map(function(a){
+      return {
+        id:a.id,
+        name:a.name,
+        email:a.email,
+        pin:a.pin,
+        role:a.role,
+        perms:{
+          view_dtr:a.perm_view_dtr,
+          edit_emp:a.perm_edit_emp,
+          resolve_incidents:a.perm_resolve_incidents,
+          view_payroll:a.perm_view_payroll,
+          view_sales:a.perm_view_sales,
+          lock_emp:a.perm_lock_emp
+        }
+      };
+    });
+  }catch(e){ console.log('Error loading admin accounts',e); }
+}
 
 var currentAdmin = null;
 var sessionStart = null;
@@ -960,6 +981,8 @@ document.querySelectorAll('.modal-overlay').forEach(function(m){
 // HELPERS
 // ══════════════════════════════
 function todayStr(){ return new Date().toISOString().split('T')[0]; }
+// load admin accounts on page load
+loadAdminAccounts();
 </script>
 </body>
 </html>
