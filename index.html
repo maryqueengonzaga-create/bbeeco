@@ -235,6 +235,11 @@ var openDTR=null, openLive=null;
 var pin='', photo=null, platform='', stream=null;
 var holdTimer=null, pendingAction=null;
 
+// helper to build filter URL — uses %26%26 for AND
+function pbFilter(col, filter) {
+  return PB + '/api/collections/' + col + '/records?filter=(' + encodeURIComponent(filter) + ')';
+}
+
 // CLOCK
 function tick(){
   var n=new Date();
@@ -276,7 +281,6 @@ function goHome(){
   loadEmps(); show('s1');
 }
 
-// HELPERS
 function inits(e){ return e.name.split(' ').map(function(w){return w[0]}).slice(0,2).join(''); }
 function roleLabel(e){ return e.role==='live_seller'?'Live Seller':'Regular Staff'; }
 function isLS(e){ return e.role==='live_seller'; }
@@ -299,11 +303,11 @@ async function renderList(){
   var t=todayStr();
   var dtrMap={}, liveMap={};
   try{
-    var dr=await fetch(PB+'/api/collections/dtr_logs/records?filter=(date="'+t+'"&&status="open")&perPage=50');
+    var dr=await fetch(PB+'/api/collections/dtr_logs/records?filter=(date%3D%22'+t+'%22%26%26status%3D%22open%22)&perPage=50');
     var dd=await dr.json(); (dd.items||[]).forEach(function(d){dtrMap[d.employee_id]=d;});
-    var lr=await fetch(PB+'/api/collections/live_sessions/records?filter=(status="active")&perPage=50');
+    var lr=await fetch(PB+'/api/collections/live_sessions/records?filter=(status%3D%22active%22)&perPage=50');
     var ld=await lr.json(); (ld.items||[]).forEach(function(l){liveMap[l.employee_id]=l;});
-  }catch(e){}
+  }catch(e){ console.log('renderList error',e); }
 
   document.getElementById('empList').innerHTML=emps.map(function(emp){
     var hasDTR=!!dtrMap[emp.id], hasLive=!!liveMap[emp.id];
@@ -321,16 +325,15 @@ async function pickEmp(id){
   if(!selEmp)return;
   var t=todayStr();
   try{
-    var dr=await fetch(PB+'/api/collections/dtr_logs/records?filter=(employee_id="'+selEmp.id+'"&&date="'+t+'"&&status="open")&sort=-created');
+    var dr=await fetch(PB+'/api/collections/dtr_logs/records?filter=(employee_id%3D%22'+selEmp.id+'%22%26%26date%3D%22'+t+'%22%26%26status%3D%22open%22)&sort=-created');
     var dd=await dr.json(); openDTR=dd.items&&dd.items.length>0?dd.items[0]:null;
     openLive=null;
     if(isLS(selEmp)){
-      var lr=await fetch(PB+'/api/collections/live_sessions/records?filter=(employee_id="'+selEmp.id+'"&&status="active")&sort=-created');
+      var lr=await fetch(PB+'/api/collections/live_sessions/records?filter=(employee_id%3D%22'+selEmp.id+'%22%26%26status%3D%22active%22)&sort=-created');
       var ld=await lr.json(); openLive=ld.items&&ld.items.length>0?ld.items[0]:null;
     }
   }catch(e){ toast('Connection error.','err'); return; }
 
-  // PLC STATE
   if(!openDTR)          plcState=ST.OUT;
   else if(openLive)     plcState=ST.LIVE;
   else if(isLS(selEmp)) plcState=ST.IN_LIVE;
@@ -377,7 +380,7 @@ function showAction(){
     case ST.OUT:
       lbl.textContent='Not clocked in — tap Time In to start your shift';
       cam.style.display='block'; startCam();
-      btns.innerHTML=mkBtn('btn-timein','timein','Time In',false);
+      btns.innerHTML=mkBtn('btn-timein','timein','Time In',false,false);
       break;
     case ST.IN:
       lbl.textContent='Currently clocked in — hold Time Out to end your shift';
@@ -403,7 +406,6 @@ function showAction(){
   show('s3');
 }
 
-// MAKE BUTTON
 function mkBtn(cls, action, label, needsHold, needsDialog){
   if(!needsHold){
     return '<button class="btn '+cls+'" onclick="execAction(\''+action+'\')">'+label+'</button>';
@@ -419,16 +421,12 @@ function mkBtn(cls, action, label, needsHold, needsDialog){
     +'</button>';
 }
 
-// HOLD TO CONFIRM
+// HOLD
 function startHold(action, needsDialog){
   cancelHold();
   var bar=document.getElementById('hbar_'+action);
   var btn=document.getElementById('btn_'+action);
-  if(bar){
-    bar.style.transition='none';
-    bar.style.width='0%';
-    setTimeout(function(){ bar.style.transition='width 2s linear'; bar.style.width='100%'; },30);
-  }
+  if(bar){ bar.style.transition='none'; bar.style.width='0%'; setTimeout(function(){ bar.style.transition='width 2s linear'; bar.style.width='100%'; },30); }
   if(btn) btn.style.opacity='0.8';
   holdTimer=setTimeout(function(){
     if(bar){ bar.style.transition='none'; bar.style.width='0%'; }
@@ -441,18 +439,14 @@ function startHold(action, needsDialog){
 
 function cancelHold(){
   if(holdTimer){ clearTimeout(holdTimer); holdTimer=null; }
-  document.querySelectorAll('.hold-bar').forEach(function(b){
-    b.style.transition='none'; b.style.width='0%';
-  });
-  document.querySelectorAll('#actionBtns .btn').forEach(function(b){
-    b.style.opacity='1';
-  });
+  document.querySelectorAll('.hold-bar').forEach(function(b){ b.style.transition='none'; b.style.width='0%'; });
+  document.querySelectorAll('#actionBtns .btn').forEach(function(b){ b.style.opacity='1'; });
 }
 
 // DIALOG
 var dlgMeta={
   startlive:{ emoji:'📡', title:'Start Live Session?', sub:'This will record the start of your live selling session.', btnLabel:'Yes, Start Live', btnCls:'btn-startlive' },
-  timeout:{   emoji:'🔴', title:'Time Out?',            sub:'This will end your shift for today. Make sure you are done for the day.', btnLabel:'Yes, Time Out', btnCls:'btn-danger' }
+  timeout:{   emoji:'🔴', title:'Time Out?', sub:'This will end your shift for today. Make sure you are done for the day.', btnLabel:'Yes, Time Out', btnCls:'btn-danger' }
 };
 
 function showDialog(action){
@@ -589,7 +583,6 @@ async function logAct(action,col,rid,val){
   }catch(e){}
 }
 
-// INIT
 loadEmps();
 </script>
 </body>
