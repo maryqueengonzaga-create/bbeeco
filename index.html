@@ -287,6 +287,37 @@ function isLS(e){ return e.role==='live_seller'; }
 function timeStr(d){ return d.toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit'}); }
 function todayStr(){ return new Date().toISOString().split('T')[0]; }
 
+// AUTO-TIMEOUT — runs on every kiosk load
+async function autoTimeout(){
+  try{
+    var now=new Date();
+    var cutoff=new Date(now.getTime()-(12*60*60*1000)); // 12 hours ago
+    var cutoffStr=cutoff.toISOString();
+    var r=await fetch(PB+'/api/collections/dtr_logs/records?filter=(status%3D%22open%22%26%26time_in%3C%22'+cutoffStr+'%22)&perPage=50');
+    var d=await r.json();
+    var items=d.items||[];
+    items.forEach(async function(dtr){
+      try{
+        var tin=new Date(dtr.time_in);
+        var hrs=Math.round(((now-tin)/3600000)*100)/100;
+        await fetch(PB+'/api/collections/dtr_logs/records/'+dtr.id,{
+          method:'PATCH',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({
+            time_out:now.toISOString(),
+            status:'closed',
+            total_hours:hrs,
+            is_auto_timeout:true
+          })
+        });
+        console.log('Auto-timeout applied:',dtr.id);
+      }catch(e){ console.log('Auto-timeout error on',dtr.id,e); }
+    });
+  }catch(e){ console.log('autoTimeout fetch error',e); }
+}
+
+loadEmps();
+  
 // LOAD EMPLOYEES
 async function loadEmps(){
   document.getElementById('empList').innerHTML='<div class="loading-list"><div class="spinner"></div>Loading...</div>';
@@ -583,6 +614,7 @@ async function logAct(action,col,rid,val){
   }catch(e){}
 }
 
+autoTimeout();
 loadEmps();
 </script>
 </body>
