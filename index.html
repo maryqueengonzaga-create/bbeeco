@@ -616,6 +616,8 @@ async function logAct(action,col,rid,val){
 
 autoTimeout();
 loadEmps();
+// run auto-timeout check every 30 minutes
+setInterval(autoTimeout, 30 * 60 * 1000);
 </script>
 </body>
 </html>
