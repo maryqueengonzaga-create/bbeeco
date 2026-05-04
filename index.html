@@ -2,165 +2,89 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
 <title>Bbee.Co Kiosk</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600&family=DM+Mono:wght@400;500&display=swap');
-
-:root {
-  --honey: #F5A623;
-  --honey-dark: #C8841A;
-  --honey-light: #FEF3DC;
-  --black: #1A1208;
-  --gray: #6B6355;
-  --gray-light: #F2EDE4;
-  --white: #FFFBF5;
-  --green: #2D7A4F;
-  --green-light: #E8F5EE;
-  --red: #C0392B;
-  --red-light: #FDECEA;
-  --radius: 16px;
-  --shadow: 0 4px 24px rgba(26,18,8,0.10);
-}
-
-* { box-sizing: border-box; margin: 0; padding: 0; }
-
-body {
-  font-family: 'DM Sans', sans-serif;
-  background: var(--white);
-  color: var(--black);
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 24px 16px;
-}
-
-.header {
-  width: 100%; max-width: 420px;
-  display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 28px;
-}
-.logo { display: flex; align-items: center; gap: 10px; }
-.logo-hex {
-  width: 38px; height: 38px;
-  background: var(--honey);
-  clip-path: polygon(50% 0%,95% 25%,95% 75%,50% 100%,5% 75%,5% 25%);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 18px;
-}
-.logo-text { font-size: 18px; font-weight: 600; }
-.logo-text span { color: var(--honey-dark); }
-.clock { text-align: right; }
-.clock-date { font-size: 11px; color: var(--gray); }
-.clock-time { font-family: 'DM Mono', monospace; font-size: 17px; font-weight: 500; }
-
-.card {
-  width: 100%; max-width: 420px;
-  background: var(--white);
-  border: 1.5px solid #E8E0D4;
-  border-radius: var(--radius);
-  padding: 28px 24px;
-  box-shadow: var(--shadow);
-  margin-bottom: 16px;
-}
-.card-title {
-  font-size: 12px; font-weight: 500;
-  color: var(--gray); text-transform: uppercase;
-  letter-spacing: 0.08em; margin-bottom: 16px;
-}
-
-.status-badge {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 4px 10px; border-radius: 99px;
-  font-size: 12px; font-weight: 500; margin-bottom: 20px;
-}
-.status-badge.online { background: var(--green-light); color: var(--green); }
-.status-badge.offline { background: var(--red-light); color: var(--red); }
-.status-dot { width: 7px; height: 7px; border-radius: 50%; }
-.status-badge.online .status-dot { background: var(--green); }
-.status-badge.offline .status-dot { background: var(--red); }
-
-.pin-display {
-  background: var(--gray-light); border-radius: 10px;
-  padding: 14px 20px;
-  font-family: 'DM Mono', monospace;
-  font-size: 28px; letter-spacing: 8px;
-  text-align: center; margin-bottom: 16px;
-  min-height: 58px; color: var(--black);
-}
-
-.pin-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
-.pin-btn {
-  background: var(--white); border: 1.5px solid #E8E0D4;
-  border-radius: 12px; padding: 18px 0;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 20px; font-weight: 500; color: var(--black);
-  cursor: pointer; transition: all 0.15s; user-select: none;
-}
-.pin-btn:active { background: var(--honey-light); border-color: var(--honey); transform: scale(0.97); }
-.pin-btn.del { font-size: 16px; color: var(--gray); }
-.pin-btn.clr { font-size: 13px; color: var(--red); }
-
-.emp-card {
-  background: var(--honey-light); border: 1.5px solid #F0D9A8;
-  border-radius: 12px; padding: 16px 18px;
-  margin-bottom: 16px;
-  display: flex; align-items: center; gap: 14px;
-}
-.emp-avatar {
-  width: 46px; height: 46px; background: var(--honey);
-  border-radius: 50%; display: flex; align-items: center;
-  justify-content: center; font-size: 18px; font-weight: 600;
-  color: var(--white); flex-shrink: 0;
-}
-.emp-name { font-size: 16px; font-weight: 600; }
-.emp-role { font-size: 12px; color: var(--gray); margin-top: 2px; }
-.emp-shift {
-  margin-left: auto; font-size: 11px; font-weight: 500;
-  padding: 3px 10px; border-radius: 99px;
-}
-.emp-shift.clocked-in { background: var(--green-light); color: var(--green); }
-.emp-shift.clocked-out { background: var(--gray-light); color: var(--gray); }
-
-.btn {
-  width: 100%; padding: 16px; border-radius: 12px; border: none;
-  font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 600;
-  cursor: pointer; transition: all 0.18s; margin-bottom: 10px;
-}
-.btn-primary { background: var(--honey); color: var(--white); }
-.btn-primary:hover { background: var(--honey-dark); }
-.btn-danger { background: var(--red-light); color: var(--red); }
-.btn-ghost { background: transparent; color: var(--gray); border: 1.5px solid #E8E0D4; }
-
-.toast {
-  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-  background: var(--black); color: var(--white);
-  padding: 12px 24px; border-radius: 99px;
-  font-size: 14px; font-weight: 500;
-  opacity: 0; transition: opacity 0.3s;
-  pointer-events: none; z-index: 999; white-space: nowrap;
-}
-.toast.show { opacity: 1; }
-.toast.success { background: var(--green); }
-.toast.error { background: var(--red); }
-
-.screen { display: none; width: 100%; max-width: 420px; }
-.screen.active { display: block; }
-
-.info-row {
-  display: flex; justify-content: space-between;
-  font-size: 13px; padding: 6px 0;
-  border-bottom: 1px solid var(--gray-light);
-}
-.info-row:last-child { border-bottom: none; }
-.info-label { color: var(--gray); }
-.info-value { font-weight: 500; }
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=DM+Mono:wght@400;500&display=swap');
+:root{--honey:#F5A623;--honey-dark:#C8841A;--honey-light:#FEF3DC;--black:#1A1208;--gray:#6B6355;--gray-light:#F2EDE4;--white:#FFFBF5;--green:#2D7A4F;--green-light:#E8F5EE;--red:#C0392B;--red-light:#FDECEA;--blue:#1A6FB0;--blue-light:#E6F1FB;--radius:16px;--shadow:0 4px 24px rgba(26,18,8,.10)}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:'DM Sans',sans-serif;background:var(--white);color:var(--black);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:20px 16px 32px}
+.header{width:100%;max-width:440px;display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-hex{width:36px;height:36px;background:var(--honey);clip-path:polygon(50% 0%,95% 25%,95% 75%,50% 100%,5% 75%,5% 25%);display:flex;align-items:center;justify-content:center;font-size:17px}
+.logo-text{font-size:17px;font-weight:600}
+.logo-text span{color:var(--honey-dark)}
+.clock{text-align:right}
+.clock-date{font-size:11px;color:var(--gray)}
+.clock-time{font-family:'DM Mono',monospace;font-size:16px;font-weight:500}
+.screen{display:none;width:100%;max-width:440px}
+.screen.active{display:block}
+.card{background:var(--white);border:1.5px solid #E8E0D4;border-radius:var(--radius);padding:24px 20px;box-shadow:var(--shadow);margin-bottom:14px}
+.card-title{font-size:11px;font-weight:500;color:var(--gray);text-transform:uppercase;letter-spacing:.08em;margin-bottom:16px}
+.conn-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:99px;font-size:11px;font-weight:500;margin-bottom:16px}
+.conn-badge.online{background:var(--green-light);color:var(--green)}
+.conn-badge.offline{background:var(--red-light);color:var(--red)}
+.conn-dot{width:6px;height:6px;border-radius:50%}
+.conn-badge.online .conn-dot{background:var(--green)}
+.conn-badge.offline .conn-dot{background:var(--red)}
+.emp-list{display:flex;flex-direction:column;gap:8px;max-height:440px;overflow-y:auto}
+.emp-item{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;border:1.5px solid #E8E0D4;cursor:pointer;transition:all .15s;background:var(--white)}
+.emp-item:active{background:var(--honey-light);border-color:var(--honey);transform:scale(.98)}
+.emp-avatar{width:40px;height:40px;border-radius:50%;background:var(--honey);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;color:var(--white);flex-shrink:0}
+.emp-avatar.live{background:var(--blue)}
+.emp-item-name{font-size:14px;font-weight:500}
+.emp-item-role{font-size:11px;color:var(--gray);margin-top:1px}
+.emp-state-badge{margin-left:auto;font-size:10px;font-weight:600;padding:2px 8px;border-radius:99px;flex-shrink:0}
+.state-out{background:var(--gray-light);color:var(--gray)}
+.state-in{background:var(--green-light);color:var(--green)}
+.state-live{background:var(--blue-light);color:var(--blue)}
+.loading-list{text-align:center;padding:32px;color:var(--gray);font-size:14px}
+.spinner{width:22px;height:22px;border:2px solid var(--gray-light);border-top-color:var(--honey);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 10px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.sel-emp{display:flex;align-items:center;gap:12px;background:var(--honey-light);border:1.5px solid #F0D9A8;border-radius:12px;padding:14px 16px;margin-bottom:16px}
+.sel-avatar{width:44px;height:44px;border-radius:50%;background:var(--honey);display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:600;color:var(--white);flex-shrink:0}
+.sel-avatar.live{background:var(--blue)}
+.sel-name{font-size:15px;font-weight:600}
+.sel-role{font-size:11px;color:var(--gray);margin-top:2px}
+.pin-display{background:var(--gray-light);border-radius:10px;padding:13px 20px;font-family:'DM Mono',monospace;font-size:26px;letter-spacing:8px;text-align:center;margin-bottom:14px;min-height:54px;color:var(--black)}
+.pin-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+.pin-btn{background:var(--white);border:1.5px solid #E8E0D4;border-radius:12px;padding:17px 0;font-family:'DM Sans',sans-serif;font-size:19px;font-weight:500;color:var(--black);cursor:pointer;transition:all .12s;user-select:none}
+.pin-btn:active{background:var(--honey-light);border-color:var(--honey);transform:scale(.96)}
+.pin-btn.del{font-size:15px;color:var(--gray)}
+.pin-btn.clr{font-size:12px;color:var(--red)}
+.camera-wrap{position:relative;width:100%;border-radius:14px;overflow:hidden;background:#111;margin-bottom:16px;aspect-ratio:4/3}
+#videoEl{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+.camera-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.camera-guide{width:160px;height:200px;border:2px solid rgba(245,166,35,.7);border-radius:80px;box-shadow:0 0 0 9999px rgba(0,0,0,.25)}
+#canvasEl{display:none}
+.action-label{text-align:center;font-size:12px;color:var(--gray);margin-bottom:12px;font-weight:500}
+.btn{width:100%;padding:15px;border-radius:12px;border:none;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:600;cursor:pointer;transition:all .15s;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px}
+.btn-timein{background:var(--green);color:var(--white)}
+.btn-timeout{background:var(--red-light);color:var(--red);border:1.5px solid #f5c6c2}
+.btn-startlive{background:var(--blue);color:var(--white)}
+.btn-endlive{background:var(--honey);color:var(--white)}
+.btn-ghost{background:transparent;color:var(--gray);border:1.5px solid #E8E0D4;font-size:14px}
+.btn-primary{background:var(--honey);color:var(--white)}
+.sales-label{font-size:13px;color:var(--gray);margin-bottom:8px;font-weight:500}
+.sales-input-wrap{display:flex;align-items:center;background:var(--gray-light);border-radius:10px;padding:0 16px;border:1.5px solid #E8E0D4;margin-bottom:16px}
+.sales-peso{font-size:18px;font-weight:600;color:var(--gray);margin-right:8px}
+.sales-input{flex:1;border:none;background:transparent;outline:none;font-family:'DM Mono',monospace;font-size:22px;font-weight:500;color:var(--black);padding:14px 0}
+.platform-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
+.platform-btn{padding:10px 4px;border-radius:10px;border:1.5px solid #E8E0D4;font-size:12px;font-weight:500;cursor:pointer;text-align:center;background:var(--white);color:var(--gray);transition:all .12s}
+.platform-btn.selected{background:var(--honey-light);border-color:var(--honey);color:var(--honey-dark)}
+.success-wrap{text-align:center;padding:32px 20px}
+.success-emoji{font-size:56px;margin-bottom:16px}
+.success-title{font-size:20px;font-weight:600;margin-bottom:8px}
+.success-sub{font-size:13px;color:var(--gray);margin-bottom:24px;line-height:1.6;white-space:pre-line}
+.success-photo{width:90px;height:90px;border-radius:50%;object-fit:cover;margin:0 auto 16px;display:block;border:3px solid var(--honey)}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--black);color:var(--white);padding:11px 22px;border-radius:99px;font-size:13px;font-weight:500;opacity:0;transition:opacity .25s;pointer-events:none;z-index:999;white-space:nowrap;max-width:90vw}
+.toast.show{opacity:1}
+.toast.ok{background:var(--green)}
+.toast.err{background:var(--red)}
 </style>
 </head>
 <body>
 
-<!-- HEADER -->
 <div class="header">
   <div class="logo">
     <div class="logo-hex">🐝</div>
@@ -172,13 +96,22 @@ body {
   </div>
 </div>
 
-<!-- SCREEN 1: PIN ENTRY -->
-<div class="screen active" id="screenPin">
+<!-- S1: EMPLOYEE LIST -->
+<div class="screen active" id="s1">
   <div class="card">
-    <div class="card-title">Staff Time-In / Time-Out</div>
-    <div class="status-badge online" id="connStatus">
-      <div class="status-dot"></div>
-      <span id="connText">Connected</span>
+    <div class="card-title">Select Your Name</div>
+    <div class="conn-badge online" id="connBadge"><div class="conn-dot"></div><span id="connText">Connected</span></div>
+    <div id="empList" class="emp-list"><div class="loading-list"><div class="spinner"></div>Loading employees...</div></div>
+  </div>
+</div>
+
+<!-- S2: PIN -->
+<div class="screen" id="s2">
+  <div class="card">
+    <div class="card-title">Enter PIN</div>
+    <div class="sel-emp">
+      <div class="sel-avatar" id="s2Av"></div>
+      <div><div class="sel-name" id="s2Name"></div><div class="sel-role" id="s2Role"></div></div>
     </div>
     <div class="pin-display" id="pinDisplay">____</div>
     <div class="pin-grid">
@@ -193,282 +126,260 @@ body {
       <button class="pin-btn" onclick="pinPress('9')">9</button>
       <button class="pin-btn clr" onclick="pinClear()">CLR</button>
       <button class="pin-btn" onclick="pinPress('0')">0</button>
-      <button class="pin-btn del" onclick="pinDelete()">⌫</button>
+      <button class="pin-btn del" onclick="pinDel()">&#9003;</button>
     </div>
+    <br/><button class="btn btn-ghost" onclick="goHome()">Back</button>
   </div>
 </div>
 
-<!-- SCREEN 2: EMPLOYEE FOUND -->
-<div class="screen" id="screenEmployee">
+<!-- S3: ACTION -->
+<div class="screen" id="s3">
   <div class="card">
-    <div class="card-title">Employee Found</div>
-    <div class="emp-card">
-      <div class="emp-avatar" id="empAvatar"></div>
-      <div>
-        <div class="emp-name" id="empName"></div>
-        <div class="emp-role" id="empRole"></div>
+    <div class="card-title">Confirm Action</div>
+    <div class="sel-emp">
+      <div class="sel-avatar" id="s3Av"></div>
+      <div><div class="sel-name" id="s3Name"></div><div class="sel-role" id="s3Role"></div></div>
+    </div>
+    <div id="camSec">
+      <div class="camera-wrap">
+        <video id="videoEl" autoplay playsinline muted></video>
+        <div class="camera-overlay"><div class="camera-guide"></div></div>
       </div>
-      <div class="emp-shift" id="empShift"></div>
+      <canvas id="canvasEl"></canvas>
     </div>
-    <div class="info-row">
-      <span class="info-label">Current Status</span>
-      <span class="info-value" id="empStatusText"></span>
-    </div>
-    <div class="info-row" id="timeInRow" style="display:none">
-      <span class="info-label">Time In</span>
-      <span class="info-value" id="empTimeIn"></span>
-    </div>
-    <br/>
-    <button class="btn btn-primary" id="btnAction" onclick="doAction()"></button>
-    <button class="btn btn-ghost" onclick="goBack()">Cancel</button>
+    <div class="action-label" id="actionLabel"></div>
+    <button class="btn" id="actionBtn" onclick="doAction()"></button>
+    <button class="btn btn-ghost" onclick="goHome()">Cancel</button>
   </div>
 </div>
 
-<!-- SCREEN 3: SUCCESS -->
-<div class="screen" id="screenSuccess">
-  <div class="card" style="text-align:center; padding: 40px 24px;">
-    <div style="font-size: 52px; margin-bottom: 16px;" id="successEmoji"></div>
-    <div style="font-size: 20px; font-weight: 600; margin-bottom: 8px;" id="successTitle"></div>
-    <div style="font-size: 14px; color: var(--gray); margin-bottom: 24px;" id="successSub"></div>
-    <button class="btn btn-primary" onclick="goBack()">Done</button>
+<!-- S4: SALES PROMPT -->
+<div class="screen" id="s4">
+  <div class="card">
+    <div class="card-title">Live Session Summary</div>
+    <div class="sel-emp">
+      <div class="sel-avatar live" id="s4Av"></div>
+      <div><div class="sel-name" id="s4Name"></div><div class="sel-role">Live Seller</div></div>
+    </div>
+    <div class="sales-label">Total Sales This Session</div>
+    <div class="sales-input-wrap"><span class="sales-peso">&#8369;</span><input class="sales-input" id="salesInput" type="number" placeholder="0.00" inputmode="decimal"/></div>
+    <div class="sales-label">Platform</div>
+    <div class="platform-grid">
+      <div class="platform-btn" onclick="selPlat('FB Live')">FB Live</div>
+      <div class="platform-btn" onclick="selPlat('FB Post')">FB Post</div>
+      <div class="platform-btn" onclick="selPlat('TikTok')">TikTok</div>
+      <div class="platform-btn" onclick="selPlat('Shopee')">Shopee</div>
+      <div class="platform-btn" onclick="selPlat('Walk-in')">Walk-in</div>
+      <div class="platform-btn" onclick="selPlat('Others')">Others</div>
+    </div>
+    <button class="btn btn-primary" onclick="submitEndLive()">Submit and End Live</button>
+    <button class="btn btn-ghost" onclick="goHome()">Cancel</button>
   </div>
 </div>
 
-<!-- TOAST -->
+<!-- S5: SUCCESS -->
+<div class="screen" id="s5">
+  <div class="card">
+    <div class="success-wrap">
+      <img id="sucPhoto" class="success-photo" style="display:none"/>
+      <div class="success-emoji" id="sucEmoji"></div>
+      <div class="success-title" id="sucTitle"></div>
+      <div class="success-sub" id="sucSub"></div>
+      <button class="btn btn-primary" onclick="goHome()">Done</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
-// ─── CONFIG ───────────────────────────────────────────
-const PB_URL = 'https://pocketbase-production-2d49.up.railway.app';
+var PB='https://pocketbase-production-2d49.up.railway.app';
+var ST={OUT:0,IN:1,IN_LIVE:2,LIVE:3,LIVE_DONE:4};
+var emps=[],selEmp=null,plcState=ST.OUT,openDTR=null,openLive=null;
+var pin='',photo=null,platform='',stream=null;
 
-// ─── STATE ────────────────────────────────────────────
-let currentPin = '';
-let currentEmployee = null;
-let currentDTR = null;
-let isOnline = navigator.onLine;
+function tick(){var n=new Date();document.getElementById('clockTime').textContent=n.toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit',second:'2-digit'});document.getElementById('clockDate').textContent=n.toLocaleDateString('en-PH',{weekday:'short',month:'short',day:'numeric'})}
+setInterval(tick,1000);tick();
 
-// ─── CLOCK ────────────────────────────────────────────
-function updateClock() {
-  const now = new Date();
-  document.getElementById('clockTime').textContent =
-    now.toLocaleTimeString('en-PH', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
-  document.getElementById('clockDate').textContent =
-    now.toLocaleDateString('en-PH', {weekday:'short', month:'short', day:'numeric'});
-}
-setInterval(updateClock, 1000);
-updateClock();
+function updConn(){var on=navigator.onLine;var b=document.getElementById('connBadge');b.className='conn-badge '+(on?'online':'offline');document.getElementById('connText').textContent=on?'Connected':'Offline'}
+window.addEventListener('online',updConn);window.addEventListener('offline',updConn);updConn();
 
-// ─── CONNECTIVITY ─────────────────────────────────────
-function updateConnStatus() {
-  isOnline = navigator.onLine;
-  const badge = document.getElementById('connStatus');
-  const text = document.getElementById('connText');
-  badge.className = 'status-badge ' + (isOnline ? 'online' : 'offline');
-  text.textContent = isOnline ? 'Connected' : 'Offline';
-}
-window.addEventListener('online', updateConnStatus);
-window.addEventListener('offline', updateConnStatus);
-updateConnStatus();
+function toast(m,t){var el=document.getElementById('toast');el.textContent=m;el.className='toast show '+(t||'');setTimeout(function(){el.className='toast'},2500)}
 
-// ─── TOAST ────────────────────────────────────────────
-function showToast(msg, type = '') {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.className = 'toast show ' + type;
-  setTimeout(() => t.className = 'toast', 2500);
+function show(id){document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active')});document.getElementById(id).classList.add('active')}
+
+function goHome(){
+  stopCam();pin='';selEmp=null;plcState=ST.OUT;openDTR=null;openLive=null;photo=null;platform='';
+  document.getElementById('pinDisplay').textContent='____';
+  document.getElementById('salesInput').value='';
+  document.querySelectorAll('.platform-btn').forEach(function(b){b.classList.remove('selected')});
+  loadEmps();show('s1');
 }
 
-// ─── SCREEN NAV ───────────────────────────────────────
-function showScreen(id) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
+function inits(e){return e.name.split(' ').map(function(w){return w[0]}).slice(0,2).join('')}
+function roleLabel(e){return e.role==='live_seller'?'Live Seller':'Regular Staff'}
+function isLive(e){return e.role==='live_seller'}
+
+async function loadEmps(){
+  document.getElementById('empList').innerHTML='<div class="loading-list"><div class="spinner"></div>Loading...</div>';
+  try{
+    var r=await fetch(PB+'/api/collections/employees/records?filter=(is_active=true)&sort=name&perPage=50');
+    var d=await r.json();emps=d.items||[];
+    await renderList();
+  }catch(e){document.getElementById('empList').innerHTML='<div class="loading-list">Cannot load. Check connection.</div>'}
 }
 
-function goBack() {
-  pinClear();
-  currentEmployee = null;
-  currentDTR = null;
-  showScreen('screenPin');
+async function renderList(){
+  var today=new Date().toISOString().split('T')[0];
+  var dtrMap={},liveMap={};
+  try{
+    var dr=await fetch(PB+'/api/collections/dtr_logs/records?filter=(date=\''+today+'\'&&status=\'open\')&perPage=50');
+    var dd=await dr.json();(dd.items||[]).forEach(function(d){dtrMap[d.employee_id]=d});
+    var lr=await fetch(PB+'/api/collections/live_sessions/records?filter=(status=\'active\')&perPage=50');
+    var ld=await lr.json();(ld.items||[]).forEach(function(l){liveMap[l.employee_id]=l});
+  }catch(e){}
+  document.getElementById('empList').innerHTML=emps.map(function(emp){
+    var hasDTR=!!dtrMap[emp.id],hasLive=!!liveMap[emp.id];
+    var stTxt,stCls;
+    if(!hasDTR){stTxt='OUT';stCls='state-out'}
+    else if(hasLive){stTxt='LIVE';stCls='state-live'}
+    else{stTxt='IN';stCls='state-in'}
+    return'<div class="emp-item" onclick="pickEmp(\''+emp.id+'\')"><div class="emp-avatar '+(isLive(emp)?'live':'')+'">'+(inits(emp))+'</div><div><div class="emp-item-name">'+emp.name+'</div><div class="emp-item-role">'+roleLabel(emp)+'</div></div><div class="emp-state-badge '+stCls+'">'+stTxt+'</div></div>';
+  }).join('');
 }
 
-// ─── PIN PAD ──────────────────────────────────────────
-function updatePinDisplay() {
-  const masked = currentPin.replace(/./g, '●');
-  const padded = masked.padEnd(4, '_');
-  document.getElementById('pinDisplay').textContent = padded.substring(0, 4);
-  if (currentPin.length === 4) setTimeout(lookupEmployee, 300);
-}
-
-function pinPress(num) {
-  if (currentPin.length >= 4) return;
-  currentPin += num;
-  updatePinDisplay();
-}
-
-function pinDelete() {
-  currentPin = currentPin.slice(0, -1);
-  updatePinDisplay();
-}
-
-function pinClear() {
-  currentPin = '';
-  document.getElementById('pinDisplay').textContent = '____';
-}
-
-// ─── LOOKUP EMPLOYEE ──────────────────────────────────
-async function lookupEmployee() {
-  if (!isOnline) {
-    showToast('No connection. Try again.', 'error');
-    setTimeout(goBack, 1500);
-    return;
-  }
-  showToast('Looking up...');
-  try {
-    const res = await fetch(
-    `${PB_URL}/api/collections/employees/records?filter=(pin='${currentPin}'%26%26is_active=true)`
-    );
-    const data = await res.json();
-
-    if (!data.items || data.items.length === 0) {
-      showToast('PIN not found. Try again.', 'error');
-      setTimeout(goBack, 1500);
-      return;
+async function pickEmp(id){
+  selEmp=emps.find(function(e){return e.id===id});if(!selEmp)return;
+  var today=new Date().toISOString().split('T')[0];
+  try{
+    var dr=await fetch(PB+'/api/collections/dtr_logs/records?filter=(employee_id=\''+selEmp.id+'\'&&date=\''+today+'\'&&status=\'open\')&sort=-created');
+    var dd=await dr.json();openDTR=dd.items&&dd.items.length>0?dd.items[0]:null;
+    openLive=null;
+    if(isLive(selEmp)){
+      var lr=await fetch(PB+'/api/collections/live_sessions/records?filter=(employee_id=\''+selEmp.id+'\'&&status=\'active\')&sort=-created');
+      var ld=await lr.json();openLive=ld.items&&ld.items.length>0?ld.items[0]:null;
     }
+  }catch(e){toast('Connection error.','err');return}
+  if(!openDTR) plcState=ST.OUT;
+  else if(openLive) plcState=ST.LIVE;
+  else if(isLive(selEmp)) plcState=ST.IN_LIVE;
+  else plcState=ST.IN;
+  document.getElementById('s2Av').textContent=inits(selEmp);
+  document.getElementById('s2Av').className='sel-avatar'+(isLive(selEmp)?' live':'');
+  document.getElementById('s2Name').textContent=selEmp.name;
+  document.getElementById('s2Role').textContent=roleLabel(selEmp);
+  pin='';document.getElementById('pinDisplay').textContent='____';
+  show('s2');
+}
 
-    currentEmployee = data.items[0];
+function pinPress(n){if(pin.length>=4)return;pin+=n;document.getElementById('pinDisplay').textContent=pin.replace(/./g,'●').padEnd(4,'_');if(pin.length===4)setTimeout(verifyPin,300)}
+function pinDel(){pin=pin.slice(0,-1);document.getElementById('pinDisplay').textContent=pin.replace(/./g,'●').padEnd(4,'_')}
+function pinClear(){pin='';document.getElementById('pinDisplay').textContent='____'}
 
-    // Check open DTR
-    const today = new Date().toISOString().split('T')[0];
-    const dtrRes = await fetch(
-    `${PB_URL}/api/collections/dtr_logs/records?filter=(employee_id='${currentEmployee.id}'%26%26date='${today}'%26%26status='open')&sort=-created`
-    );
-    const dtrData = await dtrRes.json();
-    currentDTR = dtrData.items && dtrData.items.length > 0 ? dtrData.items[0] : null;
+async function verifyPin(){
+  if(pin!==selEmp.pin){toast('Wrong PIN. Try again.','err');pinClear();return}
+  showAction();
+}
 
-    showEmployeeScreen();
-  } catch (err) {
-    showToast('Connection error. Try again.', 'error');
-    setTimeout(goBack, 2000);
+function showAction(){
+  document.getElementById('s3Av').textContent=inits(selEmp);
+  document.getElementById('s3Av').className='sel-avatar'+(isLive(selEmp)?' live':'');
+  document.getElementById('s3Name').textContent=selEmp.name;
+  document.getElementById('s3Role').textContent=roleLabel(selEmp);
+  var btn=document.getElementById('actionBtn');
+  var lbl=document.getElementById('actionLabel');
+  var cam=document.getElementById('camSec');
+  if(plcState===ST.OUT){btn.textContent='Time In';btn.className='btn btn-timein';lbl.textContent='Not clocked in — tap to start shift';cam.style.display='block';startCam()}
+  else if(plcState===ST.IN){btn.textContent='Time Out';btn.className='btn btn-timeout';lbl.textContent='Currently in — tap to end shift';cam.style.display='block';startCam()}
+  else if(plcState===ST.IN_LIVE){btn.textContent='Start Live';btn.className='btn btn-startlive';lbl.textContent='Clocked in — tap to start live session';cam.style.display='none'}
+  else if(plcState===ST.LIVE){btn.textContent='End Live';btn.className='btn btn-endlive';lbl.textContent='Live active — tap to end live session';cam.style.display='none'}
+  else if(plcState===ST.LIVE_DONE){btn.textContent='Time Out';btn.className='btn btn-timeout';lbl.textContent='Live ended — tap to end shift';cam.style.display='block';startCam()}
+  show('s3');
+}
+
+async function startCam(){
+  try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:false});document.getElementById('videoEl').srcObject=stream}
+  catch(e){toast('Camera unavailable.');document.getElementById('camSec').style.display='none'}
+}
+function stopCam(){if(stream){stream.getTracks().forEach(function(t){t.stop()});stream=null}}
+function capPhoto(){
+  var v=document.getElementById('videoEl'),c=document.getElementById('canvasEl');
+  if(!stream||!v.videoWidth)return null;
+  c.width=v.videoWidth;c.height=v.videoHeight;
+  var ctx=c.getContext('2d');ctx.scale(-1,1);ctx.drawImage(v,-c.width,0);
+  return c.toDataURL('image/jpeg',.75);
+}
+
+async function doAction(){
+  var now=new Date(),today=now.toISOString().split('T')[0];
+  var timeStr=now.toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit'});
+  if(plcState===ST.OUT){
+    photo=capPhoto();stopCam();toast('Recording time in...');
+    try{
+      var body={employee_id:selEmp.id,time_in:now.toISOString(),date:today,type:isLive(selEmp)?'live_sell':'regular',status:'open',is_auto_timeout:false};
+      var r=await fetch(PB+'/api/collections/dtr_logs/records',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      if(!r.ok)throw new Error();
+      openDTR=await r.json();logAct('create','dtr_logs',openDTR.id,body);
+      showSuccess('','Time In Recorded!',selEmp.name+'\n'+timeStr,photo);
+    }catch(e){toast('Error. Try again.','err');startCam()}
+  }else if(plcState===ST.IN||plcState===ST.LIVE_DONE){
+    photo=capPhoto();stopCam();toast('Recording time out...');
+    try{
+      var tin=new Date(openDTR.time_in),hrs=Math.round(((now-tin)/3600000)*100)/100;
+      var upd={time_out:now.toISOString(),status:'closed',total_hours:hrs};
+      var r=await fetch(PB+'/api/collections/dtr_logs/records/'+openDTR.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(upd)});
+      if(!r.ok)throw new Error();
+      logAct('update','dtr_logs',openDTR.id,upd);
+      var h=Math.floor(hrs),m=Math.round((hrs-h)*60);
+      showSuccess('','Time Out Recorded!',selEmp.name+'\n'+timeStr+'\nTotal: '+h+'h '+m+'m',photo);
+    }catch(e){toast('Error. Try again.','err');startCam()}
+  }else if(plcState===ST.IN_LIVE){
+    toast('Starting live session...');
+    try{
+      var body={employee_id:selEmp.id,start_time:now.toISOString(),date:today,status:'active'};
+      var r=await fetch(PB+'/api/collections/live_sessions/records',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      if(!r.ok)throw new Error();
+      openLive=await r.json();logAct('create','live_sessions',openLive.id,body);
+      showSuccess('','Live Session Started!',selEmp.name+'\nStarted: '+timeStr,null);
+    }catch(e){toast('Error. Try again.','err')}
+  }else if(plcState===ST.LIVE){
+    document.getElementById('s4Av').textContent=inits(selEmp);
+    document.getElementById('s4Name').textContent=selEmp.name;
+    show('s4');
   }
 }
 
-// ─── EMPLOYEE SCREEN ──────────────────────────────────
-function showEmployeeScreen() {
-  const emp = currentEmployee;
-  const isClockedIn = currentDTR !== null;
+function selPlat(p){platform=p;document.querySelectorAll('.platform-btn').forEach(function(b){b.classList.toggle('selected',b.textContent.trim()===p)})}
 
-  const initials = emp.name.split(' ').map(w => w[0]).slice(0, 2).join('');
-  document.getElementById('empAvatar').textContent = initials;
-  document.getElementById('empName').textContent = emp.name;
-  document.getElementById('empRole').textContent =
-    emp.role === 'live_seller' ? 'Live Seller' : 'Regular Staff';
-
-  const shift = document.getElementById('empShift');
-  shift.textContent = isClockedIn ? 'Clocked In' : 'Clocked Out';
-  shift.className = 'emp-shift ' + (isClockedIn ? 'clocked-in' : 'clocked-out');
-
-  document.getElementById('empStatusText').textContent =
-    isClockedIn ? '🟢 Currently working' : '⚪ Not clocked in';
-
-  const timeInRow = document.getElementById('timeInRow');
-  if (isClockedIn && currentDTR) {
-    timeInRow.style.display = 'flex';
-    const tin = new Date(currentDTR.time_in);
-    document.getElementById('empTimeIn').textContent =
-      tin.toLocaleTimeString('en-PH', {hour:'2-digit', minute:'2-digit'});
-  } else {
-    timeInRow.style.display = 'none';
-  }
-
-  const btn = document.getElementById('btnAction');
-  btn.textContent = isClockedIn ? '🔴  Time Out' : '🟢  Time In';
-  btn.className = 'btn ' + (isClockedIn ? 'btn-danger' : 'btn-primary');
-
-  showScreen('screenEmployee');
+async function submitEndLive(){
+  var sales=parseFloat(document.getElementById('salesInput').value)||0;
+  if(!platform){toast('Please select a platform.','err');return}
+  var now=new Date();toast('Ending live session...');
+  try{
+    var start=new Date(openLive.start_time),dur=Math.round(((now-start)/3600000)*100)/100;
+    var upd={end_time:now.toISOString(),status:'done',duration_hours:dur,sales_amount:sales,platform:platform};
+    var r=await fetch(PB+'/api/collections/live_sessions/records/'+openLive.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(upd)});
+    if(!r.ok)throw new Error();
+    logAct('update','live_sessions',openLive.id,upd);
+    var h=Math.floor(dur),m=Math.round((dur-h)*60);
+    showSuccess('','Live Ended!',selEmp.name+'\nDuration: '+h+'h '+m+'m\nSales: P'+sales.toLocaleString()+'\nPlatform: '+platform,null);
+  }catch(e){toast('Error. Try again.','err')}
 }
 
-// ─── TIME IN / OUT ────────────────────────────────────
-async function doAction() {
-  if (!isOnline) { showToast('No connection.', 'error'); return; }
-
-  const isClockedIn = currentDTR !== null;
-  const now = new Date();
-  const today = now.toISOString().split('T')[0];
-
-  try {
-    if (!isClockedIn) {
-      // TIME IN
-      const body = {
-        employee_id: currentEmployee.id,
-        time_in: now.toISOString(),
-        date: today,
-        type: currentEmployee.role === 'live_seller' ? 'live_sell' : 'regular',
-        status: 'open',
-        is_auto_timeout: false
-      };
-      const res = await fetch(`${PB_URL}/api/collections/dtr_logs/records`, {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify(body)
-      });
-      if (!res.ok) throw new Error();
-      logAction('create', 'dtr_logs', null, body);
-      showSuccess('🟢', 'Time In Recorded!',
-        `${currentEmployee.name} clocked in at ${now.toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit'})}`);
-
-    } else {
-      // TIME OUT
-      const tin = new Date(currentDTR.time_in);
-      const totalHours = Math.round(((now - tin) / 3600000) * 100) / 100;
-      const updates = { time_out: now.toISOString(), status: 'closed', total_hours: totalHours };
-
-      const res = await fetch(`${PB_URL}/api/collections/dtr_logs/records/${currentDTR.id}`, {
-        method: 'PATCH',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify(updates)
-      });
-      if (!res.ok) throw new Error();
-      logAction('update', 'dtr_logs', currentDTR.id, updates);
-
-      const hrs = Math.floor(totalHours);
-      const mins = Math.round((totalHours - hrs) * 60);
-      showSuccess('🔴', 'Time Out Recorded!',
-        `${currentEmployee.name} worked ${hrs}h ${mins}m today`);
-    }
-  } catch (err) {
-    showToast('Error recording. Try again.', 'error');
-  }
+function showSuccess(emoji,title,sub,pic){
+  document.getElementById('sucEmoji').textContent=emoji;
+  document.getElementById('sucTitle').textContent=title;
+  document.getElementById('sucSub').textContent=sub;
+  var p=document.getElementById('sucPhoto');
+  if(pic){p.src=pic;p.style.display='block'}else{p.style.display='none'}
+  show('s5');setTimeout(goHome,5000);
 }
 
-// ─── ACTION LOG ───────────────────────────────────────
-async function logAction(action, collection, recordId, newValue) {
-  try {
-    const body = {
-      module: 'hr', 
-      action: action, 
-      collection: collection,
-      record_id: recordId || '',
-      new_value: JSON.stringify(newValue)
-    };
-    console.log('logAction body:', JSON.stringify(body));
-    const res = await fetch(`${PB_URL}/api/collections/action_log/records`, {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify(body)
-    });
-    const data = await res.json();
-    console.log('logAction response:', JSON.stringify(data));
-  } catch(e) { console.log('logAction error:', e); }
+async function logAct(action,col,rid,val){
+  try{await fetch(PB+'/api/collections/action_log/records',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({module:'hr',action:action,collection:col,record_id:rid||'',new_value:JSON.stringify(val)})})}catch(e){}
 }
 
-// ─── SUCCESS ──────────────────────────────────────────
-function showSuccess(emoji, title, sub) {
-  document.getElementById('successEmoji').textContent = emoji;
-  document.getElementById('successTitle').textContent = title;
-  document.getElementById('successSub').textContent = sub;
-  showScreen('screenSuccess');
-  setTimeout(goBack, 4000);
-}
+loadEmps();
 </script>
 </body>
 </html>
