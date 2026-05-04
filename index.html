@@ -474,13 +474,52 @@ async function pickEmp(id){
   else if(isLS(selEmp)) plcState=ST.IN_LIVE;
   else                  plcState=ST.IN;
 
-  var av=document.getElementById('s2Av');
-  av.textContent=inits(selEmp);
-  av.className='sel-avatar'+(isLS(selEmp)?' live-seller':'');
-  document.getElementById('s2Name').textContent=selEmp.name;
-  document.getElementById('s2Role').textContent=roleLabel(selEmp);
-  pin=''; document.getElementById('pinDisplay').textContent='____';
-  show('s2');
+  // fetch today's schedule
+var todaySchedule=null;
+try{
+  var days=['sun','mon','tue','wed','thu','fri','sat'];
+  var dayKey=days[new Date().getDay()]+'_start';
+  var wr=await fetch(PB+'/api/collections/schedules/records?filter=(employee_id%3D%22'+selEmp.id+'%22%26%26week_start%3C%3D%22'+t+'%2000%3A00%3A00%22%26%26week_end%3E%3D%22'+t+'%2000%3A00%3A00%22)&sort=-week_start&perPage=1');
+  var wd=await wr.json();
+  if(wd.items&&wd.items.length>0){
+    var sched=wd.items[0];
+    var schedTime=sched[dayKey];
+    if(schedTime) todaySchedule=schedTime;
+  }
+}catch(e){}
+
+selEmp.todaySchedule=todaySchedule;
+
+var av=document.getElementById('s2Av');
+av.textContent=inits(selEmp);
+av.className='sel-avatar'+(isLS(selEmp)?' live-seller':'');
+document.getElementById('s2Name').textContent=selEmp.name;
+document.getElementById('s2Role').textContent=roleLabel(selEmp);
+
+// show schedule info
+var schedInfo='';
+if(todaySchedule){
+  var now2=new Date();
+  var schedParts=todaySchedule.split(':');
+  var schedDate=new Date();
+  schedDate.setHours(parseInt(schedParts[0]),parseInt(schedParts[1]),0,0);
+  var diffMins=Math.floor((now2-schedDate)/60000);
+  var h=parseInt(schedParts[0]);
+  var ampm=h>=12?'PM':'AM';
+  var h12=h%12||12;
+  var timeLabel=h12+':00 '+ampm;
+  if(diffMins>5){
+    schedInfo='⏰ Shift: '+timeLabel+' &nbsp;|&nbsp; <span style="color:var(--red)">'+diffMins+' mins late</span>';
+  } else {
+    schedInfo='⏰ Shift today: '+timeLabel;
+  }
+} else {
+  schedInfo='📅 No schedule set for today';
+}
+document.getElementById('s2Role').innerHTML=roleLabel(selEmp)+'<br><span style="font-size:11px;color:var(--gray)">'+schedInfo+'</span>';
+
+pin=''; document.getElementById('pinDisplay').textContent='____';
+show('s2');
 }
 
 // SOFT LOCK SCREEN
