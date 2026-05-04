@@ -303,7 +303,7 @@ async function renderList(){
   var t=todayStr();
   var dtrMap={}, liveMap={};
   try{
-    var dr=await fetch(PB+'/api/collections/dtr_logs/records?filter=(date%3D%22'+t+'%22%26%26status%3D%22open%22)&perPage=50');
+    var dr=await fetch(PB+'/api/collections/dtr_logs/records?filter=(status%3D%22open%22)&perPage=50');
     var dd=await dr.json(); (dd.items||[]).forEach(function(d){dtrMap[d.employee_id]=d;});
     var lr=await fetch(PB+'/api/collections/live_sessions/records?filter=(status%3D%22active%22)&perPage=50');
     var ld=await lr.json(); (ld.items||[]).forEach(function(l){liveMap[l.employee_id]=l;});
@@ -325,7 +325,7 @@ async function pickEmp(id){
   if(!selEmp)return;
   var t=todayStr();
   try{
-    var dr=await fetch(PB+'/api/collections/dtr_logs/records?filter=(employee_id%3D%22'+selEmp.id+'%22%26%26date%3D%22'+t+'%22%26%26status%3D%22open%22)&sort=-created');
+    var dr=await fetch(PB+'/api/collections/dtr_logs/records?filter=(employee_id%3D%22'+selEmp.id+'%22%26%26status%3D%22open%22)&sort=-created');
     var dd=await dr.json(); openDTR=dd.items&&dd.items.length>0?dd.items[0]:null;
     openLive=null;
     if(isLS(selEmp)){
