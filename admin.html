@@ -597,6 +597,17 @@ tr:hover td{background:var(--gray-light)}
   </div>
 </div>
 
+<!-- MODAL: PAYSLIP -->
+<div class="modal-overlay" id="payslipModal">
+  <div class="modal" style="max-width:460px">
+    <div id="payslipContent"></div>
+    <div class="modal-btns">
+      <button class="btn btn-ghost" onclick="closeModal('payslipModal')">Close</button>
+      <button class="btn btn-primary" onclick="printPayslip()">🖨️ Print</button>
+    </div>
+  </div>
+</div>
+  
 <!-- MODAL: CASH ADVANCE -->
 <div class="modal-overlay" id="caModal">
   <div class="modal">
@@ -1802,8 +1813,91 @@ async function releasePayroll(){
   }catch(e){ toast('Error releasing payroll.','err'); }
 }
 
-function viewPayslip(id){
-  toast('Payslip view coming soon!');
+async function viewPayslip(id){
+  try{
+    var r=await fetch(PB+'/api/collections/payroll_periods/records/'+id+'?expand=employee_id');
+    var p=await r.json();
+    var empName=p.expand&&p.expand.employee_id?p.expand.employee_id.name:'Employee';
+    var emp=p.expand&&p.expand.employee_id?p.expand.employee_id:null;
+
+    var totalDed=(p.late_deduction||0)+(p.break_deduction||0)+(p.sss_ee||0)+(p.phic_ee||0)+(p.pagibig_ee||0)+(p.cash_advance||0)+(p.item_charge||0);
+
+    document.getElementById('payslipContent').innerHTML=`
+      <div style="text-align:center;margin-bottom:20px">
+        <img src="bbeeco_logo.jpg" style="width:60px;height:60px;object-fit:contain"/>
+        <div style="font-size:18px;font-weight:600;margin-top:8px">Bbee.Co</div>
+        <div style="font-size:12px;color:var(--gray)">Payslip</div>
+      </div>
+
+      <div style="background:var(--gray-light);border-radius:10px;padding:14px;margin-bottom:16px">
+        <div style="font-size:15px;font-weight:600">${empName}</div>
+        <div style="font-size:12px;color:var(--gray);margin-top:2px">${emp?emp.role==='live_seller'?'Live Seller':'Regular Staff':''}</div>
+        <div style="font-size:12px;color:var(--gray);margin-top:4px">Period: ${p.period_start?p.period_start.substring(0,10):''} to ${p.period_end?p.period_end.substring(0,10):''}</div>
+      </div>
+
+      <div style="margin-bottom:16px">
+        <div style="font-size:12px;font-weight:600;color:var(--gray);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Earnings</div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--gray-light);font-size:13px">
+          <span>Regular Hours (${(p.reg_hours||0).toFixed(2)} hrs)</span>
+          <span>₱${((p.reg_hours||0)*(emp?emp.reg_rate:62.50)).toLocaleString()}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--gray-light);font-size:13px">
+          <span>Live Hours (${(p.live_hours||0).toFixed(2)} hrs)</span>
+          <span>₱${((p.live_hours||0)*(emp?emp.live_rate:83.33)).toLocaleString()}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:14px;font-weight:600">
+          <span>Gross Pay</span>
+          <span>₱${(p.gross_pay||0).toLocaleString()}</span>
+        </div>
+      </div>
+
+      <div style="margin-bottom:16px">
+        <div style="font-size:12px;font-weight:600;color:var(--gray);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Deductions</div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--gray-light);font-size:13px">
+          <span>Late (${p.late_minutes||0} mins)</span>
+          <span style="color:var(--red)">-₱${(p.late_deduction||0).toLocaleString()}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--gray-light);font-size:13px">
+          <span>Break Deduction</span>
+          <span style="color:var(--red)">-₱${(p.break_deduction||0).toLocaleString()}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--gray-light);font-size:13px">
+          <span>SSS</span>
+          <span style="color:var(--red)">-₱${(p.sss_ee||0).toLocaleString()}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--gray-light);font-size:13px">
+          <span>PhilHealth</span>
+          <span style="color:var(--red)">-₱${(p.phic_ee||0).toLocaleString()}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--gray-light);font-size:13px">
+          <span>Pag-IBIG</span>
+          <span style="color:var(--red)">-₱${(p.pagibig_ee||0).toLocaleString()}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--gray-light);font-size:13px">
+          <span>Cash Advance</span>
+          <span style="color:var(--red)">-₱${(p.cash_advance||0).toLocaleString()}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--gray-light);font-size:13px">
+          <span>Item Charges</span>
+          <span style="color:var(--red)">-₱${(p.item_charge||0).toLocaleString()}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;font-weight:600">
+          <span>Total Deductions</span>
+          <span style="color:var(--red)">-₱${totalDed.toLocaleString()}</span>
+        </div>
+      </div>
+
+      <div style="background:var(--honey-light);border:1.5px solid #F0D9A8;border-radius:10px;padding:14px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:15px;font-weight:600">NET PAY</span>
+        <span style="font-size:20px;font-weight:600;color:var(--honey-dark)">₱${(p.net_pay||0).toLocaleString()}</span>
+      </div>
+
+      <div style="text-align:center;margin-top:16px;font-size:11px;color:var(--gray)">
+        Status: ${p.status==='released'?'✅ Released':'⏳ Draft'} &nbsp;|&nbsp; Generated: ${new Date().toLocaleDateString('en-PH')}
+      </div>
+    `;
+    document.getElementById('payslipModal').classList.add('show');
+  }catch(e){ toast('Error loading payslip.','err'); }
 }
 
 // CASH ADVANCE
@@ -1881,6 +1975,14 @@ async function loadIC(){
       return '<tr><td>'+empName+'</td><td>'+ic.item_description+'</td><td>₱'+ic.amount+'</td><td>'+ic.date.substring(0,10)+'</td><td>'+statusBadge+'</td></tr>';
     }).join('');
   }catch(e){}
+}
+
+function printPayslip(){
+  var content=document.getElementById('payslipContent').innerHTML;
+  var win=window.open('','_blank');
+  win.document.write('<html><head><title>Payslip</title><style>body{font-family:sans-serif;padding:20px;max-width:400px;margin:0 auto}*{box-sizing:border-box}</style></head><body>'+content+'</body></html>');
+  win.document.close();
+  win.print();
 }
   
 // ══════════════════════════════
