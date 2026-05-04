@@ -125,7 +125,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--white);color:var(--black)
 
 <div class="header">
   <div class="logo">
-    <div class="logo-hex">🐝</div>
+    <div class="logo-hex" id="logoTap" onclick="logoTapped()">🐝</div>
     <div class="logo-text">Bbee<span>.Co</span></div>
   </div>
   <div class="clock">
@@ -840,6 +840,20 @@ async function logAct(action,col,rid,val){
 
 // INIT
 autoTimeout();
+
+// SECRET 5-TAP TRIGGER
+var tapCount=0, tapTimer=null;
+function logoTapped(){
+  tapCount++;
+  clearTimeout(tapTimer);
+  tapTimer=setTimeout(function(){ tapCount=0; },2000);
+  if(tapCount>=5){
+    tapCount=0;
+    clearTimeout(tapTimer);
+    window.location.href='admin.html';
+  }
+}
+  
 loadEmps();
 setInterval(autoTimeout, 30*60*1000);
 </script>
