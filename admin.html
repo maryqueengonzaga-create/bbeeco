@@ -919,9 +919,32 @@ async function loadSales(){
 // ══════════════════════════════
 // SETTINGS TAB
 // ══════════════════════════════
-function loadSettings(){
+async function loadSettings(){
   if(currentAdmin.role!=='owner')return;
-  renderAdminTable();
+  try{
+    var r=await fetch(PB+'/api/collections/admin_accounts/records?filter=(is_active%3Dtrue)&perPage=50');
+    var d=await r.json();
+    var items=d.items||[];
+    if(!items.length){
+      document.getElementById('adminTableBody').innerHTML='<tr><td colspan="5"><div class="empty">No admin accounts found.</div></td></tr>';
+      return;
+    }
+    document.getElementById('adminTableBody').innerHTML=items.map(function(a){
+      var roleBadge=a.role==='owner'?'<span class="badge badge-orange">Owner</span>':'<span class="badge badge-blue">Sub-Admin</span>';
+      var perms=a.role==='owner'?'<span class="badge badge-green">Full Access</span>':[
+        a.perm_view_dtr?'View DTR':'',
+        a.perm_edit_emp?'Edit Emp':'',
+        a.perm_resolve_incidents?'Resolve Incidents':'',
+        a.perm_view_payroll?'View Payroll':'',
+        a.perm_view_sales?'View Sales':'',
+        a.perm_lock_emp?'Lock Emp':''
+      ].filter(Boolean).join(', ');
+      var actions=a.role==='owner'?'':'<button class="btn btn-danger btn-sm" onclick="removeAdmin(\''+a.id+'\')">Remove</button>';
+      return '<tr><td><strong>'+a.name+'</strong></td><td>'+a.email+'</td><td>'+roleBadge+'</td><td style="font-size:11px">'+perms+'</td><td>'+actions+'</td></tr>';
+    }).join('');
+  }catch(e){
+    document.getElementById('adminTableBody').innerHTML='<tr><td colspan="5"><div class="empty">Error loading admins.</div></td></tr>';
+  }
 }
 
 function renderAdminTable(){
@@ -976,11 +999,17 @@ fetch(PB+'/api/collections/admin_accounts/records',{
 }).catch(function(){ toast('Error saving admin.','err'); });
 }
 
-function removeAdmin(id){
+async function removeAdmin(id){
   if(!confirm('Remove this admin?'))return;
-  ADMIN_ACCOUNTS=ADMIN_ACCOUNTS.filter(function(a){return a.id!==id});
-  renderAdminTable();
-  toast('Admin removed.','ok');
+  try{
+    await fetch(PB+'/api/collections/admin_accounts/records/'+id,{
+      method:'PATCH',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({is_active:false})
+    });
+    toast('Admin removed.','ok');
+    loadSettings();
+    await loadAdminAccounts();
+  }catch(e){ toast('Error removing admin.','err'); }
 }
 
 async function changePin(){
