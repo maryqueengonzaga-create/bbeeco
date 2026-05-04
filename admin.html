@@ -1017,11 +1017,18 @@ async function changePin(){
   var cp=document.getElementById('confirmPin').value;
   if(np.length!==6){toast('PIN must be 6 digits.','err');return;}
   if(np!==cp){toast('PINs do not match.','err');return;}
-  var admin=ADMIN_ACCOUNTS.find(function(a){return a.id===currentAdmin.id});
-  if(admin){ admin.pin=np; currentAdmin.pin=np; }
-  document.getElementById('newPin').value='';
-  document.getElementById('confirmPin').value='';
-  toast('PIN updated!','ok');
+  toast('Saving...');
+  try{
+    var r=await fetch(PB+'/api/collections/admin_accounts/records/'+currentAdmin.id,{
+      method:'PATCH',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({pin:np})
+    });
+    if(!r.ok)throw new Error();
+    currentAdmin.pin=np;
+    document.getElementById('newPin').value='';
+    document.getElementById('confirmPin').value='';
+    toast('PIN updated!','ok');
+  }catch(e){ toast('Error updating PIN.','err'); }
 }
 
 // ══════════════════════════════
