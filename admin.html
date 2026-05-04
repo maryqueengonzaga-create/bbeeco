@@ -1819,77 +1819,174 @@ async function viewPayslip(id){
     var p=await r.json();
     var empName=p.expand&&p.expand.employee_id?p.expand.employee_id.name:'Employee';
     var emp=p.expand&&p.expand.employee_id?p.expand.employee_id:null;
+    var start=p.period_start?p.period_start.substring(0,10):'';
+    var end=p.period_end?p.period_end.substring(0,10):'';
+
+    // fetch DTR logs for this period
+    var dr=await fetch(PB+'/api/collections/dtr_logs/records?filter=(employee_id%3D%22'+p.employee_id+'%22%26%26time_in%3E%3D%22'+start+'%2000%3A00%3A00%22%26%26time_in%3C%3D%22'+end+'%2023%3A59%3A59%22)&sort=time_in&perPage=50');
+    var dd=await dr.json(); var dtrs=dd.items||[];
+
+    // fetch live sessions for this period
+    var lr=await fetch(PB+'/api/collections/live_sessions/records?filter=(employee_id%3D%22'+p.employee_id+'%22%26%26start_time%3E%3D%22'+start+'%2000%3A00%3A00%22%26%26start_time%3C%3D%22'+end+'%2023%3A59%3A59%22%26%26status%3D%22done%22)&sort=start_time&perPage=50');
+    var ld=await lr.json(); var liveSessions=ld.items||[];
+
+    // fetch schedules for this period
+    var sr=await fetch(PB+'/api/collections/schedules/records?filter=(employee_id%3D%22'+p.employee_id+'%22%26%26week_start%3C%3D%22'+end+'%2000%3A00%3A00%22%26%26week_end%3E%3D%22'+start+'%2000%3A00%3A00%22)&perPage=10');
+    var sd=await sr.json(); var schedules=sd.items||[];
+
+    // build daily breakdown
+    var days=['sun','mon','tue','wed','thu','fri','sat'];
+    var dayNames=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    var months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+    // get all dates in period
+    var allDates=[];
+    var cur=new Date(start);
+    var endDate=new Date(end);
+    while(cur<=endDate){
+      allDates.push(cur.toISOString().split('T')[0]);
+      cur.setDate(cur.getDate()+1);
+    }
+
+    // group DTRs and live by date
+    var dtrByDate={};
+    dtrs.forEach(function(d){ var dt=d.time_in.substring(0,10); if(!dtrByDate[dt])dtrByDate[dt]=[]; dtrByDate[dt].push(d); });
+    var liveByDate={};
+    liveSessions.forEach(function(l){ var dt=l.start_time.substring(0,10); if(!liveByDate[dt])liveByDate[dt]=[]; liveByDate[dt].push(l); });
+
+    var dailyRows=allDates.map(function(date){
+      var d=new Date(date);
+      var dayIdx=d.getDay();
+      var dayKey=days[dayIdx]+'_start';
+      var dateLabel=dayNames[dayIdx]+', '+months[d.getMonth()]+' '+d.getDate();
+
+      // find schedule
+      var sched=schedules.find(function(s){ return s.week_start.substring(0,10)<=date&&s.week_end.substring(0,10)>=date; });
+      var schedTime=sched?sched[dayKey]:'';
+
+      var dayDTRs=dtrByDate[date]||[];
+      var dayLive=liveByDate[date]||[];
+
+      // no schedule set
+      if(!sched){
+        return '<tr style="background:var(--white)"><td>'+dateLabel+'</td><td colspan="6" style="color:var(--gray);font-size:12px">— No schedule set</td></tr>';
+      }
+
+      // day off
+      if(!schedTime){
+        return '<tr style="background:var(--gray-light)"><td>'+dateLabel+'</td><td colspan="6" style="color:var(--gray);font-size:12px">📅 Day Off</td></tr>';
+      }
+
+      // absent
+      if(!dayDTRs.length){
+        return '<tr style="background:var(--red-light)"><td>'+dateLabel+'</td><td colspan="6" style="color:var(--red);font-size:12px">❌ Absent (Scheduled: '+formatTime(schedTime)+')</td></tr>';
+      }
+
+      var firstDTR=dayDTRs[0];
+      var timeIn=new Date(firstDTR.time_in);
+      var timeOut=firstDTR.time_out?new Date(firstDTR.time_out):null;
+
+      var tinStr=timeIn.toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit'});
+      var toutStr=timeOut?timeOut.toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit'}):'--';
+
+      // late computation
+      var schedDt=new Date(date+'T'+schedTime+':00');
+      var diffMins=Math.floor((timeIn-schedDt)/60000);
+      var lateMins=0;
+      if(diffMins>5){
+        if(diffMins<=15) lateMins=15;
+        else if(diffMins<=30) lateMins=30;
+        else lateMins=diffMins;
+      }
+
+      var regHrs=firstDTR.total_hours||0;
+      var liveHrs=dayLive.reduce(function(sum,l){return sum+(l.duration_hours||0)},0);
+      var total=regHrs+liveHrs;
+      if(total>8){ regHrs=Math.max(0,regHrs-(total-8)); }
+
+      var lateStr=lateMins>0?'<span style="color:var(--orange);font-size:11px">⚠️ '+lateMins+' mins late</span>':'<span style="color:var(--green);font-size:11px">✅ On time</span>';
+      var liveStr=liveHrs>0?'<span style="color:var(--blue);font-size:11px">📡 '+liveHrs.toFixed(2)+'h live</span>':'';
+
+      var bgColor=lateMins>0?'var(--orange-light)':'var(--green-light)';
+      return '<tr style="background:'+bgColor+'">'
+        +'<td style="font-size:12px">'+dateLabel+'</td>'
+        +'<td style="font-size:12px">'+tinStr+'</td>'
+        +'<td style="font-size:12px">'+toutStr+'</td>'
+        +'<td style="font-size:12px">'+regHrs.toFixed(2)+'h</td>'
+        +'<td style="font-size:12px">'+liveHrs.toFixed(2)+'h</td>'
+        +'<td style="font-size:12px">'+lateStr+'</td>'
+        +'<td style="font-size:12px">'+liveStr+'</td>'
+        +'</tr>';
+    }).join('');
 
     var totalDed=(p.late_deduction||0)+(p.break_deduction||0)+(p.sss_ee||0)+(p.phic_ee||0)+(p.pagibig_ee||0)+(p.cash_advance||0)+(p.item_charge||0);
 
     document.getElementById('payslipContent').innerHTML=`
-      <div style="text-align:center;margin-bottom:20px">
-        <img src="bbeeco_logo.jpg" style="width:60px;height:60px;object-fit:contain"/>
-        <div style="font-size:18px;font-weight:600;margin-top:8px">Bbee.Co</div>
-        <div style="font-size:12px;color:var(--gray)">Payslip</div>
+      <div style="text-align:center;margin-bottom:16px">
+        <img src="bbeeco_logo.jpg" style="width:50px;height:50px;object-fit:contain"/>
+        <div style="font-size:17px;font-weight:600;margin-top:6px">Bbee.Co</div>
+        <div style="font-size:11px;color:var(--gray)">Payslip — ${start} to ${end}</div>
       </div>
 
-      <div style="background:var(--gray-light);border-radius:10px;padding:14px;margin-bottom:16px">
-        <div style="font-size:15px;font-weight:600">${empName}</div>
-        <div style="font-size:12px;color:var(--gray);margin-top:2px">${emp?emp.role==='live_seller'?'Live Seller':'Regular Staff':''}</div>
-        <div style="font-size:12px;color:var(--gray);margin-top:4px">Period: ${p.period_start?p.period_start.substring(0,10):''} to ${p.period_end?p.period_end.substring(0,10):''}</div>
+      <div style="background:var(--gray-light);border-radius:10px;padding:12px;margin-bottom:14px">
+        <div style="font-size:14px;font-weight:600">${empName}</div>
+        <div style="font-size:11px;color:var(--gray);margin-top:2px">${emp?emp.role==='live_seller'?'Live Seller':'Regular Staff':''}</div>
       </div>
 
-      <div style="margin-bottom:16px">
-        <div style="font-size:12px;font-weight:600;color:var(--gray);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Earnings</div>
-        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--gray-light);font-size:13px">
-          <span>Regular Hours (${(p.reg_hours||0).toFixed(2)} hrs)</span>
+      <!-- EARNINGS -->
+      <div style="margin-bottom:14px">
+        <div style="font-size:11px;font-weight:600;color:var(--gray);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Earnings</div>
+        <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--gray-light);font-size:13px">
+          <span>Regular (${(p.reg_hours||0).toFixed(2)} hrs × ₱${emp?emp.reg_rate:62.50})</span>
           <span>₱${((p.reg_hours||0)*(emp?emp.reg_rate:62.50)).toLocaleString()}</span>
         </div>
-        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--gray-light);font-size:13px">
-          <span>Live Hours (${(p.live_hours||0).toFixed(2)} hrs)</span>
+        <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--gray-light);font-size:13px">
+          <span>Live (${(p.live_hours||0).toFixed(2)} hrs × ₱${emp?emp.live_rate:83.33})</span>
           <span>₱${((p.live_hours||0)*(emp?emp.live_rate:83.33)).toLocaleString()}</span>
         </div>
-        <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:14px;font-weight:600">
-          <span>Gross Pay</span>
-          <span>₱${(p.gross_pay||0).toLocaleString()}</span>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:14px;font-weight:600">
+          <span>Gross Pay</span><span>₱${(p.gross_pay||0).toLocaleString()}</span>
         </div>
       </div>
 
-      <div style="margin-bottom:16px">
-        <div style="font-size:12px;font-weight:600;color:var(--gray);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Deductions</div>
-        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--gray-light);font-size:13px">
-          <span>Late (${p.late_minutes||0} mins)</span>
-          <span style="color:var(--red)">-₱${(p.late_deduction||0).toLocaleString()}</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--gray-light);font-size:13px">
-          <span>Break Deduction</span>
-          <span style="color:var(--red)">-₱${(p.break_deduction||0).toLocaleString()}</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--gray-light);font-size:13px">
-          <span>SSS</span>
-          <span style="color:var(--red)">-₱${(p.sss_ee||0).toLocaleString()}</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--gray-light);font-size:13px">
-          <span>PhilHealth</span>
-          <span style="color:var(--red)">-₱${(p.phic_ee||0).toLocaleString()}</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--gray-light);font-size:13px">
-          <span>Pag-IBIG</span>
-          <span style="color:var(--red)">-₱${(p.pagibig_ee||0).toLocaleString()}</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--gray-light);font-size:13px">
-          <span>Cash Advance</span>
-          <span style="color:var(--red)">-₱${(p.cash_advance||0).toLocaleString()}</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--gray-light);font-size:13px">
-          <span>Item Charges</span>
-          <span style="color:var(--red)">-₱${(p.item_charge||0).toLocaleString()}</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;font-weight:600">
-          <span>Total Deductions</span>
-          <span style="color:var(--red)">-₱${totalDed.toLocaleString()}</span>
-        </div>
+      <!-- DEDUCTIONS -->
+      <div style="margin-bottom:14px">
+        <div style="font-size:11px;font-weight:600;color:var(--gray);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Deductions</div>
+        <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--gray-light);font-size:13px"><span>Late (${p.late_minutes||0} mins)</span><span style="color:var(--red)">-₱${(p.late_deduction||0).toLocaleString()}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--gray-light);font-size:13px"><span>Break</span><span style="color:var(--red)">-₱${(p.break_deduction||0).toLocaleString()}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--gray-light);font-size:13px"><span>SSS</span><span style="color:var(--red)">-₱${(p.sss_ee||0).toLocaleString()}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--gray-light);font-size:13px"><span>PhilHealth</span><span style="color:var(--red)">-₱${(p.phic_ee||0).toLocaleString()}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--gray-light);font-size:13px"><span>Pag-IBIG</span><span style="color:var(--red)">-₱${(p.pagibig_ee||0).toLocaleString()}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--gray-light);font-size:13px"><span>Cash Advance</span><span style="color:var(--red)">-₱${(p.cash_advance||0).toLocaleString()}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--gray-light);font-size:13px"><span>Item Charges</span><span style="color:var(--red)">-₱${(p.item_charge||0).toLocaleString()}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;font-weight:600"><span>Total Deductions</span><span style="color:var(--red)">-₱${totalDed.toLocaleString()}</span></div>
       </div>
 
-      <div style="background:var(--honey-light);border:1.5px solid #F0D9A8;border-radius:10px;padding:14px;display:flex;justify-content:space-between;align-items:center">
+      <!-- NET PAY -->
+      <div style="background:var(--honey-light);border:1.5px solid #F0D9A8;border-radius:10px;padding:14px;display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
         <span style="font-size:15px;font-weight:600">NET PAY</span>
         <span style="font-size:20px;font-weight:600;color:var(--honey-dark)">₱${(p.net_pay||0).toLocaleString()}</span>
+      </div>
+
+      <!-- DAILY BREAKDOWN -->
+      <div>
+        <div style="font-size:11px;font-weight:600;color:var(--gray);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Daily Breakdown</div>
+        <div style="overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead>
+              <tr style="background:var(--gray-light)">
+                <th style="padding:8px;text-align:left;font-size:11px">Date</th>
+                <th style="padding:8px;text-align:left;font-size:11px">In</th>
+                <th style="padding:8px;text-align:left;font-size:11px">Out</th>
+                <th style="padding:8px;text-align:left;font-size:11px">Reg</th>
+                <th style="padding:8px;text-align:left;font-size:11px">Live</th>
+                <th style="padding:8px;text-align:left;font-size:11px">Late</th>
+                <th style="padding:8px;text-align:left;font-size:11px">Live Hrs</th>
+              </tr>
+            </thead>
+            <tbody>${dailyRows}</tbody>
+          </table>
+        </div>
       </div>
 
       <div style="text-align:center;margin-top:16px;font-size:11px;color:var(--gray)">
@@ -1897,7 +1994,7 @@ async function viewPayslip(id){
       </div>
     `;
     document.getElementById('payslipModal').classList.add('show');
-  }catch(e){ toast('Error loading payslip.','err'); }
+  }catch(e){ console.log(e); toast('Error loading payslip.','err'); }
 }
 
 // CASH ADVANCE
