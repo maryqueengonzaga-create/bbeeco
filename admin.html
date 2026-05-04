@@ -1807,6 +1807,8 @@ async function releasePayroll(){
     var d=await r.json(); var items=d.items||[];
     for(var i=0;i<items.length;i++){
       await fetch(PB+'/api/collections/payroll_periods/records/'+items[i].id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'released'})});
+      // send payslip email
+      await sendPayslipEmail(items[i]);
     }
     toast('Payroll released!','ok');
     await loadPayroll();
@@ -2080,6 +2082,98 @@ function printPayslip(){
   win.document.write('<html><head><title>Payslip</title><style>body{font-family:sans-serif;padding:20px;max-width:400px;margin:0 auto}*{box-sizing:border-box}</style></head><body>'+content+'</body></html>');
   win.document.close();
   win.print();
+}
+
+async function sendPayslipEmail(payroll){
+  try{
+    // get employee details
+    var er=await fetch(PB+'/api/collections/employees/records/'+payroll.employee_id);
+    var emp=await er.json();
+    if(!emp.email){ console.log('No email for '+emp.name); return; }
+
+    var totalDed=(payroll.late_deduction||0)+(payroll.break_deduction||0)+(payroll.sss_ee||0)+(payroll.phic_ee||0)+(payroll.pagibig_ee||0)+(payroll.cash_advance||0)+(payroll.item_charge||0);
+
+    var emailHtml=`
+    <div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:20px">
+      <div style="text-align:center;margin-bottom:20px">
+        <img src="https://maryqueengonzaga-create.github.io/bbeeco/bbeeco_logo.jpg" style="width:60px;height:60px;object-fit:contain"/>
+        <h2 style="margin:8px 0 4px">Bbee.Co</h2>
+        <p style="color:#6B6355;font-size:13px;margin:0">Payslip</p>
+      </div>
+
+      <div style="background:#F2EDE4;border-radius:10px;padding:14px;margin-bottom:16px">
+        <div style="font-size:15px;font-weight:600">${emp.name}</div>
+        <div style="font-size:12px;color:#6B6355;margin-top:2px">${emp.role==='live_seller'?'Live Seller':'Regular Staff'}</div>
+        <div style="font-size:12px;color:#6B6355;margin-top:4px">Period: ${payroll.period_start?payroll.period_start.substring(0,10):''} to ${payroll.period_end?payroll.period_end.substring(0,10):''}</div>
+      </div>
+
+      <div style="margin-bottom:16px">
+        <div style="font-size:11px;font-weight:600;color:#6B6355;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Earnings</div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #F2EDE4;font-size:13px">
+          <span>Regular Hours (${(payroll.reg_hours||0).toFixed(2)} hrs)</span>
+          <span>₱${((payroll.reg_hours||0)*(emp.reg_rate||62.50)).toLocaleString()}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #F2EDE4;font-size:13px">
+          <span>Live Hours (${(payroll.live_hours||0).toFixed(2)} hrs)</span>
+          <span>₱${((payroll.live_hours||0)*(emp.live_rate||83.33)).toLocaleString()}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:14px;font-weight:600">
+          <span>Gross Pay</span>
+          <span>₱${(payroll.gross_pay||0).toLocaleString()}</span>
+        </div>
+      </div>
+
+      <div style="margin-bottom:16px">
+        <div style="font-size:11px;font-weight:600;color:#6B6355;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Deductions</div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #F2EDE4;font-size:13px"><span>Late (${payroll.late_minutes||0} mins)</span><span style="color:#C0392B">-₱${(payroll.late_deduction||0).toLocaleString()}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #F2EDE4;font-size:13px"><span>Break</span><span style="color:#C0392B">-₱${(payroll.break_deduction||0).toLocaleString()}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #F2EDE4;font-size:13px"><span>SSS</span><span style="color:#C0392B">-₱${(payroll.sss_ee||0).toLocaleString()}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #F2EDE4;font-size:13px"><span>PhilHealth</span><span style="color:#C0392B">-₱${(payroll.phic_ee||0).toLocaleString()}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #F2EDE4;font-size:13px"><span>Pag-IBIG</span><span style="color:#C0392B">-₱${(payroll.pagibig_ee||0).toLocaleString()}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #F2EDE4;font-size:13px"><span>Cash Advance</span><span style="color:#C0392B">-₱${(payroll.cash_advance||0).toLocaleString()}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #F2EDE4;font-size:13px"><span>Item Charges</span><span style="color:#C0392B">-₱${(payroll.item_charge||0).toLocaleString()}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px;font-weight:600"><span>Total Deductions</span><span style="color:#C0392B">-₱${totalDed.toLocaleString()}</span></div>
+      </div>
+
+      <div style="background:#FEF3DC;border:1.5px solid #F0D9A8;border-radius:10px;padding:14px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:15px;font-weight:600">NET PAY</span>
+        <span style="font-size:22px;font-weight:600;color:#C8841A">₱${(payroll.net_pay||0).toLocaleString()}</span>
+      </div>
+
+      <div style="text-align:center;margin-top:20px;font-size:11px;color:#6B6355">
+        This is an auto-generated payslip from Bbee.Co HR System.<br/>
+        For questions, please contact your admin.
+      </div>
+    </div>`;
+
+    var period=payroll.period_start?payroll.period_start.substring(0,10):'';
+    var periodEnd=payroll.period_end?payroll.period_end.substring(0,10):'';
+
+    var res=await fetch('https://api.brevo.com/v3/smtp/email',{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'api-key':'xsmtpsib-d3cb992ebec06a3050d01c53be1179a793453b6e28975be480664eb8efc66fb5-UwLFc4HvfdiHNOus'
+      },
+      body:JSON.stringify({
+        sender:{ name:'Bbee.Co Admin', email:'maryqueen.gonzaga@gmail.com' },
+        to:[{ email:emp.email, name:emp.name }],
+        subject:'Your Payslip — '+period+' to '+periodEnd,
+        htmlContent:emailHtml
+      })
+    });
+
+    if(res.ok){
+      // mark email as sent
+      await fetch(PB+'/api/collections/payroll_periods/records/'+payroll.id,{
+        method:'PATCH',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({email_sent:true})
+      });
+      console.log('Email sent to '+emp.email);
+    } else {
+      console.log('Email failed for '+emp.name);
+    }
+  }catch(e){ console.log('Email error:',e); }
 }
   
 // ══════════════════════════════
