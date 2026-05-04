@@ -849,7 +849,7 @@ async function loadSales(){
   if(!canView){ document.getElementById('content-sales').innerHTML='<div class="empty">No permission to view sales.</div>'; return; }
   try{
     var t=todayStr();
-    var r=await fetch(PB+'/api/collections/live_sessions/records?filter=(date%3D%22'+t+'%2000%3A00%3A00%22)&sort=-start_time&perPage=50&expand=employee_id');
+    var r=await fetch(PB+'/api/collections/live_sessions/records?filter=(start_time%3E%3D%22'+t+'%2000%3A00%3A00%22)&sort=-start_time&perPage=50&expand=employee_id');
     var d=await r.json(); var items=d.items||[];
     if(!items.length){ document.getElementById('salesTableBody').innerHTML='<tr><td colspan="7"><div class="empty">No live sessions today.</div></td></tr>'; }
     else{
