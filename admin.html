@@ -193,6 +193,7 @@ tr:hover td{background:var(--gray-light)}
   <div class="tabs">
     <div class="tab active" id="tab-hr" onclick="switchTab('hr')">HR</div>
     <div class="tab" id="tab-sales" onclick="switchTab('sales')">Sales</div>
+    <div class="tab" id="tab-payroll" onclick="switchTab('payroll')">Payroll</div>
     <div class="tab" id="tab-settings" onclick="switchTab('settings')">Settings</div>
   </div>
 
@@ -315,6 +316,105 @@ tr:hover td{background:var(--gray-light)}
 
   </div>
 
+  <!-- PAYROLL TAB -->
+<div class="tab-content" id="content-payroll">
+
+  <!-- CUTOFF SELECTOR -->
+  <div class="card">
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <div class="form-group" style="margin:0">
+        <label class="form-label">Cutoff Period</label>
+        <select class="form-select" id="cutoffSelect" onchange="loadPayroll()" style="min-width:220px">
+          <option value="">Select cutoff...</option>
+        </select>
+      </div>
+      <div style="margin-top:18px;display:flex;gap:8px">
+        <button class="btn btn-primary" onclick="computePayroll()">⚙️ Compute Payroll</button>
+        <button class="btn btn-success" onclick="releasePayroll()">✅ Release All</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAYROLL SUMMARY -->
+  <div class="stats-row">
+    <div class="stat-card"><div class="stat-num stat-green" id="prStatGross">₱0</div><div class="stat-label">Total Gross</div></div>
+    <div class="stat-card"><div class="stat-num stat-red" id="prStatDeductions">₱0</div><div class="stat-label">Total Deductions</div></div>
+    <div class="stat-card"><div class="stat-num stat-blue" id="prStatNet">₱0</div><div class="stat-label">Total Net Pay</div></div>
+    <div class="stat-card"><div class="stat-num stat-orange" id="prStatCount">0</div><div class="stat-label">Employees</div></div>
+  </div>
+
+  <!-- PAYROLL TABLE -->
+  <div class="section-title">Payroll Details</div>
+  <div class="card">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Employee</th>
+            <th>Reg Hrs</th>
+            <th>Live Hrs</th>
+            <th>Gross Pay</th>
+            <th>Late Ded.</th>
+            <th>Break Ded.</th>
+            <th>SSS</th>
+            <th>PhilHealth</th>
+            <th>Pag-IBIG</th>
+            <th>Cash Adv.</th>
+            <th>Item Chg.</th>
+            <th>Net Pay</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="payrollTableBody">
+          <tr><td colspan="14"><div class="empty">Select a cutoff period to view payroll.</div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- CASH ADVANCE + ITEM CHARGE -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+
+    <!-- CASH ADVANCE -->
+    <div>
+      <div class="section-title">Cash Advances</div>
+      <div class="card">
+        <button class="btn btn-primary" style="margin-bottom:14px" onclick="openAddCA()">+ Add Cash Advance</button>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Employee</th><th>Amount</th><th>Per Cutoff</th><th>Balance</th><th>Status</th></tr>
+            </thead>
+            <tbody id="caTableBody">
+              <tr><td colspan="5"><div class="loading"><div class="spinner"></div>Loading...</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ITEM CHARGES -->
+    <div>
+      <div class="section-title">Item Charges</div>
+      <div class="card">
+        <button class="btn btn-primary" style="margin-bottom:14px" onclick="openAddIC()">+ Add Item Charge</button>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Employee</th><th>Item</th><th>Amount</th><th>Date</th><th>Status</th></tr>
+            </thead>
+            <tbody id="icTableBody">
+              <tr><td colspan="5"><div class="loading"><div class="spinner"></div>Loading...</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+  
   <!-- SALES TAB -->
   <div class="tab-content" id="content-sales">
     <div class="section-title">Today's Live Sessions</div>
@@ -497,6 +597,68 @@ tr:hover td{background:var(--gray-light)}
   </div>
 </div>
 
+<!-- MODAL: CASH ADVANCE -->
+<div class="modal-overlay" id="caModal">
+  <div class="modal">
+    <div class="modal-title">Add Cash Advance</div>
+    <div class="form-group">
+      <label class="form-label">Employee *</label>
+      <select class="form-select" id="caEmpId"></select>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Total Amount *</label>
+        <input class="form-input" id="caAmount" type="number" placeholder="0.00"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Deduct per Cutoff *</label>
+        <input class="form-input" id="caPerCutoff" type="number" placeholder="0.00"/>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Date</label>
+      <input class="form-input" id="caDate" type="date"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notes</label>
+      <input class="form-input" id="caNotes" placeholder="Optional notes..."/>
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-ghost" onclick="closeModal('caModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveCA()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: ITEM CHARGE -->
+<div class="modal-overlay" id="icModal">
+  <div class="modal">
+    <div class="modal-title">Add Item Charge</div>
+    <div class="form-group">
+      <label class="form-label">Employee *</label>
+      <select class="form-select" id="icEmpId"></select>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Item Description *</label>
+        <input class="form-input" id="icDesc" placeholder="Item name..."/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Amount *</label>
+        <input class="form-input" id="icAmount" type="number" placeholder="0.00"/>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Date</label>
+      <input class="form-input" id="icDate" type="date"/>
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-ghost" onclick="closeModal('icModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveIC()">Save</button>
+    </div>
+  </div>
+</div>
+  
 <!-- MODAL: VIEW PHOTO -->
 <div class="modal-overlay" id="photoModal">
   <div class="modal" style="text-align:center;max-width:340px">
@@ -726,6 +888,8 @@ function applyPermissions(){
     // sales tab
     if(!currentAdmin.perms.view_sales)
       document.getElementById('tab-sales').style.display='none';
+    if(!currentAdmin.perms.view_payroll)
+      document.getElementById('tab-payroll').style.display='none';
 
     // hide add employee button if no edit permission
     if(!currentAdmin.perms.edit_emp){
@@ -782,6 +946,7 @@ function switchTab(tab){
   if(tab==='hr') loadHR();
   if(tab==='sales') loadSales();
   if(tab==='settings') loadSettings();
+  if(tab==='payroll'){ initCutoffs(); loadCA(); loadIC(); }
 }
 
 // ══════════════════════════════
@@ -1328,6 +1493,393 @@ async function saveSchedule(){
     closeModal('schedModal');
     loadSchedules();
   }catch(e){ toast('Error saving schedule.','err'); }
+}
+
+// ══════════════════════════════
+// PAYROLL
+// ══════════════════════════════
+
+function generateCutoffs(){
+  var cutoffs=[];
+  var now=new Date();
+  for(var i=0;i<6;i++){
+    var d=new Date(now);
+    d.setMonth(d.getMonth()-Math.floor(i/2));
+    var month=d.getMonth();
+    var year=d.getFullYear();
+    if(i%2===0){
+      // 2nd cutoff (16th to last day)
+      var lastDay=new Date(year,month+1,0).getDate();
+      cutoffs.push({
+        label: getMonthName(month)+' 16-'+lastDay+', '+year,
+        start: year+'-'+pad(month+1)+'-16',
+        end: year+'-'+pad(month+1)+'-'+pad(lastDay)
+      });
+    } else {
+      // 1st cutoff (1st to 15th)
+      cutoffs.push({
+        label: getMonthName(month)+' 1-15, '+year,
+        start: year+'-'+pad(month+1)+'-01',
+        end: year+'-'+pad(month+1)+'-15'
+      });
+    }
+  }
+  return cutoffs;
+}
+
+function getMonthName(m){
+  return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m];
+}
+
+function pad(n){ return String(n).padStart(2,'0'); }
+
+function initCutoffs(){
+  var cutoffs=generateCutoffs();
+  var sel=document.getElementById('cutoffSelect');
+  sel.innerHTML='<option value="">Select cutoff...</option>'+
+    cutoffs.map(function(c,i){
+      return '<option value="'+c.start+'|'+c.end+'">'+c.label+'</option>';
+    }).join('');
+}
+
+async function loadPayroll(){
+  var val=document.getElementById('cutoffSelect').value;
+  if(!val){ document.getElementById('payrollTableBody').innerHTML='<tr><td colspan="14"><div class="empty">Select a cutoff period.</div></td></tr>'; return; }
+  var parts=val.split('|');
+  var start=parts[0], end=parts[1];
+  try{
+    var r=await fetch(PB+'/api/collections/payroll_periods/records?filter=(period_start%3E%3D%22'+start+'%2000%3A00%3A00%22%26%26period_end%3C%3D%22'+end+'%2023%3A59%3A59%22)&perPage=50&expand=employee_id');
+    var d=await r.json(); var items=d.items||[];
+    if(!items.length){
+      document.getElementById('payrollTableBody').innerHTML='<tr><td colspan="14"><div class="empty">No payroll computed yet. Click "Compute Payroll".</div></td></tr>';
+      resetPayrollStats(); return;
+    }
+    var totalGross=0,totalDed=0,totalNet=0;
+    document.getElementById('payrollTableBody').innerHTML=items.map(function(p){
+      var empName=p.expand&&p.expand.employee_id?p.expand.employee_id.name:p.employee_id;
+      var ded=(p.late_deduction||0)+(p.break_deduction||0)+(p.sss_ee||0)+(p.phic_ee||0)+(p.pagibig_ee||0)+(p.cash_advance||0)+(p.item_charge||0);
+      totalGross+=p.gross_pay||0; totalDed+=ded; totalNet+=p.net_pay||0;
+      var statusBadge=p.status==='released'?'<span class="badge badge-green">Released</span>':'<span class="badge badge-orange">Draft</span>';
+      return '<tr>'
+        +'<td><strong>'+empName+'</strong></td>'
+        +'<td>'+(p.reg_hours||0).toFixed(2)+'</td>'
+        +'<td>'+(p.live_hours||0).toFixed(2)+'</td>'
+        +'<td>₱'+(p.gross_pay||0).toLocaleString()+'</td>'
+        +'<td>₱'+(p.late_deduction||0).toLocaleString()+'</td>'
+        +'<td>₱'+(p.break_deduction||0).toLocaleString()+'</td>'
+        +'<td>₱'+(p.sss_ee||0).toLocaleString()+'</td>'
+        +'<td>₱'+(p.phic_ee||0).toLocaleString()+'</td>'
+        +'<td>₱'+(p.pagibig_ee||0).toLocaleString()+'</td>'
+        +'<td>₱'+(p.cash_advance||0).toLocaleString()+'</td>'
+        +'<td>₱'+(p.item_charge||0).toLocaleString()+'</td>'
+        +'<td><strong>₱'+(p.net_pay||0).toLocaleString()+'</strong></td>'
+        +'<td>'+statusBadge+'</td>'
+        +'<td><button class="btn btn-ghost btn-sm" onclick="viewPayslip(\''+p.id+'\')">View</button></td>'
+        +'</tr>';
+    }).join('');
+    document.getElementById('prStatGross').textContent='₱'+totalGross.toLocaleString();
+    document.getElementById('prStatDeductions').textContent='₱'+totalDed.toLocaleString();
+    document.getElementById('prStatNet').textContent='₱'+totalNet.toLocaleString();
+    document.getElementById('prStatCount').textContent=items.length;
+  }catch(e){ document.getElementById('payrollTableBody').innerHTML='<tr><td colspan="14"><div class="empty">Error loading payroll.</div></td></tr>'; }
+}
+
+function resetPayrollStats(){
+  document.getElementById('prStatGross').textContent='₱0';
+  document.getElementById('prStatDeductions').textContent='₱0';
+  document.getElementById('prStatNet').textContent='₱0';
+  document.getElementById('prStatCount').textContent='0';
+}
+
+async function computePayroll(){
+  var val=document.getElementById('cutoffSelect').value;
+  if(!val){ toast('Select a cutoff period first.','err'); return; }
+  var parts=val.split('|');
+  var start=parts[0], end=parts[1];
+  toast('Computing payroll... please wait.');
+
+  try{
+    // get all active employees
+    var er=await fetch(PB+'/api/collections/employees/records?filter=(is_active%3Dtrue)&perPage=50&expand=deduction_group_id');
+    var ed=await er.json(); var employees=ed.items||[];
+
+    // get all DTR logs for the period
+    var dr=await fetch(PB+'/api/collections/dtr_logs/records?filter=(time_in%3E%3D%22'+start+'%2000%3A00%3A00%22%26%26time_in%3C%3D%22'+end+'%2023%3A59%3A59%22%26%26status%3D%22closed%22)&perPage=200');
+    var dd=await dr.json(); var dtrs=dd.items||[];
+
+    // get all live sessions for the period
+    var lr=await fetch(PB+'/api/collections/live_sessions/records?filter=(start_time%3E%3D%22'+start+'%2000%3A00%3A00%22%26%26start_time%3C%3D%22'+end+'%2023%3A59%3A59%22%26%26status%3D%22done%22)&perPage=200');
+    var ld=await lr.json(); var liveSessions=ld.items||[];
+
+    // get all schedules for the period
+    var sr=await fetch(PB+'/api/collections/schedules/records?filter=(week_start%3C%3D%22'+end+'%2000%3A00%3A00%22%26%26week_end%3E%3D%22'+start+'%2000%3A00%3A00%22)&perPage=200');
+    var sd=await sr.json(); var schedules=sd.items||[];
+
+    // get cash advances
+    var car=await fetch(PB+'/api/collections/cash_advances/records?filter=(status%3D%22active%22)&perPage=100');
+    var cad=await car.json(); var cashAdvances=cad.items||[];
+
+    // get item charges
+    var icr=await fetch(PB+'/api/collections/item_charges/records?filter=(status%3D%22pending%22%26%26date%3E%3D%22'+start+'%22%26%26date%3C%3D%22'+end+'%22)&perPage=200');
+    var icd=await icr.json(); var itemCharges=icd.items||[];
+
+    for(var i=0;i<employees.length;i++){
+      var emp=employees[i];
+      var empDTRs=dtrs.filter(function(d){return d.employee_id===emp.id});
+      var empLive=liveSessions.filter(function(l){return l.employee_id===emp.id});
+      var empCA=cashAdvances.filter(function(c){return c.employee_id===emp.id});
+      var empIC=itemCharges.filter(function(ic){return ic.employee_id===emp.id});
+      var dedGroup=emp.expand&&emp.expand.deduction_group_id?emp.expand.deduction_group_id:null;
+
+      // compute hours per day
+      var totalRegHrs=0, totalLiveHrs=0;
+      var totalLateMins=0, totalBreakHrs=0;
+
+      // group DTRs by date
+      var dtrByDate={};
+      empDTRs.forEach(function(d){
+        var date=d.time_in?d.time_in.substring(0,10):'';
+        if(!dtrByDate[date]) dtrByDate[date]=[];
+        dtrByDate[date].push(d);
+      });
+
+      // group live sessions by date
+      var liveByDate={};
+      empLive.forEach(function(l){
+        var date=l.start_time?l.start_time.substring(0,10):'';
+        if(!liveByDate[date]) liveByDate[date]=[];
+        liveByDate[date].push(l);
+      });
+
+      // get all dates in period
+      var allDates=Object.keys(dtrByDate).concat(Object.keys(liveByDate));
+      allDates=allDates.filter(function(v,i,a){return a.indexOf(v)===i});
+
+      allDates.forEach(function(date){
+        var dayDTRs=dtrByDate[date]||[];
+        var dayLive=liveByDate[date]||[];
+
+        // raw hours
+        var regHrs=dayDTRs.reduce(function(sum,d){return sum+(d.total_hours||0)},0);
+        var liveHrs=dayLive.reduce(function(sum,l){return sum+(l.duration_hours||0)},0);
+        var total=regHrs+liveHrs;
+
+        // trim if over 8 hrs (live priority)
+        if(total>8){
+          var excess=total-8;
+          regHrs=Math.max(0,regHrs-excess);
+        }
+
+        // break deduction
+        var breakHrs=0;
+        if(total>=8) breakHrs=1;
+        else if(total>=6) breakHrs=0.5;
+        regHrs=Math.max(0,regHrs-breakHrs);
+
+        // late deduction
+        var lateMins=0;
+        if(dayDTRs.length>0){
+          var firstDTR=dayDTRs[0];
+          var timeIn=new Date(firstDTR.time_in);
+          var dayOfWeek=['sun','mon','tue','wed','thu','fri','sat'][timeIn.getDay()];
+          // find schedule for this date
+          var sched=schedules.find(function(s){
+            return s.employee_id===emp.id &&
+              s.week_start.substring(0,10)<=date &&
+              s.week_end.substring(0,10)>=date;
+          });
+          if(sched&&sched[dayOfWeek+'_start']){
+            var schedTime=sched[dayOfWeek+'_start'];
+            var schedParts=schedTime.split(':');
+            var schedDt=new Date(date+'T'+schedTime+':00');
+            var diffMins=Math.floor((timeIn-schedDt)/60000);
+            if(diffMins>5){
+              if(diffMins<=15) lateMins=15;
+              else if(diffMins<=30) lateMins=30;
+              else lateMins=diffMins;
+            }
+          }
+        }
+
+        totalRegHrs+=regHrs;
+        totalLiveHrs+=liveHrs;
+        totalLateMins+=lateMins;
+        totalBreakHrs+=breakHrs;
+      });
+
+      // compute pay
+      var lateDeductHrs=totalLateMins/60;
+      var regPay=Math.max(0,(totalRegHrs-lateDeductHrs))*(emp.reg_rate||62.50);
+      var livePay=totalLiveHrs*(emp.live_rate||83.33);
+      var grossPay=regPay+livePay;
+
+      // government deductions
+      var sssEE=dedGroup?dedGroup.sss_amount:581.30;
+      var phicEE=dedGroup?(grossPay*(dedGroup.phic_percent/100)):grossPay*0.025;
+      var pagibigEE=dedGroup?dedGroup.pagibig_amount:100;
+
+      // cash advance deduction
+      var caDeduct=empCA.reduce(function(sum,c){return sum+(c.deduct_per_cutoff||0)},0);
+
+      // item charges
+      var icDeduct=empIC.reduce(function(sum,ic){return sum+(ic.amount||0)},0);
+
+      // late deduction in pesos
+      var lateDeductPeso=lateDeductHrs*(emp.reg_rate||62.50);
+      var breakDeductPeso=totalBreakHrs*(emp.reg_rate||62.50);
+
+      // net pay
+      var netPay=grossPay-lateDeductPeso-breakDeductPeso-sssEE-phicEE-pagibigEE-caDeduct-icDeduct;
+
+      // check if existing payroll record
+      var existR=await fetch(PB+'/api/collections/payroll_periods/records?filter=(employee_id%3D%22'+emp.id+'%22%26%26period_start%3E%3D%22'+start+'%2000%3A00%3A00%22%26%26period_end%3C%3D%22'+end+'%2023%3A59%3A59%22)&perPage=1');
+      var existD=await existR.json();
+      var payBody={
+        employee_id:emp.id,
+        period_start:start,
+        period_end:end,
+        reg_hours:Math.round(totalRegHrs*100)/100,
+        live_hours:Math.round(totalLiveHrs*100)/100,
+        late_minutes:Math.round(totalLateMins),
+        late_deduction:Math.round(lateDeductPeso*100)/100,
+        break_deduction:Math.round(breakDeductPeso*100)/100,
+        gross_pay:Math.round(grossPay*100)/100,
+        sss_ee:Math.round(sssEE*100)/100,
+        phic_ee:Math.round(phicEE*100)/100,
+        pagibig_ee:Math.round(pagibigEE*100)/100,
+        cash_advance:Math.round(caDeduct*100)/100,
+        item_charge:Math.round(icDeduct*100)/100,
+        net_pay:Math.round(netPay*100)/100,
+        status:'draft',
+        email_sent:false
+      };
+
+      if(existD.items&&existD.items.length>0){
+        // update existing
+        await fetch(PB+'/api/collections/payroll_periods/records/'+existD.items[0].id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(payBody)});
+      } else {
+        // create new
+        await fetch(PB+'/api/collections/payroll_periods/records',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payBody)});
+      }
+
+      // update cash advance balances
+      for(var j=0;j<empCA.length;j++){
+        var ca=empCA[j];
+        var newBal=Math.max(0,(ca.remaining_balance||0)-(ca.deduct_per_cutoff||0));
+        var newStatus=newBal<=0?'fully_paid':'active';
+        await fetch(PB+'/api/collections/cash_advances/records/'+ca.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({remaining_balance:newBal,status:newStatus})});
+      }
+
+      // mark item charges as deducted
+      for(var k=0;k<empIC.length;k++){
+        await fetch(PB+'/api/collections/item_charges/records/'+empIC[k].id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'deducted'})});
+      }
+    }
+
+    toast('Payroll computed successfully!','ok');
+    await loadPayroll();
+    await loadCA();
+    await loadIC();
+  }catch(e){ console.log(e); toast('Error computing payroll.','err'); }
+}
+
+async function releasePayroll(){
+  var val=document.getElementById('cutoffSelect').value;
+  if(!val){ toast('Select a cutoff period first.','err'); return; }
+  var parts=val.split('|');
+  var start=parts[0], end=parts[1];
+  if(!confirm('Release all draft payrolls for this period?'))return;
+  toast('Releasing payroll...');
+  try{
+    var r=await fetch(PB+'/api/collections/payroll_periods/records?filter=(period_start%3E%3D%22'+start+'%2000%3A00%3A00%22%26%26period_end%3C%3D%22'+end+'%2023%3A59%3A59%22%26%26status%3D%22draft%22)&perPage=50');
+    var d=await r.json(); var items=d.items||[];
+    for(var i=0;i<items.length;i++){
+      await fetch(PB+'/api/collections/payroll_periods/records/'+items[i].id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'released'})});
+    }
+    toast('Payroll released!','ok');
+    await loadPayroll();
+  }catch(e){ toast('Error releasing payroll.','err'); }
+}
+
+function viewPayslip(id){
+  toast('Payslip view coming soon!');
+}
+
+// CASH ADVANCE
+function openAddCA(){
+  document.getElementById('caEmpId').innerHTML=allEmps.map(function(e){return'<option value="'+e.id+'">'+e.name+'</option>'}).join('');
+  document.getElementById('caAmount').value='';
+  document.getElementById('caPerCutoff').value='';
+  document.getElementById('caDate').value=todayStr();
+  document.getElementById('caNotes').value='';
+  document.getElementById('caModal').classList.add('show');
+}
+
+async function saveCA(){
+  var empId=document.getElementById('caEmpId').value;
+  var amount=parseFloat(document.getElementById('caAmount').value)||0;
+  var perCutoff=parseFloat(document.getElementById('caPerCutoff').value)||0;
+  if(!empId||!amount||!perCutoff){ toast('All fields required.','err'); return; }
+  toast('Saving...');
+  try{
+    await fetch(PB+'/api/collections/cash_advances/records',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      employee_id:empId,date:todayStr(),amount:amount,deduct_per_cutoff:perCutoff,remaining_balance:amount,notes:document.getElementById('caNotes').value,status:'active'
+    })});
+    toast('Cash advance saved!','ok');
+    closeModal('caModal');
+    await loadCA();
+  }catch(e){ toast('Error saving.','err'); }
+}
+
+async function loadCA(){
+  try{
+    var r=await fetch(PB+'/api/collections/cash_advances/records?sort=-created&perPage=50&expand=employee_id');
+    var d=await r.json(); var items=d.items||[];
+    if(!items.length){ document.getElementById('caTableBody').innerHTML='<tr><td colspan="5"><div class="empty">No cash advances.</div></td></tr>'; return; }
+    document.getElementById('caTableBody').innerHTML=items.map(function(c){
+      var empName=c.expand&&c.expand.employee_id?c.expand.employee_id.name:c.employee_id;
+      var statusBadge=c.status==='fully_paid'?'<span class="badge badge-green">Paid</span>':'<span class="badge badge-orange">Active</span>';
+      return '<tr><td>'+empName+'</td><td>₱'+c.amount+'</td><td>₱'+c.deduct_per_cutoff+'</td><td>₱'+c.remaining_balance+'</td><td>'+statusBadge+'</td></tr>';
+    }).join('');
+  }catch(e){}
+}
+
+// ITEM CHARGES
+function openAddIC(){
+  document.getElementById('icEmpId').innerHTML=allEmps.map(function(e){return'<option value="'+e.id+'">'+e.name+'</option>'}).join('');
+  document.getElementById('icDesc').value='';
+  document.getElementById('icAmount').value='';
+  document.getElementById('icDate').value=todayStr();
+  document.getElementById('icModal').classList.add('show');
+}
+
+async function saveIC(){
+  var empId=document.getElementById('icEmpId').value;
+  var desc=document.getElementById('icDesc').value.trim();
+  var amount=parseFloat(document.getElementById('icAmount').value)||0;
+  if(!empId||!desc||!amount){ toast('All fields required.','err'); return; }
+  toast('Saving...');
+  try{
+    await fetch(PB+'/api/collections/item_charges/records',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      employee_id:empId,date:document.getElementById('icDate').value,item_description:desc,amount:amount,status:'pending',added_by:currentAdmin.name
+    })});
+    toast('Item charge saved!','ok');
+    closeModal('icModal');
+    await loadIC();
+  }catch(e){ toast('Error saving.','err'); }
+}
+
+async function loadIC(){
+  try{
+    var r=await fetch(PB+'/api/collections/item_charges/records?sort=-created&perPage=50&expand=employee_id');
+    var d=await r.json(); var items=d.items||[];
+    if(!items.length){ document.getElementById('icTableBody').innerHTML='<tr><td colspan="5"><div class="empty">No item charges.</div></td></tr>'; return; }
+    document.getElementById('icTableBody').innerHTML=items.map(function(ic){
+      var empName=ic.expand&&ic.expand.employee_id?ic.expand.employee_id.name:ic.employee_id;
+      var statusBadge=ic.status==='deducted'?'<span class="badge badge-green">Deducted</span>':'<span class="badge badge-orange">Pending</span>';
+      return '<tr><td>'+empName+'</td><td>'+ic.item_description+'</td><td>₱'+ic.amount+'</td><td>'+ic.date.substring(0,10)+'</td><td>'+statusBadge+'</td></tr>';
+    }).join('');
+  }catch(e){}
 }
   
 // ══════════════════════════════
