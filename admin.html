@@ -580,10 +580,23 @@ function verifyLogin(){
 
 function applyPermissions(){
   if(currentAdmin.role!=='owner'){
-    // hide tabs based on permissions
-    if(!currentAdmin.perms.view_sales) document.getElementById('tab-sales').style.display='none';
-    document.getElementById('tab-settings').style.display='none'; // sub-admin cannot access settings
+    // hide settings tab always for sub-admin
+    document.getElementById('tab-settings').style.display='none';
     document.getElementById('btnAddAdmin').style.display='none';
+
+    // sales tab
+    if(!currentAdmin.perms.view_sales)
+      document.getElementById('tab-sales').style.display='none';
+
+    // hide add employee button if no edit permission
+    if(!currentAdmin.perms.edit_emp){
+      var addBtn=document.querySelector('#content-hr button.btn-primary');
+      if(addBtn) addBtn.style.display='none';
+    }
+  } else {
+    // owner — show everything
+    document.getElementById('tab-settings').style.display='block';
+    document.getElementById('tab-sales').style.display='block';
   }
 }
 
@@ -943,11 +956,24 @@ function saveAdmin(){
     lock_emp:document.getElementById('perm_lock_emp').checked
   };
 
-  var newAdmin={ id:'admin_'+Date.now(), name:name, email:email, pin:pin, role:'subadmin', perms:perms };
-  ADMIN_ACCOUNTS.push(newAdmin);
+  toast('Saving...');
+fetch(PB+'/api/collections/admin_accounts/records',{
+  method:'POST',headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({
+    name:name, email:email, pin:pin, role:'subadmin', is_active:true,
+    perm_view_dtr:perms.view_dtr,
+    perm_edit_emp:perms.edit_emp,
+    perm_resolve_incidents:perms.resolve_incidents,
+    perm_view_payroll:perms.view_payroll,
+    perm_view_sales:perms.view_sales,
+    perm_lock_emp:perms.lock_emp
+  })
+}).then(function(r){
+  if(!r.ok)throw new Error();
   toast('Sub-admin added!','ok');
   closeModal('adminModal');
-  renderAdminTable();
+  loadAdminAccounts().then(function(){ loadSettings(); });
+}).catch(function(){ toast('Error saving admin.','err'); });
 }
 
 function removeAdmin(id){
