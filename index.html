@@ -12,6 +12,7 @@
   --green:#2D7A4F;--green-light:#E8F5EE;
   --red:#C0392B;--red-light:#FDECEA;
   --blue:#1A6FB0;--blue-light:#E6F1FB;
+  --orange:#E67E22;--orange-light:#FEF0E6;
   --radius:16px;--shadow:0 4px 24px rgba(26,18,8,.10)
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -37,14 +38,18 @@ body{font-family:'DM Sans',sans-serif;background:var(--white);color:var(--black)
 .emp-list{display:flex;flex-direction:column;gap:8px;max-height:460px;overflow-y:auto}
 .emp-item{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;border:1.5px solid #E8E0D4;cursor:pointer;transition:all .15s;background:var(--white)}
 .emp-item:active{background:var(--honey-light);border-color:var(--honey);transform:scale(.98)}
+.emp-item.locked{opacity:.6;border-color:var(--red);background:var(--red-light)}
 .emp-avatar{width:40px;height:40px;border-radius:50%;background:var(--honey);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;color:var(--white);flex-shrink:0}
 .emp-avatar.live-seller{background:var(--blue)}
+.emp-avatar.locked{background:var(--red)}
 .emp-item-name{font-size:14px;font-weight:500}
 .emp-item-role{font-size:11px;color:var(--gray);margin-top:1px}
 .emp-state-badge{margin-left:auto;font-size:10px;font-weight:600;padding:2px 8px;border-radius:99px;flex-shrink:0}
 .st-out{background:var(--gray-light);color:var(--gray)}
 .st-in{background:var(--green-light);color:var(--green)}
 .st-live{background:var(--blue-light);color:var(--blue)}
+.st-locked{background:var(--red-light);color:var(--red)}
+.st-warn{background:var(--orange-light);color:var(--orange)}
 .loading-list{text-align:center;padding:32px;color:var(--gray);font-size:14px}
 .spinner{width:22px;height:22px;border:2px solid var(--gray-light);border-top-color:var(--honey);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 10px}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -73,6 +78,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--white);color:var(--black)
 .btn-ghost{background:transparent;color:var(--gray);border:1.5px solid #E8E0D4;font-size:14px}
 .btn-primary{background:var(--honey);color:var(--white)}
 .btn-danger{background:var(--red);color:var(--white)}
+.btn-warning{background:var(--orange);color:var(--white)}
 .hold-bar{position:absolute;left:0;bottom:0;height:4px;width:0%;background:rgba(255,255,255,0.5);border-radius:0 0 12px 12px;pointer-events:none}
 .hold-hint{font-size:10px;opacity:.7;font-weight:400;margin-top:2px}
 .dialog-overlay{position:fixed;inset:0;background:rgba(26,18,8,.5);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;transition:opacity .2s;pointer-events:none}
@@ -98,6 +104,21 @@ body{font-family:'DM Sans',sans-serif;background:var(--white);color:var(--black)
 .toast.show{opacity:1}
 .toast.ok{background:var(--green)}
 .toast.err{background:var(--red)}
+/* LOCK SCREEN */
+.lock-wrap{text-align:center;padding:20px 0}
+.lock-emoji{font-size:48px;margin-bottom:14px}
+.lock-title{font-size:18px;font-weight:600;margin-bottom:8px;color:var(--red)}
+.lock-sub{font-size:13px;color:var(--gray);margin-bottom:20px;line-height:1.6}
+.lock-strike{font-size:12px;font-weight:600;color:var(--orange);background:var(--orange-light);padding:6px 14px;border-radius:99px;display:inline-block;margin-bottom:20px}
+/* REPORT FORM */
+.form-group{margin-bottom:14px}
+.form-label{font-size:12px;font-weight:500;color:var(--gray);margin-bottom:6px;display:block}
+.form-input{width:100%;padding:12px 14px;border:1.5px solid #E8E0D4;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:14px;color:var(--black);background:var(--gray-light);outline:none}
+.form-input:focus{border-color:var(--honey);background:var(--white)}
+.form-input.err{border-color:var(--red)}
+.hours-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+/* WARNING BANNER */
+.warn-banner{background:var(--orange-light);border:1.5px solid #F0C080;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:12px;color:var(--orange);font-weight:500;line-height:1.5}
 </style>
 </head>
 <body>
@@ -159,6 +180,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--white);color:var(--black)
       <div class="sel-avatar" id="s3Av"></div>
       <div><div class="sel-name" id="s3Name"></div><div class="sel-role" id="s3Role"></div></div>
     </div>
+    <div id="s3WarnBanner" class="warn-banner" style="display:none"></div>
     <div id="camSec">
       <div class="camera-wrap">
         <video id="videoEl" autoplay playsinline muted></video>
@@ -212,6 +234,48 @@ body{font-family:'DM Sans',sans-serif;background:var(--white);color:var(--black)
   </div>
 </div>
 
+<!-- S6: SOFT LOCK — REPORT FORM -->
+<div class="screen" id="s6">
+  <div class="card">
+    <div class="card-title">Incomplete Session Report</div>
+    <div class="sel-emp">
+      <div class="sel-avatar" id="s6Av" style="background:var(--orange)"></div>
+      <div><div class="sel-name" id="s6Name"></div><div class="sel-role" id="s6Role"></div></div>
+    </div>
+    <div class="lock-wrap" style="padding:0;margin-bottom:16px">
+      <div class="lock-sub" id="s6Sub"></div>
+      <div class="lock-strike" id="s6Strike"></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Reason — Bakit hindi naka-time out? *</label>
+      <textarea class="form-input" id="reportReason" rows="3" placeholder="Ilagay ang dahilan..."></textarea>
+    </div>
+    <div class="hours-row">
+      <div class="form-group">
+        <label class="form-label">Regular hours worked *</label>
+        <input class="form-input" id="reportRegHrs" type="number" placeholder="0" inputmode="decimal" min="0" max="12"/>
+      </div>
+      <div class="form-group" id="reportLiveHrsGroup">
+        <label class="form-label">Live hours worked</label>
+        <input class="form-input" id="reportLiveHrs" type="number" placeholder="0" inputmode="decimal" min="0" max="12"/>
+      </div>
+    </div>
+    <button class="btn btn-warning" onclick="submitReport()">Submit Report</button>
+  </div>
+</div>
+
+<!-- S7: HARD LOCK -->
+<div class="screen" id="s7">
+  <div class="card">
+    <div class="lock-wrap">
+      <div class="lock-emoji">🔒</div>
+      <div class="lock-title">Account Locked</div>
+      <div class="lock-sub" id="s7Sub">Your account has been locked. Please report to your admin to unlock.</div>
+      <button class="btn btn-ghost" onclick="goHome()">Okay</button>
+    </div>
+  </div>
+</div>
+
 <!-- DIALOG -->
 <div class="dialog-overlay" id="dialogOverlay">
   <div class="dialog">
@@ -229,16 +293,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--white);color:var(--black)
 
 <script>
 var PB = 'https://pocketbase-production-2d49.up.railway.app';
-var ST = { OUT:0, IN:1, IN_LIVE:2, LIVE:3, LIVE_DONE:4 };
+var ST = { OUT:0, IN:1, IN_LIVE:2, LIVE:3, LIVE_DONE:4, SOFT_LOCK:5, HARD_LOCK:6 };
 var emps=[], selEmp=null, plcState=ST.OUT;
-var openDTR=null, openLive=null;
+var openDTR=null, openLive=null, prevDTR=null;
 var pin='', photo=null, platform='', stream=null;
 var holdTimer=null, pendingAction=null;
-
-// helper to build filter URL — uses %26%26 for AND
-function pbFilter(col, filter) {
-  return PB + '/api/collections/' + col + '/records?filter=(' + encodeURIComponent(filter) + ')';
-}
+var liveWarnings=[];
 
 // CLOCK
 function tick(){
@@ -273,9 +333,13 @@ function show(id){
 function goHome(){
   stopCam(); cancelHold();
   pin=''; selEmp=null; plcState=ST.OUT;
-  openDTR=null; openLive=null; photo=null; platform='';
+  openDTR=null; openLive=null; prevDTR=null;
+  photo=null; platform=''; liveWarnings=[];
   document.getElementById('pinDisplay').textContent='____';
   document.getElementById('salesInput').value='';
+  document.getElementById('reportReason').value='';
+  document.getElementById('reportRegHrs').value='';
+  document.getElementById('reportLiveHrs').value='';
   document.querySelectorAll('.platform-btn').forEach(function(b){b.classList.remove('selected')});
   closeDialog();
   loadEmps(); show('s1');
@@ -291,38 +355,41 @@ function todayStr(){ return new Date().toISOString().split('T')[0]; }
 async function autoTimeout(){
   try{
     var now=new Date();
-    var cutoff=new Date(now.getTime()-(12*60*60*1000)); // 12 hours ago
+    var cutoff=new Date(now.getTime()-(12*60*60*1000));
     var cutoffStr=cutoff.toISOString();
     var r=await fetch(PB+'/api/collections/dtr_logs/records?filter=(status%3D%22open%22%26%26time_in%3C%22'+cutoffStr+'%22)&perPage=50');
     var d=await r.json();
-    var items=d.items||[];
-    items.forEach(async function(dtr){
+    (d.items||[]).forEach(async function(dtr){
       try{
         var tin=new Date(dtr.time_in);
         var hrs=Math.round(((now-tin)/3600000)*100)/100;
         await fetch(PB+'/api/collections/dtr_logs/records/'+dtr.id,{
-          method:'PATCH',
-          headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({
-            time_out:now.toISOString(),
-            status:'closed',
-            total_hours:hrs,
-            is_auto_timeout:true
-          })
+          method:'PATCH',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({time_out:now.toISOString(),status:'closed',total_hours:hrs,is_auto_timeout:true})
         });
-        console.log('Auto-timeout applied:',dtr.id);
-      }catch(e){ console.log('Auto-timeout error on',dtr.id,e); }
+      }catch(e){}
     });
-  }catch(e){ console.log('autoTimeout fetch error',e); }
+    // also auto-timeout open live sessions
+    var lr=await fetch(PB+'/api/collections/live_sessions/records?filter=(status%3D%22active%22%26%26start_time%3C%22'+cutoffStr+'%22)&perPage=50');
+    var ld=await lr.json();
+    (ld.items||[]).forEach(async function(live){
+      try{
+        var start=new Date(live.start_time);
+        var dur=Math.round(((now-start)/3600000)*100)/100;
+        await fetch(PB+'/api/collections/live_sessions/records/'+live.id,{
+          method:'PATCH',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({end_time:now.toISOString(),status:'done',duration_hours:dur,is_auto_timeout:true})
+        });
+      }catch(e){}
+    });
+  }catch(e){}
 }
 
-loadEmps();
-  
 // LOAD EMPLOYEES
 async function loadEmps(){
   document.getElementById('empList').innerHTML='<div class="loading-list"><div class="spinner"></div>Loading...</div>';
   try{
-    var r=await fetch(PB+'/api/collections/employees/records?filter=(is_active=true)&sort=name&perPage=50');
+    var r=await fetch(PB+'/api/collections/employees/records?filter=(is_active%3Dtrue)&sort=name&perPage=50');
     var d=await r.json(); emps=d.items||[];
     await renderList();
   }catch(e){
@@ -338,15 +405,21 @@ async function renderList(){
     var dd=await dr.json(); (dd.items||[]).forEach(function(d){dtrMap[d.employee_id]=d;});
     var lr=await fetch(PB+'/api/collections/live_sessions/records?filter=(status%3D%22active%22)&perPage=50');
     var ld=await lr.json(); (ld.items||[]).forEach(function(l){liveMap[l.employee_id]=l;});
-  }catch(e){ console.log('renderList error',e); }
+  }catch(e){}
 
   document.getElementById('empList').innerHTML=emps.map(function(emp){
     var hasDTR=!!dtrMap[emp.id], hasLive=!!liveMap[emp.id];
-    var stTxt, stCls;
-    if(!hasDTR){stTxt='OUT';stCls='st-out';}
-    else if(hasLive){stTxt='LIVE';stCls='st-live';}
-    else{stTxt='IN';stCls='st-in';}
-    return '<div class="emp-item" onclick="pickEmp(\''+emp.id+'\')"><div class="emp-avatar '+(isLS(emp)?'live-seller':'')+'">'+(inits(emp))+'</div><div><div class="emp-item-name">'+emp.name+'</div><div class="emp-item-role">'+roleLabel(emp)+'</div></div><div class="emp-state-badge '+stCls+'">'+stTxt+'</div></div>';
+    var isHardLocked=emp.is_locked;
+    var isSoftLocked=!isHardLocked && hasDTR && dtrMap[emp.id] && dtrMap[emp.id].date && dtrMap[emp.id].date.substring(0,10)!==todayStr();
+
+    var stTxt, stCls, avCls, itemCls='emp-item';
+    if(isHardLocked){ stTxt='LOCKED'; stCls='st-locked'; avCls='locked'; itemCls+=' locked'; }
+    else if(isSoftLocked){ stTxt='!'; stCls='st-warn'; avCls=isLS(emp)?'live-seller':''; }
+    else if(!hasDTR){ stTxt='OUT'; stCls='st-out'; avCls=isLS(emp)?'live-seller':''; }
+    else if(hasLive){ stTxt='LIVE'; stCls='st-live'; avCls=isLS(emp)?'live-seller':''; }
+    else{ stTxt='IN'; stCls='st-in'; avCls=isLS(emp)?'live-seller':''; }
+
+    return '<div class="'+itemCls+'" onclick="pickEmp(\''+emp.id+'\')"><div class="emp-avatar '+avCls+'">'+(isHardLocked?'🔒':inits(emp))+'</div><div><div class="emp-item-name">'+emp.name+'</div><div class="emp-item-role">'+roleLabel(emp)+'</div></div><div class="emp-state-badge '+stCls+'">'+stTxt+'</div></div>';
   }).join('');
 }
 
@@ -355,16 +428,47 @@ async function pickEmp(id){
   selEmp=emps.find(function(e){return e.id===id;});
   if(!selEmp)return;
   var t=todayStr();
+
+  // HARD LOCK check
+  if(selEmp.is_locked){
+    document.getElementById('s7Sub').textContent=selEmp.lock_reason||'Your account has been locked. Please report to your admin to unlock.';
+    show('s7'); return;
+  }
+
   try{
+    // check open DTR
     var dr=await fetch(PB+'/api/collections/dtr_logs/records?filter=(employee_id%3D%22'+selEmp.id+'%22%26%26status%3D%22open%22)&sort=-created');
     var dd=await dr.json(); openDTR=dd.items&&dd.items.length>0?dd.items[0]:null;
+
+    // check if open DTR is from PREVIOUS day (soft lock trigger)
+    if(openDTR){
+      var dtrDate=openDTR.date?openDTR.date.substring(0,10):'';
+      if(dtrDate && dtrDate!==t){
+        prevDTR=openDTR; openDTR=null;
+        plcState=ST.SOFT_LOCK;
+        showSoftLock(); return;
+      }
+    }
+
     openLive=null;
     if(isLS(selEmp)){
       var lr=await fetch(PB+'/api/collections/live_sessions/records?filter=(employee_id%3D%22'+selEmp.id+'%22%26%26status%3D%22active%22)&sort=-created');
       var ld=await lr.json(); openLive=ld.items&&ld.items.length>0?ld.items[0]:null;
     }
+
+    // get daily live hours total for warning
+    liveWarnings=[];
+    if(isLS(selEmp)){
+      var dlr=await fetch(PB+'/api/collections/live_sessions/records?filter=(employee_id%3D%22'+selEmp.id+'%22%26%26date%3D%22'+t+'%22)&perPage=50');
+      var dld=await dlr.json();
+      var totalLiveHrs=0;
+      (dld.items||[]).forEach(function(s){ totalLiveHrs+=(s.duration_hours||0); });
+      if(totalLiveHrs>=8) liveWarnings.push('Total live hours ngayon: '+totalLiveHrs.toFixed(1)+' hrs (8hrs+). Flagged para sa admin review.');
+    }
+
   }catch(e){ toast('Connection error.','err'); return; }
 
+  // PLC STATE
   if(!openDTR)          plcState=ST.OUT;
   else if(openLive)     plcState=ST.LIVE;
   else if(isLS(selEmp)) plcState=ST.IN_LIVE;
@@ -377,6 +481,76 @@ async function pickEmp(id){
   document.getElementById('s2Role').textContent=roleLabel(selEmp);
   pin=''; document.getElementById('pinDisplay').textContent='____';
   show('s2');
+}
+
+// SOFT LOCK SCREEN
+function showSoftLock(){
+  var strikes=(selEmp.incomplete_sessions||0)+1;
+  document.getElementById('s6Av').textContent=inits(selEmp);
+  document.getElementById('s6Name').textContent=selEmp.name;
+  document.getElementById('s6Role').textContent=roleLabel(selEmp);
+  var date=prevDTR&&prevDTR.date?prevDTR.date.substring(0,10):'nakaraang araw';
+  document.getElementById('s6Sub').textContent='May hindi natapos na session mula '+date+'. Kailangan mong mag-report bago makapag-proceed.';
+  document.getElementById('s6Strike').textContent='Strike '+strikes+' ng 3';
+  // show live hrs field only for live sellers
+  document.getElementById('reportLiveHrsGroup').style.display=isLS(selEmp)?'block':'none';
+  show('s6');
+}
+
+// SUBMIT REPORT
+async function submitReport(){
+  var reason=document.getElementById('reportReason').value.trim();
+  var regHrs=parseFloat(document.getElementById('reportRegHrs').value)||0;
+  var liveHrs=parseFloat(document.getElementById('reportLiveHrs').value)||0;
+
+  if(!reason){ toast('Required: Ilagay ang dahilan.','err'); document.getElementById('reportReason').classList.add('err'); return; }
+  if(!regHrs && !liveHrs){ toast('Required: Ilagay ang hours worked.','err'); return; }
+  document.getElementById('reportReason').classList.remove('err');
+
+  var strikes=(selEmp.incomplete_sessions||0)+1;
+  var willLock=strikes>=3;
+
+  toast('Submitting report...');
+  try{
+    // save incident report
+    await fetch(PB+'/api/collections/incident_reports/records',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        employee_id:selEmp.id,
+        date:prevDTR&&prevDTR.date?prevDTR.date.substring(0,10):todayStr(),
+        reason:reason,
+        reg_hours_claimed:regHrs,
+        live_hours_claimed:liveHrs,
+        strike_number:strikes,
+        status:'pending'
+      })
+    });
+
+    // update employee strike count and lock if needed
+    var empUpdate={ incomplete_sessions:strikes };
+    if(willLock){
+      empUpdate.is_locked=true;
+      empUpdate.lock_reason='3 incomplete sessions. Report to admin to unlock.';
+    }
+    await fetch(PB+'/api/collections/employees/records/'+selEmp.id,{
+      method:'PATCH',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(empUpdate)
+    });
+
+    // close the previous open DTR as auto-timeout
+    if(prevDTR){
+      await fetch(PB+'/api/collections/dtr_logs/records/'+prevDTR.id,{
+        method:'PATCH',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({status:'closed',is_auto_timeout:true,total_hours:regHrs+liveHrs})
+      });
+    }
+
+    if(willLock){
+      showSuccess('🔒','Account Locked','Ang iyong account ay na-lock dahil sa 3 incomplete sessions.\nPumunta sa admin para ma-unlock.',null);
+    } else {
+      showSuccess('📋','Report Submitted','Salamat! Ang iyong report ay naipadala na sa admin.\nStrike '+strikes+' ng 3.',null);
+    }
+  }catch(e){ toast('Error submitting. Try again.','err'); }
 }
 
 // PIN
@@ -401,6 +575,15 @@ function showAction(){
   av.className='sel-avatar'+(isLS(selEmp)?' live-seller':'');
   document.getElementById('s3Name').textContent=selEmp.name;
   document.getElementById('s3Role').textContent=roleLabel(selEmp);
+
+  // show warnings if any
+  var warnBanner=document.getElementById('s3WarnBanner');
+  if(liveWarnings.length>0){
+    warnBanner.textContent='⚠️ '+liveWarnings.join(' ');
+    warnBanner.style.display='block';
+  } else {
+    warnBanner.style.display='none';
+  }
 
   var lbl=document.getElementById('actionLabel');
   var cam=document.getElementById('camSec');
@@ -437,7 +620,7 @@ function showAction(){
   show('s3');
 }
 
-function mkBtn(cls, action, label, needsHold, needsDialog){
+function mkBtn(cls,action,label,needsHold,needsDialog){
   if(!needsHold){
     return '<button class="btn '+cls+'" onclick="execAction(\''+action+'\')">'+label+'</button>';
   }
@@ -453,7 +636,7 @@ function mkBtn(cls, action, label, needsHold, needsDialog){
 }
 
 // HOLD
-function startHold(action, needsDialog){
+function startHold(action,needsDialog){
   cancelHold();
   var bar=document.getElementById('hbar_'+action);
   var btn=document.getElementById('btn_'+action);
@@ -463,8 +646,7 @@ function startHold(action, needsDialog){
     if(bar){ bar.style.transition='none'; bar.style.width='0%'; }
     if(btn) btn.style.opacity='1';
     holdTimer=null;
-    if(needsDialog){ showDialog(action); }
-    else { execAction(action); }
+    if(needsDialog){ showDialog(action); } else { execAction(action); }
   },2000);
 }
 
@@ -477,7 +659,7 @@ function cancelHold(){
 // DIALOG
 var dlgMeta={
   startlive:{ emoji:'📡', title:'Start Live Session?', sub:'This will record the start of your live selling session.', btnLabel:'Yes, Start Live', btnCls:'btn-startlive' },
-  timeout:{   emoji:'🔴', title:'Time Out?', sub:'This will end your shift for today. Make sure you are done for the day.', btnLabel:'Yes, Time Out', btnCls:'btn-danger' }
+  timeout:{ emoji:'🔴', title:'Time Out?', sub:'This will end your shift for today. Make sure you are done for the day.', btnLabel:'Yes, Time Out', btnCls:'btn-danger' }
 };
 
 function showDialog(action){
@@ -522,10 +704,25 @@ async function execAction(action){
       if(!r.ok)throw new Error();
       openLive=await r.json();
       logAct('create','live_sessions',openLive.id,body);
+      // flag if daily live hours warning
+      if(liveWarnings.length>0) logAct('warn','live_sessions',openLive.id,{warning:'daily live hours exceeded 8hrs'});
       showSuccess('📡','Live Session Started!',selEmp.name+'\nStarted: '+ts,null);
     }catch(e){ toast('Error. Try again.','err'); }
 
   } else if(action==='endlive'){
+    // check session duration warning (6+ hrs)
+    if(openLive){
+      var start=new Date(openLive.start_time);
+      var sessionHrs=(now-start)/3600000;
+      if(sessionHrs>=6){
+        showDialog('endlive_warn'); return;
+      }
+    }
+    document.getElementById('s4Av').textContent=inits(selEmp);
+    document.getElementById('s4Name').textContent=selEmp.name;
+    show('s4');
+
+  } else if(action==='endlive_confirmed'){
     document.getElementById('s4Av').textContent=inits(selEmp);
     document.getElementById('s4Name').textContent=selEmp.name;
     show('s4');
@@ -540,11 +737,34 @@ async function execAction(action){
       var r=await fetch(PB+'/api/collections/dtr_logs/records/'+openDTR.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(upd)});
       if(!r.ok)throw new Error();
       logAct('update','dtr_logs',openDTR.id,upd);
+      // reset incomplete_sessions on successful timeout
+      await fetch(PB+'/api/collections/employees/records/'+selEmp.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({incomplete_sessions:0})});
       var h=Math.floor(hrs), m=Math.round((hrs-h)*60);
       showSuccess('🔴','Time Out Recorded!',selEmp.name+'\n'+ts+'\nTotal: '+h+'h '+m+'m',photo);
     }catch(e){ toast('Error. Try again.','err'); startCam(); }
   }
 }
+
+// add end live warning to dialog meta
+dlgMeta['endlive_warn']={ emoji:'⚠️', title:'Live session is 6+ hours', sub:'Ang live session mo ay 6+ hours na. Tama ba ito? Ire-record ito at ire-review ng admin.', btnLabel:'Yes, End Live', btnCls:'btn-endlive' };
+// override confirm for endlive_warn
+var origShowDialog=showDialog;
+showDialog=function(action){
+  if(action==='endlive_warn'){
+    pendingAction='endlive_warn';
+    var m=dlgMeta['endlive_warn'];
+    document.getElementById('dlgEmoji').textContent=m.emoji;
+    document.getElementById('dlgTitle').textContent=m.title;
+    document.getElementById('dlgSub').textContent=m.sub;
+    var cb=document.getElementById('dlgConfirm');
+    cb.textContent=m.btnLabel;
+    cb.className='btn '+m.btnCls;
+    cb.onclick=function(){ closeDialog(); execAction('endlive_confirmed'); };
+    document.getElementById('dialogOverlay').classList.add('show');
+  } else {
+    origShowDialog(action);
+  }
+};
 
 // PLATFORM
 function selPlat(p){
@@ -564,10 +784,14 @@ async function submitEndLive(){
     var start=new Date(openLive.start_time);
     var dur=Math.round(((now-start)/3600000)*100)/100;
     var upd={end_time:now.toISOString(),status:'done',duration_hours:dur,sales_amount:sales,platform:platform};
+    // flag if session was 6+ hrs
+    if(dur>=6) upd.is_flagged=true;
     var r=await fetch(PB+'/api/collections/live_sessions/records/'+openLive.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(upd)});
     if(!r.ok)throw new Error();
     logAct('update','live_sessions',openLive.id,upd);
     var h=Math.floor(dur), m=Math.round((dur-h)*60);
+    // update PLC state to LIVE_DONE
+    plcState=ST.LIVE_DONE;
     showSuccess('⏹','Live Session Ended!',selEmp.name+'\nDuration: '+h+'h '+m+'m\nSales: ₱'+sales.toLocaleString()+'\nPlatform: '+platform,null);
   }catch(e){ toast('Error. Try again.','err'); }
 }
@@ -614,10 +838,10 @@ async function logAct(action,col,rid,val){
   }catch(e){}
 }
 
+// INIT
 autoTimeout();
 loadEmps();
-// run auto-timeout check every 30 minutes
-setInterval(autoTimeout, 30 * 60 * 1000);
+setInterval(autoTimeout, 30*60*1000);
 </script>
 </body>
 </html>
