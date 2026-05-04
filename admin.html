@@ -573,9 +573,9 @@ function verifyLogin(){
   document.getElementById('mainApp').classList.add('active');
   document.getElementById('adminBadge').textContent=currentAdmin.name+' ('+currentAdmin.role+')';
   document.getElementById('adminBadge').className='admin-badge '+(currentAdmin.role==='owner'?'badge-owner':'badge-subadmin');
-  applyPermissions();
   startSessionTimer();
   loadAll();
+  setTimeout(applyPermissions, 100);
 }
 
 function applyPermissions(){
