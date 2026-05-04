@@ -6,9 +6,18 @@
 <title>Bbee.Co Kiosk</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=DM+Mono:wght@400;500&display=swap');
-:root{--honey:#F5A623;--honey-dark:#C8841A;--honey-light:#FEF3DC;--black:#1A1208;--gray:#6B6355;--gray-light:#F2EDE4;--white:#FFFBF5;--green:#2D7A4F;--green-light:#E8F5EE;--red:#C0392B;--red-light:#FDECEA;--blue:#1A6FB0;--blue-light:#E6F1FB;--radius:16px;--shadow:0 4px 24px rgba(26,18,8,.10)}
+:root{
+  --honey:#F5A623;--honey-dark:#C8841A;--honey-light:#FEF3DC;
+  --black:#1A1208;--gray:#6B6355;--gray-light:#F2EDE4;--white:#FFFBF5;
+  --green:#2D7A4F;--green-light:#E8F5EE;
+  --red:#C0392B;--red-light:#FDECEA;
+  --blue:#1A6FB0;--blue-light:#E6F1FB;
+  --radius:16px;--shadow:0 4px 24px rgba(26,18,8,.10)
+}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 body{font-family:'DM Sans',sans-serif;background:var(--white);color:var(--black);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:20px 16px 32px}
+
+/* HEADER */
 .header{width:100%;max-width:440px;display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
 .logo{display:flex;align-items:center;gap:10px}
 .logo-hex{width:36px;height:36px;background:var(--honey);clip-path:polygon(50% 0%,95% 25%,95% 75%,50% 100%,5% 75%,5% 25%);display:flex;align-items:center;justify-content:center;font-size:17px}
@@ -17,54 +26,97 @@ body{font-family:'DM Sans',sans-serif;background:var(--white);color:var(--black)
 .clock{text-align:right}
 .clock-date{font-size:11px;color:var(--gray)}
 .clock-time{font-family:'DM Mono',monospace;font-size:16px;font-weight:500}
+
+/* SCREENS */
 .screen{display:none;width:100%;max-width:440px}
 .screen.active{display:block}
+
+/* CARD */
 .card{background:var(--white);border:1.5px solid #E8E0D4;border-radius:var(--radius);padding:24px 20px;box-shadow:var(--shadow);margin-bottom:14px}
 .card-title{font-size:11px;font-weight:500;color:var(--gray);text-transform:uppercase;letter-spacing:.08em;margin-bottom:16px}
+
+/* CONN BADGE */
 .conn-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:99px;font-size:11px;font-weight:500;margin-bottom:16px}
 .conn-badge.online{background:var(--green-light);color:var(--green)}
 .conn-badge.offline{background:var(--red-light);color:var(--red)}
 .conn-dot{width:6px;height:6px;border-radius:50%}
 .conn-badge.online .conn-dot{background:var(--green)}
 .conn-badge.offline .conn-dot{background:var(--red)}
-.emp-list{display:flex;flex-direction:column;gap:8px;max-height:440px;overflow-y:auto}
+
+/* EMPLOYEE LIST */
+.emp-list{display:flex;flex-direction:column;gap:8px;max-height:460px;overflow-y:auto}
 .emp-item{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;border:1.5px solid #E8E0D4;cursor:pointer;transition:all .15s;background:var(--white)}
 .emp-item:active{background:var(--honey-light);border-color:var(--honey);transform:scale(.98)}
 .emp-avatar{width:40px;height:40px;border-radius:50%;background:var(--honey);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;color:var(--white);flex-shrink:0}
-.emp-avatar.live{background:var(--blue)}
+.emp-avatar.live-seller{background:var(--blue)}
 .emp-item-name{font-size:14px;font-weight:500}
 .emp-item-role{font-size:11px;color:var(--gray);margin-top:1px}
 .emp-state-badge{margin-left:auto;font-size:10px;font-weight:600;padding:2px 8px;border-radius:99px;flex-shrink:0}
-.state-out{background:var(--gray-light);color:var(--gray)}
-.state-in{background:var(--green-light);color:var(--green)}
-.state-live{background:var(--blue-light);color:var(--blue)}
+.st-out{background:var(--gray-light);color:var(--gray)}
+.st-in{background:var(--green-light);color:var(--green)}
+.st-live{background:var(--blue-light);color:var(--blue)}
+.st-done{background:var(--honey-light);color:var(--honey-dark)}
 .loading-list{text-align:center;padding:32px;color:var(--gray);font-size:14px}
 .spinner{width:22px;height:22px;border:2px solid var(--gray-light);border-top-color:var(--honey);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 10px}
 @keyframes spin{to{transform:rotate(360deg)}}
+
+/* SELECTED EMP */
 .sel-emp{display:flex;align-items:center;gap:12px;background:var(--honey-light);border:1.5px solid #F0D9A8;border-radius:12px;padding:14px 16px;margin-bottom:16px}
 .sel-avatar{width:44px;height:44px;border-radius:50%;background:var(--honey);display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:600;color:var(--white);flex-shrink:0}
-.sel-avatar.live{background:var(--blue)}
+.sel-avatar.live-seller{background:var(--blue)}
 .sel-name{font-size:15px;font-weight:600}
 .sel-role{font-size:11px;color:var(--gray);margin-top:2px}
+
+/* PIN PAD */
 .pin-display{background:var(--gray-light);border-radius:10px;padding:13px 20px;font-family:'DM Mono',monospace;font-size:26px;letter-spacing:8px;text-align:center;margin-bottom:14px;min-height:54px;color:var(--black)}
 .pin-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
 .pin-btn{background:var(--white);border:1.5px solid #E8E0D4;border-radius:12px;padding:17px 0;font-family:'DM Sans',sans-serif;font-size:19px;font-weight:500;color:var(--black);cursor:pointer;transition:all .12s;user-select:none}
 .pin-btn:active{background:var(--honey-light);border-color:var(--honey);transform:scale(.96)}
 .pin-btn.del{font-size:15px;color:var(--gray)}
 .pin-btn.clr{font-size:12px;color:var(--red)}
+
+/* CAMERA */
 .camera-wrap{position:relative;width:100%;border-radius:14px;overflow:hidden;background:#111;margin-bottom:16px;aspect-ratio:4/3}
 #videoEl{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
 .camera-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
 .camera-guide{width:160px;height:200px;border:2px solid rgba(245,166,35,.7);border-radius:80px;box-shadow:0 0 0 9999px rgba(0,0,0,.25)}
 #canvasEl{display:none}
-.action-label{text-align:center;font-size:12px;color:var(--gray);margin-bottom:12px;font-weight:500}
-.btn{width:100%;padding:15px;border-radius:12px;border:none;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:600;cursor:pointer;transition:all .15s;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px}
+
+/* ACTION LABEL */
+.action-label{text-align:center;font-size:12px;color:var(--gray);margin-bottom:14px;font-weight:500}
+
+/* BUTTONS */
+.btn{width:100%;padding:15px;border-radius:12px;border:none;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:600;cursor:pointer;transition:all .15s;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px;position:relative;overflow:hidden;user-select:none;-webkit-user-select:none}
 .btn-timein{background:var(--green);color:var(--white)}
 .btn-timeout{background:var(--red-light);color:var(--red);border:1.5px solid #f5c6c2}
 .btn-startlive{background:var(--blue);color:var(--white)}
 .btn-endlive{background:var(--honey);color:var(--white)}
 .btn-ghost{background:transparent;color:var(--gray);border:1.5px solid #E8E0D4;font-size:14px}
 .btn-primary{background:var(--honey);color:var(--white)}
+.btn-danger{background:var(--red);color:var(--white)}
+
+/* HOLD PROGRESS BAR */
+.hold-bar{
+  position:absolute;left:0;bottom:0;height:4px;width:0%;
+  background:rgba(255,255,255,0.6);border-radius:0 0 12px 12px;
+  transition:none;pointer-events:none;
+}
+.btn.holding .hold-bar{transition:width 2s linear}
+.btn.holding{opacity:.85;transform:scale(.98)}
+
+/* HOLD HINT */
+.hold-hint{font-size:10px;opacity:.7;display:block;margin-top:2px;font-weight:400}
+
+/* DIALOG */
+.dialog-overlay{position:fixed;inset:0;background:rgba(26,18,8,.5);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;transition:opacity .2s;pointer-events:none}
+.dialog-overlay.show{opacity:1;pointer-events:all}
+.dialog{background:var(--white);border-radius:var(--radius);padding:28px 24px;max-width:340px;width:100%;box-shadow:0 8px 40px rgba(26,18,8,.2);text-align:center}
+.dialog-emoji{font-size:40px;margin-bottom:12px}
+.dialog-title{font-size:17px;font-weight:600;margin-bottom:8px}
+.dialog-sub{font-size:13px;color:var(--gray);margin-bottom:24px;line-height:1.5}
+.dialog-btns{display:flex;flex-direction:column;gap:10px}
+
+/* SALES */
 .sales-label{font-size:13px;color:var(--gray);margin-bottom:8px;font-weight:500}
 .sales-input-wrap{display:flex;align-items:center;background:var(--gray-light);border-radius:10px;padding:0 16px;border:1.5px solid #E8E0D4;margin-bottom:16px}
 .sales-peso{font-size:18px;font-weight:600;color:var(--gray);margin-right:8px}
@@ -72,12 +124,16 @@ body{font-family:'DM Sans',sans-serif;background:var(--white);color:var(--black)
 .platform-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
 .platform-btn{padding:10px 4px;border-radius:10px;border:1.5px solid #E8E0D4;font-size:12px;font-weight:500;cursor:pointer;text-align:center;background:var(--white);color:var(--gray);transition:all .12s}
 .platform-btn.selected{background:var(--honey-light);border-color:var(--honey);color:var(--honey-dark)}
-.success-wrap{text-align:center;padding:32px 20px}
-.success-emoji{font-size:56px;margin-bottom:16px}
+
+/* SUCCESS */
+.success-wrap{text-align:center;padding:28px 16px}
+.success-photo{width:90px;height:90px;border-radius:50%;object-fit:cover;margin:0 auto 16px;display:block;border:3px solid var(--honey)}
+.success-emoji{font-size:52px;margin-bottom:14px}
 .success-title{font-size:20px;font-weight:600;margin-bottom:8px}
 .success-sub{font-size:13px;color:var(--gray);margin-bottom:24px;line-height:1.6;white-space:pre-line}
-.success-photo{width:90px;height:90px;border-radius:50%;object-fit:cover;margin:0 auto 16px;display:block;border:3px solid var(--honey)}
-.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--black);color:var(--white);padding:11px 22px;border-radius:99px;font-size:13px;font-weight:500;opacity:0;transition:opacity .25s;pointer-events:none;z-index:999;white-space:nowrap;max-width:90vw}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--black);color:var(--white);padding:11px 22px;border-radius:99px;font-size:13px;font-weight:500;opacity:0;transition:opacity .25s;pointer-events:none;z-index:200;white-space:nowrap;max-width:90vw}
 .toast.show{opacity:1}
 .toast.ok{background:var(--green)}
 .toast.err{background:var(--red)}
@@ -85,6 +141,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--white);color:var(--black)
 </head>
 <body>
 
+<!-- HEADER -->
 <div class="header">
   <div class="logo">
     <div class="logo-hex">🐝</div>
@@ -101,7 +158,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--white);color:var(--black)
   <div class="card">
     <div class="card-title">Select Your Name</div>
     <div class="conn-badge online" id="connBadge"><div class="conn-dot"></div><span id="connText">Connected</span></div>
-    <div id="empList" class="emp-list"><div class="loading-list"><div class="spinner"></div>Loading employees...</div></div>
+    <div id="empList" class="emp-list">
+      <div class="loading-list"><div class="spinner"></div>Loading employees...</div>
+    </div>
   </div>
 </div>
 
@@ -132,7 +191,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--white);color:var(--black)
   </div>
 </div>
 
-<!-- S3: ACTION -->
+<!-- S3: ACTION SCREEN -->
 <div class="screen" id="s3">
   <div class="card">
     <div class="card-title">Confirm Action</div>
@@ -140,6 +199,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--white);color:var(--black)
       <div class="sel-avatar" id="s3Av"></div>
       <div><div class="sel-name" id="s3Name"></div><div class="sel-role" id="s3Role"></div></div>
     </div>
+    <!-- Camera (shown for Time In / Time Out only) -->
     <div id="camSec">
       <div class="camera-wrap">
         <video id="videoEl" autoplay playsinline muted></video>
@@ -148,21 +208,25 @@ body{font-family:'DM Sans',sans-serif;background:var(--white);color:var(--black)
       <canvas id="canvasEl"></canvas>
     </div>
     <div class="action-label" id="actionLabel"></div>
-    <button class="btn" id="actionBtn" onclick="doAction()"></button>
+    <!-- Action buttons container — filled dynamically -->
+    <div id="actionBtns"></div>
     <button class="btn btn-ghost" onclick="goHome()">Cancel</button>
   </div>
 </div>
 
-<!-- S4: SALES PROMPT -->
+<!-- S4: SALES PROMPT (END LIVE) -->
 <div class="screen" id="s4">
   <div class="card">
     <div class="card-title">Live Session Summary</div>
     <div class="sel-emp">
-      <div class="sel-avatar live" id="s4Av"></div>
+      <div class="sel-avatar live-seller" id="s4Av"></div>
       <div><div class="sel-name" id="s4Name"></div><div class="sel-role">Live Seller</div></div>
     </div>
     <div class="sales-label">Total Sales This Session</div>
-    <div class="sales-input-wrap"><span class="sales-peso">&#8369;</span><input class="sales-input" id="salesInput" type="number" placeholder="0.00" inputmode="decimal"/></div>
+    <div class="sales-input-wrap">
+      <span class="sales-peso">&#8369;</span>
+      <input class="sales-input" id="salesInput" type="number" placeholder="0.00" inputmode="decimal"/>
+    </div>
     <div class="sales-label">Platform</div>
     <div class="platform-grid">
       <div class="platform-btn" onclick="selPlat('FB Live')">FB Live</div>
@@ -190,195 +254,469 @@ body{font-family:'DM Sans',sans-serif;background:var(--white);color:var(--black)
   </div>
 </div>
 
+<!-- CONFIRMATION DIALOG -->
+<div class="dialog-overlay" id="dialogOverlay">
+  <div class="dialog">
+    <div class="dialog-emoji" id="dlgEmoji"></div>
+    <div class="dialog-title" id="dlgTitle"></div>
+    <div class="dialog-sub" id="dlgSub"></div>
+    <div class="dialog-btns">
+      <button class="btn btn-danger" id="dlgConfirm"></button>
+      <button class="btn btn-ghost" onclick="closeDialog()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
 <div class="toast" id="toast"></div>
 
 <script>
-var PB='https://pocketbase-production-2d49.up.railway.app';
-var ST={OUT:0,IN:1,IN_LIVE:2,LIVE:3,LIVE_DONE:4};
-var emps=[],selEmp=null,plcState=ST.OUT,openDTR=null,openLive=null;
-var pin='',photo=null,platform='',stream=null;
+// ══════════════════════════════
+// CONFIG
+// ══════════════════════════════
+var PB = 'https://pocketbase-production-2d49.up.railway.app';
 
-function tick(){var n=new Date();document.getElementById('clockTime').textContent=n.toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit',second:'2-digit'});document.getElementById('clockDate').textContent=n.toLocaleDateString('en-PH',{weekday:'short',month:'short',day:'numeric'})}
-setInterval(tick,1000);tick();
+// ══════════════════════════════
+// PLC STATES
+// ══════════════════════════════
+var ST = { OUT:0, IN:1, IN_LIVE:2, LIVE:3, LIVE_DONE:4 };
 
-function updConn(){var on=navigator.onLine;var b=document.getElementById('connBadge');b.className='conn-badge '+(on?'online':'offline');document.getElementById('connText').textContent=on?'Connected':'Offline'}
-window.addEventListener('online',updConn);window.addEventListener('offline',updConn);updConn();
+// ══════════════════════════════
+// APP STATE
+// ══════════════════════════════
+var emps=[], selEmp=null, plcState=ST.OUT;
+var openDTR=null, openLive=null;
+var pin='', photo=null, platform='', stream=null;
+var holdTimer=null, holdInterval=null;
+var pendingAction=null; // for dialog confirmation
 
-function toast(m,t){var el=document.getElementById('toast');el.textContent=m;el.className='toast show '+(t||'');setTimeout(function(){el.className='toast'},2500)}
+// ══════════════════════════════
+// CLOCK
+// ══════════════════════════════
+function tick(){
+  var n=new Date();
+  document.getElementById('clockTime').textContent=n.toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  document.getElementById('clockDate').textContent=n.toLocaleDateString('en-PH',{weekday:'short',month:'short',day:'numeric'});
+}
+setInterval(tick,1000); tick();
 
-function show(id){document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active')});document.getElementById(id).classList.add('active')}
+// ══════════════════════════════
+// CONNECTIVITY
+// ══════════════════════════════
+function updConn(){
+  var on=navigator.onLine;
+  var b=document.getElementById('connBadge');
+  b.className='conn-badge '+(on?'online':'offline');
+  document.getElementById('connText').textContent=on?'Connected':'Offline';
+}
+window.addEventListener('online',updConn);
+window.addEventListener('offline',updConn);
+updConn();
+
+// ══════════════════════════════
+// TOAST
+// ══════════════════════════════
+function toast(m,t){
+  var el=document.getElementById('toast');
+  el.textContent=m; el.className='toast show '+(t||'');
+  setTimeout(function(){el.className='toast'},2500);
+}
+
+// ══════════════════════════════
+// SCREENS
+// ══════════════════════════════
+function show(id){
+  document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active')});
+  document.getElementById(id).classList.add('active');
+}
 
 function goHome(){
-  stopCam();pin='';selEmp=null;plcState=ST.OUT;openDTR=null;openLive=null;photo=null;platform='';
+  stopCam(); cancelHold();
+  pin=''; selEmp=null; plcState=ST.OUT;
+  openDTR=null; openLive=null; photo=null; platform='';
   document.getElementById('pinDisplay').textContent='____';
   document.getElementById('salesInput').value='';
   document.querySelectorAll('.platform-btn').forEach(function(b){b.classList.remove('selected')});
-  loadEmps();show('s1');
+  closeDialog();
+  loadEmps(); show('s1');
 }
 
-function inits(e){return e.name.split(' ').map(function(w){return w[0]}).slice(0,2).join('')}
-function roleLabel(e){return e.role==='live_seller'?'Live Seller':'Regular Staff'}
-function isLive(e){return e.role==='live_seller'}
+// ══════════════════════════════
+// HELPERS
+// ══════════════════════════════
+function inits(e){ return e.name.split(' ').map(function(w){return w[0]}).slice(0,2).join('') }
+function roleLabel(e){ return e.role==='live_seller'?'Live Seller':'Regular Staff' }
+function isLiveSeller(e){ return e.role==='live_seller' }
+function timeStr(d){ return d.toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit'}) }
+function today(){ return new Date().toISOString().split('T')[0] }
 
+// ══════════════════════════════
+// LOAD EMPLOYEES
+// ══════════════════════════════
 async function loadEmps(){
   document.getElementById('empList').innerHTML='<div class="loading-list"><div class="spinner"></div>Loading...</div>';
   try{
     var r=await fetch(PB+'/api/collections/employees/records?filter=(is_active=true)&sort=name&perPage=50');
-    var d=await r.json();emps=d.items||[];
+    var d=await r.json(); emps=d.items||[];
     await renderList();
-  }catch(e){document.getElementById('empList').innerHTML='<div class="loading-list">Cannot load. Check connection.</div>'}
+  }catch(e){
+    document.getElementById('empList').innerHTML='<div class="loading-list">Cannot load. Check connection.</div>';
+  }
 }
 
 async function renderList(){
-  var today=new Date().toISOString().split('T')[0];
-  var dtrMap={},liveMap={};
+  var t=today();
+  var dtrMap={}, liveMap={};
   try{
-    var dr=await fetch(PB+'/api/collections/dtr_logs/records?filter=(date=\''+today+'\'&&status=\'open\')&perPage=50');
-    var dd=await dr.json();(dd.items||[]).forEach(function(d){dtrMap[d.employee_id]=d});
+    var dr=await fetch(PB+'/api/collections/dtr_logs/records?filter=(date=\''+t+'\'&&status=\'open\')&perPage=50');
+    var dd=await dr.json(); (dd.items||[]).forEach(function(d){dtrMap[d.employee_id]=d});
     var lr=await fetch(PB+'/api/collections/live_sessions/records?filter=(status=\'active\')&perPage=50');
-    var ld=await lr.json();(ld.items||[]).forEach(function(l){liveMap[l.employee_id]=l});
+    var ld=await lr.json(); (ld.items||[]).forEach(function(l){liveMap[l.employee_id]=l});
   }catch(e){}
+
   document.getElementById('empList').innerHTML=emps.map(function(emp){
-    var hasDTR=!!dtrMap[emp.id],hasLive=!!liveMap[emp.id];
+    var hasDTR=!!dtrMap[emp.id], hasLive=!!liveMap[emp.id];
     var stTxt,stCls;
-    if(!hasDTR){stTxt='OUT';stCls='state-out'}
-    else if(hasLive){stTxt='LIVE';stCls='state-live'}
-    else{stTxt='IN';stCls='state-in'}
-    return'<div class="emp-item" onclick="pickEmp(\''+emp.id+'\')"><div class="emp-avatar '+(isLive(emp)?'live':'')+'">'+(inits(emp))+'</div><div><div class="emp-item-name">'+emp.name+'</div><div class="emp-item-role">'+roleLabel(emp)+'</div></div><div class="emp-state-badge '+stCls+'">'+stTxt+'</div></div>';
+    if(!hasDTR){stTxt='OUT';stCls='st-out'}
+    else if(hasLive){stTxt='LIVE';stCls='st-live'}
+    else{stTxt='IN';stCls='st-in'}
+    return '<div class="emp-item" onclick="pickEmp(\''+emp.id+'\')">'
+      +'<div class="emp-avatar '+(isLiveSeller(emp)?'live-seller':'')+'">'+(inits(emp))+'</div>'
+      +'<div><div class="emp-item-name">'+emp.name+'</div>'
+      +'<div class="emp-item-role">'+roleLabel(emp)+'</div></div>'
+      +'<div class="emp-state-badge '+stCls+'">'+stTxt+'</div>'
+      +'</div>';
   }).join('');
 }
 
+// ══════════════════════════════
+// PICK EMPLOYEE → determine PLC state
+// ══════════════════════════════
 async function pickEmp(id){
-  selEmp=emps.find(function(e){return e.id===id});if(!selEmp)return;
-  var today=new Date().toISOString().split('T')[0];
+  selEmp=emps.find(function(e){return e.id===id});
+  if(!selEmp)return;
+  var t=today();
   try{
-    var dr=await fetch(PB+'/api/collections/dtr_logs/records?filter=(employee_id=\''+selEmp.id+'\'&&date=\''+today+'\'&&status=\'open\')&sort=-created');
-    var dd=await dr.json();openDTR=dd.items&&dd.items.length>0?dd.items[0]:null;
+    var dr=await fetch(PB+'/api/collections/dtr_logs/records?filter=(employee_id=\''+selEmp.id+'\'&&date=\''+t+'\'&&status=\'open\')&sort=-created');
+    var dd=await dr.json(); openDTR=dd.items&&dd.items.length>0?dd.items[0]:null;
     openLive=null;
-    if(isLive(selEmp)){
+    if(isLiveSeller(selEmp)){
       var lr=await fetch(PB+'/api/collections/live_sessions/records?filter=(employee_id=\''+selEmp.id+'\'&&status=\'active\')&sort=-created');
-      var ld=await lr.json();openLive=ld.items&&ld.items.length>0?ld.items[0]:null;
+      var ld=await lr.json(); openLive=ld.items&&ld.items.length>0?ld.items[0]:null;
     }
-  }catch(e){toast('Connection error.','err');return}
-  if(!openDTR) plcState=ST.OUT;
-  else if(openLive) plcState=ST.LIVE;
-  else if(isLive(selEmp)) plcState=ST.IN_LIVE;
-  else plcState=ST.IN;
-  document.getElementById('s2Av').textContent=inits(selEmp);
-  document.getElementById('s2Av').className='sel-avatar'+(isLive(selEmp)?' live':'');
+  }catch(e){ toast('Connection error.','err'); return; }
+
+  // PLC STATE DETERMINATION
+  if(!openDTR)               plcState=ST.OUT;
+  else if(openLive)          plcState=ST.LIVE;
+  else if(isLiveSeller(selEmp)) plcState=ST.IN_LIVE;
+  else                       plcState=ST.IN;
+
+  // go to PIN
+  var av=document.getElementById('s2Av');
+  av.textContent=inits(selEmp);
+  av.className='sel-avatar'+(isLiveSeller(selEmp)?' live-seller':'');
   document.getElementById('s2Name').textContent=selEmp.name;
   document.getElementById('s2Role').textContent=roleLabel(selEmp);
-  pin='';document.getElementById('pinDisplay').textContent='____';
+  pin=''; document.getElementById('pinDisplay').textContent='____';
   show('s2');
 }
 
-function pinPress(n){if(pin.length>=4)return;pin+=n;document.getElementById('pinDisplay').textContent=pin.replace(/./g,'●').padEnd(4,'_');if(pin.length===4)setTimeout(verifyPin,300)}
-function pinDel(){pin=pin.slice(0,-1);document.getElementById('pinDisplay').textContent=pin.replace(/./g,'●').padEnd(4,'_')}
-function pinClear(){pin='';document.getElementById('pinDisplay').textContent='____'}
+// ══════════════════════════════
+// PIN PAD
+// ══════════════════════════════
+function pinPress(n){
+  if(pin.length>=4)return;
+  pin+=n;
+  document.getElementById('pinDisplay').textContent=pin.replace(/./g,'●').padEnd(4,'_');
+  if(pin.length===4)setTimeout(verifyPin,300);
+}
+function pinDel(){ pin=pin.slice(0,-1); document.getElementById('pinDisplay').textContent=pin.replace(/./g,'●').padEnd(4,'_'); }
+function pinClear(){ pin=''; document.getElementById('pinDisplay').textContent='____'; }
 
 async function verifyPin(){
-  if(pin!==selEmp.pin){toast('Wrong PIN. Try again.','err');pinClear();return}
+  if(pin!==selEmp.pin){ toast('Wrong PIN. Try again.','err'); pinClear(); return; }
   showAction();
 }
 
+// ══════════════════════════════
+// ACTION SCREEN — PLC drives the UI
+// ══════════════════════════════
 function showAction(){
-  document.getElementById('s3Av').textContent=inits(selEmp);
-  document.getElementById('s3Av').className='sel-avatar'+(isLive(selEmp)?' live':'');
+  var av=document.getElementById('s3Av');
+  av.textContent=inits(selEmp);
+  av.className='sel-avatar'+(isLiveSeller(selEmp)?' live-seller':'');
   document.getElementById('s3Name').textContent=selEmp.name;
   document.getElementById('s3Role').textContent=roleLabel(selEmp);
-  var btn=document.getElementById('actionBtn');
+
   var lbl=document.getElementById('actionLabel');
   var cam=document.getElementById('camSec');
-  if(plcState===ST.OUT){btn.textContent='Time In';btn.className='btn btn-timein';lbl.textContent='Not clocked in — tap to start shift';cam.style.display='block';startCam()}
-  else if(plcState===ST.IN){btn.textContent='Time Out';btn.className='btn btn-timeout';lbl.textContent='Currently in — tap to end shift';cam.style.display='block';startCam()}
-  else if(plcState===ST.IN_LIVE){btn.textContent='Start Live';btn.className='btn btn-startlive';lbl.textContent='Clocked in — tap to start live session';cam.style.display='none'}
-  else if(plcState===ST.LIVE){btn.textContent='End Live';btn.className='btn btn-endlive';lbl.textContent='Live active — tap to end live session';cam.style.display='none'}
-  else if(plcState===ST.LIVE_DONE){btn.textContent='Time Out';btn.className='btn btn-timeout';lbl.textContent='Live ended — tap to end shift';cam.style.display='block';startCam()}
+  var btns=document.getElementById('actionBtns');
+
+  // reset
+  cam.style.display='none'; stopCam();
+
+  switch(plcState){
+
+    case ST.OUT:
+      // TIME IN — instant, no hold, no dialog, with camera
+      lbl.textContent='Not clocked in — tap Time In to start your shift';
+      cam.style.display='block'; startCam();
+      btns.innerHTML=makeBtn('btn-timein','timein','Time In',false);
+      break;
+
+    case ST.IN:
+      // Regular staff — Time Out only (hold + dialog)
+      lbl.textContent='Currently clocked in — tap Time Out to end your shift';
+      cam.style.display='block'; startCam();
+      btns.innerHTML=makeBtn('btn-timeout','timeout','Time Out',true);
+      break;
+
+    case ST.IN_LIVE:
+      // Live seller — Start Live (hold+dialog) + Time Out (hold+dialog)
+      lbl.textContent='Choose your action';
+      cam.style.display='none';
+      btns.innerHTML=
+        makeBtn('btn-startlive','startlive','Start Live',true)+
+        makeBtn('btn-timeout','timeout','Time Out',true);
+      break;
+
+    case ST.LIVE:
+      // End Live — hold, no dialog
+      lbl.textContent='Live session is active — hold to end live';
+      cam.style.display='none';
+      btns.innerHTML=makeBtn('btn-endlive','endlive','End Live',true,false);
+      break;
+
+    case ST.LIVE_DONE:
+      // Time Out — hold + dialog, with camera
+      lbl.textContent='Live ended — hold Time Out to end your shift';
+      cam.style.display='block'; startCam();
+      btns.innerHTML=makeBtn('btn-timeout','timeout','Time Out',true);
+      break;
+  }
+
   show('s3');
 }
 
-async function startCam(){
-  try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:false});document.getElementById('videoEl').srcObject=stream}
-  catch(e){toast('Camera unavailable.');document.getElementById('camSec').style.display='none'}
-}
-function stopCam(){if(stream){stream.getTracks().forEach(function(t){t.stop()});stream=null}}
-function capPhoto(){
-  var v=document.getElementById('videoEl'),c=document.getElementById('canvasEl');
-  if(!stream||!v.videoWidth)return null;
-  c.width=v.videoWidth;c.height=v.videoHeight;
-  var ctx=c.getContext('2d');ctx.scale(-1,1);ctx.drawImage(v,-c.width,0);
-  return c.toDataURL('image/jpeg',.75);
+// Build button HTML
+// needsHold: true = hold 2s required; needsDialog: true = show confirmation after hold
+function makeBtn(cls, action, label, needsHold, needsDialog){
+  if(needsDialog===undefined) needsDialog=true;
+  var hint=needsHold?'<span class="hold-hint">Hold to confirm</span>':'';
+  if(needsHold){
+    return '<button class="btn '+cls+'" '
+      +'onmousedown="startHold(this,\''+action+'\','+needsDialog+')" '
+      +'ontouchstart="startHold(this,\''+action+'\','+needsDialog+')" '
+      +'onmouseup="cancelHold()" onmouseleave="cancelHold()" '
+      +'ontouchend="cancelHold()" ontouchcancel="cancelHold()">'
+      +label+hint
+      +'<div class="hold-bar" id="holdBar_'+action+'"></div>'
+      +'</button>';
+  } else {
+    return '<button class="btn '+cls+'" onclick="execAction(\''+action+'\')">'
+      +label+'</button>';
+  }
 }
 
-async function doAction(){
-  var now=new Date(),today=now.toISOString().split('T')[0];
-  var timeStr=now.toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit'});
-  if(plcState===ST.OUT){
-    photo=capPhoto();stopCam();toast('Recording time in...');
+// ══════════════════════════════
+// HOLD-TO-CONFIRM
+// ══════════════════════════════
+function startHold(btn, action, needsDialog){
+  cancelHold();
+  var bar=document.getElementById('holdBar_'+action);
+  if(bar){ bar.style.width='0%'; }
+  btn.classList.add('holding');
+  // start progress
+  setTimeout(function(){
+    if(bar){ bar.style.width='100%'; }
+  },30);
+  holdTimer=setTimeout(function(){
+    btn.classList.remove('holding');
+    if(bar){ bar.style.width='0%'; }
+    if(needsDialog){
+      showDialog(action);
+    } else {
+      execAction(action);
+    }
+  },2000);
+}
+
+function cancelHold(){
+  if(holdTimer){ clearTimeout(holdTimer); holdTimer=null; }
+  document.querySelectorAll('.btn.holding').forEach(function(b){
+    b.classList.remove('holding');
+  });
+  document.querySelectorAll('.hold-bar').forEach(function(b){
+    b.style.transition='none';
+    b.style.width='0%';
+    setTimeout(function(){b.style.transition=''},50);
+  });
+}
+
+// ══════════════════════════════
+// DIALOG (confirmation)
+// ══════════════════════════════
+var dialogMeta = {
+  startlive:{ emoji:'📡', title:'Start Live Session?', sub:'This will record the start of your live selling session.', btnLabel:'Yes, Start Live', btnCls:'btn-startlive' },
+  timeout:  { emoji:'🔴', title:'Time Out?',            sub:'This will end your shift for today. Make sure you are done for the day.', btnLabel:'Yes, Time Out', btnCls:'btn-danger' },
+};
+
+function showDialog(action){
+  pendingAction=action;
+  var m=dialogMeta[action];
+  document.getElementById('dlgEmoji').textContent=m.emoji;
+  document.getElementById('dlgTitle').textContent=m.title;
+  document.getElementById('dlgSub').textContent=m.sub;
+  var cb=document.getElementById('dlgConfirm');
+  cb.textContent=m.btnLabel;
+  cb.className='btn '+m.btnCls;
+  cb.onclick=function(){ closeDialog(); execAction(action); };
+  document.getElementById('dialogOverlay').classList.add('show');
+}
+
+function closeDialog(){
+  document.getElementById('dialogOverlay').classList.remove('show');
+  pendingAction=null;
+}
+
+// ══════════════════════════════
+// EXECUTE ACTION — PLC transition
+// ══════════════════════════════
+async function execAction(action){
+  var now=new Date(), t=today(), ts=timeStr(now);
+
+  if(action==='timein'){
+    // TIME IN — instant, camera photo
+    photo=capPhoto(); stopCam();
+    toast('Recording time in...');
     try{
-      var body={employee_id:selEmp.id,time_in:now.toISOString(),date:today,type:isLive(selEmp)?'live_sell':'regular',status:'open',is_auto_timeout:false};
+      var body={employee_id:selEmp.id,time_in:now.toISOString(),date:t,type:isLiveSeller(selEmp)?'live_sell':'regular',status:'open',is_auto_timeout:false};
       var r=await fetch(PB+'/api/collections/dtr_logs/records',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
       if(!r.ok)throw new Error();
-      openDTR=await r.json();logAct('create','dtr_logs',openDTR.id,body);
-      showSuccess('','Time In Recorded!',selEmp.name+'\n'+timeStr,photo);
-    }catch(e){toast('Error. Try again.','err');startCam()}
-  }else if(plcState===ST.IN||plcState===ST.LIVE_DONE){
-    photo=capPhoto();stopCam();toast('Recording time out...');
+      openDTR=await r.json();
+      logAct('create','dtr_logs',openDTR.id,body);
+      showSuccess('🟢','Time In Recorded!',selEmp.name+'\n'+ts,photo);
+    }catch(e){ toast('Error. Try again.','err'); startCam(); }
+
+  } else if(action==='startlive'){
+    // START LIVE — hold + dialog
+    toast('Starting live session...');
     try{
-      var tin=new Date(openDTR.time_in),hrs=Math.round(((now-tin)/3600000)*100)/100;
+      var body={employee_id:selEmp.id,start_time:now.toISOString(),date:t,status:'active'};
+      var r=await fetch(PB+'/api/collections/live_sessions/records',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      if(!r.ok)throw new Error();
+      openLive=await r.json();
+      logAct('create','live_sessions',openLive.id,body);
+      showSuccess('📡','Live Session Started!',selEmp.name+'\nStarted: '+ts,null);
+    }catch(e){ toast('Error. Try again.','err'); }
+
+  } else if(action==='endlive'){
+    // END LIVE — hold, no dialog → go to sales prompt
+    document.getElementById('s4Av').textContent=inits(selEmp);
+    document.getElementById('s4Name').textContent=selEmp.name;
+    show('s4');
+
+  } else if(action==='timeout'){
+    // TIME OUT — hold + dialog, camera photo
+    photo=capPhoto(); stopCam();
+    toast('Recording time out...');
+    try{
+      var tin=new Date(openDTR.time_in);
+      var hrs=Math.round(((now-tin)/3600000)*100)/100;
       var upd={time_out:now.toISOString(),status:'closed',total_hours:hrs};
       var r=await fetch(PB+'/api/collections/dtr_logs/records/'+openDTR.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(upd)});
       if(!r.ok)throw new Error();
       logAct('update','dtr_logs',openDTR.id,upd);
-      var h=Math.floor(hrs),m=Math.round((hrs-h)*60);
-      showSuccess('','Time Out Recorded!',selEmp.name+'\n'+timeStr+'\nTotal: '+h+'h '+m+'m',photo);
-    }catch(e){toast('Error. Try again.','err');startCam()}
-  }else if(plcState===ST.IN_LIVE){
-    toast('Starting live session...');
-    try{
-      var body={employee_id:selEmp.id,start_time:now.toISOString(),date:today,status:'active'};
-      var r=await fetch(PB+'/api/collections/live_sessions/records',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-      if(!r.ok)throw new Error();
-      openLive=await r.json();logAct('create','live_sessions',openLive.id,body);
-      showSuccess('','Live Session Started!',selEmp.name+'\nStarted: '+timeStr,null);
-    }catch(e){toast('Error. Try again.','err')}
-  }else if(plcState===ST.LIVE){
-    document.getElementById('s4Av').textContent=inits(selEmp);
-    document.getElementById('s4Name').textContent=selEmp.name;
-    show('s4');
+      var h=Math.floor(hrs), m=Math.round((hrs-h)*60);
+      showSuccess('🔴','Time Out Recorded!',selEmp.name+'\n'+ts+'\nTotal: '+h+'h '+m+'m',photo);
+    }catch(e){ toast('Error. Try again.','err'); startCam(); }
   }
 }
 
-function selPlat(p){platform=p;document.querySelectorAll('.platform-btn').forEach(function(b){b.classList.toggle('selected',b.textContent.trim()===p)})}
+// ══════════════════════════════
+// PLATFORM SELECTION
+// ══════════════════════════════
+function selPlat(p){
+  platform=p;
+  document.querySelectorAll('.platform-btn').forEach(function(b){
+    b.classList.toggle('selected',b.textContent.trim()===p);
+  });
+}
 
+// ══════════════════════════════
+// SUBMIT END LIVE
+// ══════════════════════════════
 async function submitEndLive(){
   var sales=parseFloat(document.getElementById('salesInput').value)||0;
-  if(!platform){toast('Please select a platform.','err');return}
-  var now=new Date();toast('Ending live session...');
+  if(!platform){ toast('Please select a platform.','err'); return; }
+  var now=new Date(), ts=timeStr(now);
+  toast('Ending live session...');
   try{
-    var start=new Date(openLive.start_time),dur=Math.round(((now-start)/3600000)*100)/100;
+    var start=new Date(openLive.start_time);
+    var dur=Math.round(((now-start)/3600000)*100)/100;
     var upd={end_time:now.toISOString(),status:'done',duration_hours:dur,sales_amount:sales,platform:platform};
     var r=await fetch(PB+'/api/collections/live_sessions/records/'+openLive.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(upd)});
     if(!r.ok)throw new Error();
     logAct('update','live_sessions',openLive.id,upd);
-    var h=Math.floor(dur),m=Math.round((dur-h)*60);
-    showSuccess('','Live Ended!',selEmp.name+'\nDuration: '+h+'h '+m+'m\nSales: P'+sales.toLocaleString()+'\nPlatform: '+platform,null);
-  }catch(e){toast('Error. Try again.','err')}
+    var h=Math.floor(dur), m=Math.round((dur-h)*60);
+    showSuccess('⏹','Live Session Ended!',selEmp.name+'\nDuration: '+h+'h '+m+'m\nSales: ₱'+sales.toLocaleString()+'\nPlatform: '+platform,null);
+  }catch(e){ toast('Error. Try again.','err'); }
 }
 
+// ══════════════════════════════
+// CAMERA
+// ══════════════════════════════
+async function startCam(){
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:false});
+    document.getElementById('videoEl').srcObject=stream;
+  }catch(e){
+    toast('Camera unavailable.');
+    document.getElementById('camSec').style.display='none';
+  }
+}
+function stopCam(){
+  if(stream){ stream.getTracks().forEach(function(t){t.stop()}); stream=null; }
+}
+function capPhoto(){
+  var v=document.getElementById('videoEl'), c=document.getElementById('canvasEl');
+  if(!stream||!v.videoWidth)return null;
+  c.width=v.videoWidth; c.height=v.videoHeight;
+  var ctx=c.getContext('2d');
+  ctx.scale(-1,1); ctx.drawImage(v,-c.width,0);
+  return c.toDataURL('image/jpeg',.75);
+}
+
+// ══════════════════════════════
+// SUCCESS SCREEN
+// ══════════════════════════════
 function showSuccess(emoji,title,sub,pic){
-  document.getElementById('sucEmoji').textContent=emoji;
+  document.getElementById('sucEmoji').textContent=pic?'':emoji;
   document.getElementById('sucTitle').textContent=title;
   document.getElementById('sucSub').textContent=sub;
   var p=document.getElementById('sucPhoto');
-  if(pic){p.src=pic;p.style.display='block'}else{p.style.display='none'}
-  show('s5');setTimeout(goHome,5000);
+  if(pic){ p.src=pic; p.style.display='block'; }
+  else { p.style.display='none'; }
+  show('s5');
+  setTimeout(goHome,5000);
 }
 
+// ══════════════════════════════
+// ACTION LOG
+// ══════════════════════════════
 async function logAct(action,col,rid,val){
-  try{await fetch(PB+'/api/collections/action_log/records',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({module:'hr',action:action,collection:col,record_id:rid||'',new_value:JSON.stringify(val)})})}catch(e){}
+  try{
+    await fetch(PB+'/api/collections/action_log/records',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({module:'hr',action:action,collection:col,record_id:rid||'',new_value:JSON.stringify(val)})
+    });
+  }catch(e){}
 }
 
+// ══════════════════════════════
+// INIT
+// ══════════════════════════════
 loadEmps();
 </script>
 </body>
