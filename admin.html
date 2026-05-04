@@ -1214,7 +1214,7 @@ async function loadSchedules(){
   var dates=getWeekDates(weekVal);
   document.getElementById('schedWeekLabel').textContent=dates.start+' to '+dates.end;
   try{
-    var r=await fetch(PB+'/api/collections/schedules/records?filter=(week_start%3D%22'+dates.start+'%2000%3A00%3A00%22)&perPage=50&expand=employee_id');
+    var r=await fetch(PB+'/api/collections/schedules/records?filter=(week_start%3E%3D%22'+dates.start+'%2000%3A00%3A00%22%26%26week_end%3C%3D%22'+dates.end+'%2023%3A59%3A59%22)&perPage=50&expand=employee_id');
     var d=await r.json(); var items=d.items||[];
     // build map of existing schedules
     var schedMap={};
