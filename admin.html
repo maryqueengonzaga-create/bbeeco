@@ -224,6 +224,7 @@ tr:hover td{background:var(--gray-light)}
               <th>Schedule</th>
               <th>Reg Rate</th>
               <th>Live Rate</th>
+              <th>Allowance</th>
               <th>Status</th>
               <th>Actions</th>
             </tr>
@@ -569,6 +570,16 @@ tr:hover td{background:var(--gray-light)}
       <label class="form-label">Phone (optional)</label>
       <input class="form-input" id="empPhone" placeholder="09XX XXX XXXX"/>
     </div>
+    <div class="form-row">
+    <div class="form-group">
+      <label class="form-label">Weekly Allowance (₱)</label>
+      <input class="form-input" id="empWeeklyAllow" type="number" placeholder="0"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Cutoff Allowance (₱)</label>
+      <input class="form-input" id="empCutoffAllow" type="number" placeholder="0"/>
+    </div>
+  </div>
     <div class="modal-btns">
       <button class="btn btn-ghost" onclick="closeModal('empModal')">Cancel</button>
       <button class="btn btn-primary" onclick="saveEmployee()">Save Employee</button>
@@ -1077,8 +1088,10 @@ function renderEmpTable(emps){
       ?'<button class="btn btn-success btn-sm" onclick="toggleLock(\''+e.id+'\',false)">Unlock</button>'
       :'<button class="btn btn-danger btn-sm" onclick="toggleLock(\''+e.id+'\',true)">Lock</button>';
     var canEdit=currentAdmin.role==='owner'||currentAdmin.perms.edit_emp;
+    var allowBadge=((e.weekly_allowance||0)>0||(e.cutoff_allowance||0)>0)?
+      '<span class="badge badge-green">W:₱'+(e.weekly_allowance||0)+' C:₱'+(e.cutoff_allowance||0)+'</span>':'<span class="badge badge-gray">No allowance</span>';
     var actions=canEdit?'<button class="btn btn-ghost btn-sm" onclick="openEditEmp(\''+e.id+'\')">Edit</button> '+lockBtn:lockBtn;
-    return '<tr><td><strong>'+e.name+'</strong><br><span style="font-size:11px;color:var(--gray)">Strikes: '+(e.incomplete_sessions||0)+'/3</span></td><td>'+roleBadge+'</td><td>'+schedBadge+'</td><td>₱'+e.reg_rate+'</td><td>₱'+e.live_rate+'</td><td>'+statusBadge+'</td><td style="display:flex;gap:6px">'+actions+'</td></tr>';
+    return '<tr><td><strong>'+e.name+'</strong><br><span style="font-size:11px;color:var(--gray)">Strikes: '+(e.incomplete_sessions||0)+'/3</span></td><td>'+roleBadge+'</td><td>'+schedBadge+'</td><td>₱'+e.reg_rate+'</td><td>₱'+e.live_rate+'</td><td>'+allowBadge+'</td><td>'+statusBadge+'</td><td style="display:flex;gap:6px">'+actions+'</td></tr>';
   }).join('');
 }
 
@@ -1137,6 +1150,8 @@ function openAddEmp(){
   document.getElementById('empPin').value='';
   document.getElementById('empEmail').value='';
   document.getElementById('empPhone').value='';
+  document.getElementById('empWeeklyAllow').value='0';
+  document.getElementById('empCutoffAllow').value='0';
   document.getElementById('empModal').classList.add('show');
 }
 
@@ -1153,6 +1168,8 @@ function openEditEmp(id){
   document.getElementById('empPin').value=e.pin;
   document.getElementById('empEmail').value=e.email||'';
   document.getElementById('empPhone').value=e.phone||'';
+  document.getElementById('empWeeklyAllow').value=e.weekly_allowance||0;
+  document.getElementById('empCutoffAllow').value=e.cutoff_allowance||0;
   document.getElementById('empModal').classList.add('show');
 }
 
@@ -1170,7 +1187,9 @@ async function saveEmployee(){
     live_rate:parseFloat(document.getElementById('empLiveRate').value)||83.33,
     email:document.getElementById('empEmail').value,
     phone:document.getElementById('empPhone').value,
-    is_active:true
+    is_active:true,
+    weekly_allowance:parseFloat(document.getElementById('empWeeklyAllow').value)||0,
+    cutoff_allowance:parseFloat(document.getElementById('empCutoffAllow').value)||0,
   };
   if(pin) body.pin=pin;
 
