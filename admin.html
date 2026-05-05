@@ -2149,11 +2149,17 @@ async function sendPayslipEmail(payroll){
     var period=payroll.period_start?payroll.period_start.substring(0,10):'';
     var periodEnd=payroll.period_end?payroll.period_end.substring(0,10):'';
 
+    // fetch API key from PocketBase
+    var configR=await fetch(PB+'/api/collections/app_config/records?filter=(key%3D%22brevo_api_key%22)&perPage=1');
+    var configD=await configR.json();
+    var brevoKey=configD.items&&configD.items.length>0?configD.items[0].value:'';
+    if(!brevoKey){ console.log('No Brevo API key found'); return; }
+    
     var res=await fetch('https://api.brevo.com/v3/smtp/email',{
       method:'POST',
       headers:{
         'Content-Type':'application/json',
-        'api-key':'xsmtpsib-d3cb992ebec06a3050d01c53be1179a793453b6e28975be480664eb8efc66fb5-UwLFc4HvfdiHNOus'
+        'api-key':brevoKey
       },
       body:JSON.stringify({
         sender:{ name:'Bbee.Co Admin', email:'maryqueen.gonzaga@gmail.com' },
