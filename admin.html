@@ -2350,6 +2350,7 @@ async function loadDedGroups(){
         +'<td><span class="badge badge-blue">'+memberCount+' employees</span></td>'
         +'<td style="display:flex;gap:6px">'
         +'<button class="btn btn-ghost btn-sm" onclick="openEditDedGroup(\''+g.id+'\')">Edit</button>'
+        +'<button class="btn btn-danger btn-sm" onclick="deleteDedGroup(\''+g.id+'\','+memberCount+')">Delete</button>'
         +'</td>'
         +'</tr>';
     }).join('');
@@ -2402,6 +2403,19 @@ async function saveDedGroup(){
     closeModal('dedGroupModal');
     await loadDedGroups();
   }catch(e){ toast('Error saving group.','err'); }
+}
+
+async function deleteDedGroup(id, memberCount){
+  if(memberCount>0){
+    toast('Cannot delete — '+memberCount+' employees still assigned to this group.','err');
+    return;
+  }
+  if(!confirm('Delete this deduction group?'))return;
+  try{
+    await fetch(PB+'/api/collections/deduction_groups/records/'+id,{method:'DELETE'});
+    toast('Group deleted.','ok');
+    await loadDedGroups();
+  }catch(e){ toast('Error deleting group.','err'); }
 }
   
 // ══════════════════════════════
