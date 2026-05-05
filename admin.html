@@ -191,11 +191,102 @@ tr:hover td{background:var(--gray-light)}
 
   <!-- TABS -->
   <div class="tabs">
-    <div class="tab active" id="tab-hr" onclick="switchTab('hr')">HR</div>
+    <div class="tab active" id="tab-dashboard" onclick="switchTab('dashboard')">Dashboard</div>
+    <div class="tab" id="tab-hr" onclick="switchTab('hr')">HR</div>
     <div class="tab" id="tab-sales" onclick="switchTab('sales')">Sales</div>
     <div class="tab" id="tab-payroll" onclick="switchTab('payroll')">Payroll</div>
     <div class="tab" id="tab-settings" onclick="switchTab('settings')">Settings</div>
   </div>
+
+  <!-- DASHBOARD TAB -->
+<div class="tab-content active" id="content-dashboard">
+
+  <!-- TODAY'S OVERVIEW -->
+  <div class="section-title">Today's Overview</div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+    <div class="stat-card"><div class="stat-num stat-green" id="dashStaffIn">-</div><div class="stat-label">Staff In</div></div>
+    <div class="stat-card"><div class="stat-num stat-blue" id="dashLiveNow">-</div><div class="stat-label">Live Now</div></div>
+    <div class="stat-card"><div class="stat-num stat-orange" id="dashPendingInc">-</div><div class="stat-label">Pending Incidents</div></div>
+    <div class="stat-card"><div class="stat-num stat-red" id="dashLocked">-</div><div class="stat-label">Locked Accounts</div></div>
+  </div>
+
+  <!-- TODAY'S SALES -->
+  <div class="section-title">Today's Sales</div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+    <div class="stat-card"><div class="stat-num stat-green" id="dashTotalSales">₱0</div><div class="stat-label">Total Sales</div></div>
+    <div class="stat-card"><div class="stat-num stat-blue" id="dashFBLive">₱0</div><div class="stat-label">FB Live</div></div>
+    <div class="stat-card"><div class="stat-num stat-orange" id="dashShopee">₱0</div><div class="stat-label">Shopee</div></div>
+    <div class="stat-card"><div class="stat-num stat-purple" id="dashTikTok">₱0</div><div class="stat-label">TikTok</div></div>
+  </div>
+
+  <!-- ALERTS -->
+  <div class="section-title">Alerts</div>
+  <div class="card" id="dashAlerts">
+    <div class="loading"><div class="spinner"></div>Loading...</div>
+  </div>
+
+  <!-- RECENT ATTENDANCE -->
+  <div class="section-title">Recent Attendance</div>
+  <div class="card">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Employee</th>
+            <th>Time In</th>
+            <th>Time Out</th>
+            <th>Hours</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="dashRecentDTR">
+          <tr><td colspan="5"><div class="loading"><div class="spinner"></div>Loading...</div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- REPORTS -->
+  <div class="section-title">Reports</div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">
+    <div class="card" style="cursor:pointer;text-align:center;padding:20px" onclick="showReport('attendance')">
+      <div style="font-size:28px;margin-bottom:8px">📋</div>
+      <div style="font-weight:600;font-size:14px">Attendance Summary</div>
+      <div style="font-size:11px;color:var(--gray);margin-top:4px">Per employee per period</div>
+    </div>
+    <div class="card" style="cursor:pointer;text-align:center;padding:20px" onclick="showReport('late')">
+      <div style="font-size:28px;margin-bottom:8px">⏰</div>
+      <div style="font-weight:600;font-size:14px">Late Report</div>
+      <div style="font-size:11px;color:var(--gray);margin-top:4px">Tardiness monitoring</div>
+    </div>
+    <div class="card" style="cursor:pointer;text-align:center;padding:20px" onclick="showReport('absent')">
+      <div style="font-size:28px;margin-bottom:8px">❌</div>
+      <div style="font-weight:600;font-size:14px">Absent Report</div>
+      <div style="font-size:11px;color:var(--gray);margin-top:4px">Absences per period</div>
+    </div>
+    <div class="card" style="cursor:pointer;text-align:center;padding:20px" onclick="showReport('payroll')">
+      <div style="font-size:28px;margin-bottom:8px">💰</div>
+      <div style="font-weight:600;font-size:14px">Payroll Summary</div>
+      <div style="font-size:11px;color:var(--gray);margin-top:4px">Per cutoff all employees</div>
+    </div>
+    <div class="card" style="cursor:pointer;text-align:center;padding:20px" onclick="showReport('sales')">
+      <div style="font-size:28px;margin-bottom:8px">📊</div>
+      <div style="font-weight:600;font-size:14px">Sales Report</div>
+      <div style="font-size:11px;color:var(--gray);margin-top:4px">Per platform per period</div>
+    </div>
+    <div class="card" style="cursor:pointer;text-align:center;padding:20px" onclick="showReport('liveseller')">
+      <div style="font-size:28px;margin-bottom:8px">📡</div>
+      <div style="font-weight:600;font-size:14px">Live Seller Performance</div>
+      <div style="font-size:11px;color:var(--gray);margin-top:4px">Hours + sales per seller</div>
+    </div>
+    <div class="card" style="cursor:pointer;text-align:center;padding:20px" onclick="printSchedule()">
+      <div style="font-size:28px;margin-bottom:8px">🖨️</div>
+      <div style="font-weight:600;font-size:14px">Print Weekly Schedule</div>
+      <div style="font-size:11px;color:var(--gray);margin-top:4px">Printable staff schedule</div>
+    </div>
+  </div>
+
+</div>
 
   <!-- HR TAB -->
   <div class="tab-content active" id="content-hr">
@@ -635,6 +726,23 @@ tr:hover td{background:var(--gray-light)}
   </div>
 </div>
 
+  <!-- MODAL: REPORT -->
+<div class="modal-overlay" id="reportModal">
+  <div class="modal" style="max-width:600px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div class="modal-title" id="reportTitle" style="margin:0">Report</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-primary btn-sm" onclick="printReport()">🖨️ Print</button>
+        <button class="btn btn-ghost btn-sm" onclick="closeModal('reportModal')">Close</button>
+      </div>
+    </div>
+    <!-- filters -->
+    <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap" id="reportFilters"></div>
+    <!-- content -->
+    <div id="reportContent"><div class="loading"><div class="spinner"></div>Loading...</div></div>
+  </div>
+</div>
+
 <!-- MODAL: PAYSLIP -->
 <div class="modal-overlay" id="payslipModal">
   <div class="modal" style="max-width:460px">
@@ -976,6 +1084,7 @@ function applyPermissions(){
     }
  } else {
   // owner — show everything
+  document.getElementById('tab-dashboard').style.display='block';
   document.getElementById('tab-settings').style.display='block';
   document.getElementById('tab-sales').style.display='block';
   document.getElementById('tab-payroll').style.display='block';
@@ -1022,6 +1131,7 @@ function switchTab(tab){
   document.querySelectorAll('.tab-content').forEach(function(t){t.classList.remove('active')});
   document.getElementById('tab-'+tab).classList.add('active');
   document.getElementById('content-'+tab).classList.add('active');
+  if(tab==='dashboard') loadDashboard();
   if(tab==='hr') loadHR();
   if(tab==='sales') loadSales();
   if(tab==='settings') loadSettings();
@@ -1040,7 +1150,7 @@ function toast(m,t){
 // ══════════════════════════════
 // LOAD ALL
 // ══════════════════════════════
-function loadAll(){ loadHR(); }
+function loadAll(){ loadDashboard(); return loadHR(); }
 
 // ══════════════════════════════
 // HR TAB
@@ -2490,6 +2600,413 @@ async function overrideAllowance(id, current){
     toast('Allowance updated!','ok');
     await loadPayroll();
   }catch(e){ toast('Error updating allowance.','err'); }
+}
+
+// ══════════════════════════════
+// DASHBOARD
+// ══════════════════════════════
+async function loadDashboard(){
+  await Promise.all([
+    loadDashStats(),
+    loadDashSales(),
+    loadDashAlerts(),
+    loadDashRecentDTR()
+  ]);
+}
+
+async function loadDashStats(){
+  try{
+    var t=todayStr();
+    var dr=await fetch(PB+'/api/collections/dtr_logs/records?filter=(status%3D%22open%22)&perPage=50');
+    var dd=await dr.json(); document.getElementById('dashStaffIn').textContent=(dd.items||[]).length;
+    var lr=await fetch(PB+'/api/collections/live_sessions/records?filter=(status%3D%22active%22)&perPage=50');
+    var ld=await lr.json(); document.getElementById('dashLiveNow').textContent=(ld.items||[]).length;
+    var ir=await fetch(PB+'/api/collections/incident_reports/records?filter=(status%3D%22pending%22)&perPage=50');
+    var id=await ir.json(); document.getElementById('dashPendingInc').textContent=(id.items||[]).length;
+    var er=await fetch(PB+'/api/collections/employees/records?filter=(is_locked%3Dtrue)&perPage=50');
+    var ed=await er.json(); document.getElementById('dashLocked').textContent=(ed.items||[]).length;
+  }catch(e){}
+}
+
+async function loadDashSales(){
+  try{
+    var t=todayStr();
+    var r=await fetch(PB+'/api/collections/live_sessions/records?filter=(start_time%3E%3D%22'+t+'%2000%3A00%3A00%22%26%26status%3D%22done%22)&perPage=100');
+    var d=await r.json(); var items=d.items||[];
+    var total=0,fbLive=0,shopee=0,tiktok=0;
+    items.forEach(function(s){
+      var amt=s.sales_amount||0; total+=amt;
+      if(s.platform==='FB Live') fbLive+=amt;
+      else if(s.platform==='Shopee') shopee+=amt;
+      else if(s.platform==='TikTok') tiktok+=amt;
+    });
+    document.getElementById('dashTotalSales').textContent='₱'+total.toLocaleString();
+    document.getElementById('dashFBLive').textContent='₱'+fbLive.toLocaleString();
+    document.getElementById('dashShopee').textContent='₱'+shopee.toLocaleString();
+    document.getElementById('dashTikTok').textContent='₱'+tiktok.toLocaleString();
+  }catch(e){}
+}
+
+async function loadDashAlerts(){
+  var alerts=[];
+  try{
+    // flagged live sessions
+    var fr=await fetch(PB+'/api/collections/live_sessions/records?filter=(is_flagged%3Dtrue%26%26status%3D%22done%22)&perPage=10&expand=employee_id&sort=-created');
+    var fd=await fr.json();
+    (fd.items||[]).forEach(function(s){
+      var name=s.expand&&s.expand.employee_id?s.expand.employee_id.name:'Unknown';
+      alerts.push('<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--gray-light)"><span style="color:var(--orange)">⚠️</span><span style="font-size:13px">'+name+' — Live session flagged ('+( s.duration_hours||0).toFixed(1)+'hrs)</span></div>');
+    });
+
+    // pending incidents
+    var ir=await fetch(PB+'/api/collections/incident_reports/records?filter=(status%3D%22pending%22)&perPage=10&expand=employee_id&sort=-created');
+    var id=await ir.json();
+    (id.items||[]).forEach(function(inc){
+      var name=inc.expand&&inc.expand.employee_id?inc.expand.employee_id.name:'Unknown';
+      alerts.push('<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--gray-light)"><span style="color:var(--red)">🔴</span><span style="font-size:13px">'+name+' — Pending incident report (Strike '+inc.strike_number+')</span></div>');
+    });
+
+    // locked accounts
+    var er=await fetch(PB+'/api/collections/employees/records?filter=(is_locked%3Dtrue)&perPage=10');
+    var ed=await er.json();
+    (ed.items||[]).forEach(function(emp){
+      alerts.push('<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--gray-light)"><span style="color:var(--red)">🔒</span><span style="font-size:13px">'+emp.name+' — Account locked</span></div>');
+    });
+
+    // employees without email
+    var noEmail=allEmps.filter(function(e){return!e.email&&e.is_active});
+    noEmail.forEach(function(emp){
+      alerts.push('<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--gray-light)"><span style="color:var(--gray)">📧</span><span style="font-size:13px">'+emp.name+' — No email on file</span></div>');
+    });
+
+    if(!alerts.length){
+      document.getElementById('dashAlerts').innerHTML='<div style="text-align:center;padding:16px;color:var(--green);font-size:13px">✅ No alerts — everything looks good!</div>';
+    } else {
+      document.getElementById('dashAlerts').innerHTML=alerts.join('');
+    }
+  }catch(e){ document.getElementById('dashAlerts').innerHTML='<div class="empty">Error loading alerts.</div>'; }
+}
+
+async function loadDashRecentDTR(){
+  try{
+    var r=await fetch(PB+'/api/collections/dtr_logs/records?sort=-created&perPage=10&expand=employee_id');
+    var d=await r.json(); var items=d.items||[];
+    if(!items.length){ document.getElementById('dashRecentDTR').innerHTML='<tr><td colspan="5"><div class="empty">No recent attendance.</div></td></tr>'; return; }
+    document.getElementById('dashRecentDTR').innerHTML=items.map(function(dtr){
+      var empName=dtr.expand&&dtr.expand.employee_id?dtr.expand.employee_id.name:dtr.employee_id;
+      var tin=dtr.time_in?new Date(dtr.time_in).toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit'}):'--';
+      var tout=dtr.time_out?new Date(dtr.time_out).toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit'}):'--';
+      var hrs=dtr.total_hours?dtr.total_hours.toFixed(2)+'h':'--';
+      var statusBadge=dtr.status==='open'?'<span class="badge badge-green">In</span>':dtr.is_auto_timeout?'<span class="badge badge-orange">Auto</span>':'<span class="badge badge-gray">Out</span>';
+      return '<tr><td>'+empName+'</td><td>'+tin+'</td><td>'+tout+'</td><td>'+hrs+'</td><td>'+statusBadge+'</td></tr>';
+    }).join('');
+  }catch(e){}
+}
+
+// ══════════════════════════════
+// REPORTS
+// ══════════════════════════════
+async function showReport(type){
+  document.getElementById('reportModal').classList.add('show');
+  document.getElementById('reportContent').innerHTML='<div class="loading"><div class="spinner"></div>Loading...</div>';
+
+  var titles={
+    attendance:'📋 Attendance Summary',
+    late:'⏰ Late Report',
+    absent:'❌ Absent Report',
+    payroll:'💰 Payroll Summary',
+    sales:'📊 Sales Report',
+    liveseller:'📡 Live Seller Performance'
+  };
+  document.getElementById('reportTitle').textContent=titles[type]||'Report';
+
+  // date filters
+  document.getElementById('reportFilters').innerHTML=
+    '<input type="date" class="form-input" id="rptStart" style="max-width:150px" value="'+getMonthStart()+'"/>'
+    +'<span style="line-height:36px;color:var(--gray)">to</span>'
+    +'<input type="date" class="form-input" id="rptEnd" style="max-width:150px" value="'+todayStr()+'"/>'
+    +'<button class="btn btn-primary btn-sm" onclick="runReport(\''+type+'\')">Run</button>';
+
+  await runReport(type);
+}
+
+function getMonthStart(){
+  var d=new Date(); d.setDate(1);
+  return d.toISOString().split('T')[0];
+}
+
+async function runReport(type){
+  var start=document.getElementById('rptStart').value;
+  var end=document.getElementById('rptEnd').value;
+  if(!start||!end){ toast('Select date range.','err'); return; }
+  document.getElementById('reportContent').innerHTML='<div class="loading"><div class="spinner"></div>Loading...</div>';
+
+  try{
+    if(type==='attendance') await rptAttendance(start,end);
+    else if(type==='late') await rptLate(start,end);
+    else if(type==='absent') await rptAbsent(start,end);
+    else if(type==='payroll') await rptPayroll(start,end);
+    else if(type==='sales') await rptSales(start,end);
+    else if(type==='liveseller') await rptLiveSeller(start,end);
+  }catch(e){ document.getElementById('reportContent').innerHTML='<div class="empty">Error loading report.</div>'; }
+}
+
+async function rptAttendance(start,end){
+  var r=await fetch(PB+'/api/collections/dtr_logs/records?filter=(time_in%3E%3D%22'+start+'%2000%3A00%3A00%22%26%26time_in%3C%3D%22'+end+'%2023%3A59%3A59%22)&perPage=200&expand=employee_id&sort=time_in');
+  var d=await r.json(); var items=d.items||[];
+  if(!items.length){ document.getElementById('reportContent').innerHTML='<div class="empty">No records found.</div>'; return; }
+
+  // group by employee
+  var empMap={};
+  items.forEach(function(dtr){
+    var name=dtr.expand&&dtr.expand.employee_id?dtr.expand.employee_id.name:dtr.employee_id;
+    if(!empMap[name]) empMap[name]={days:0,totalHrs:0,regHrs:0,liveHrs:0};
+    empMap[name].days++;
+    empMap[name].totalHrs+=(dtr.total_hours||0);
+    if(dtr.type==='live_sell') empMap[name].liveHrs+=(dtr.total_hours||0);
+    else empMap[name].regHrs+=(dtr.total_hours||0);
+  });
+
+  var rows=Object.keys(empMap).map(function(name){
+    var e=empMap[name];
+    return '<tr><td>'+name+'</td><td>'+e.days+'</td><td>'+e.regHrs.toFixed(2)+'h</td><td>'+e.liveHrs.toFixed(2)+'h</td><td>'+e.totalHrs.toFixed(2)+'h</td></tr>';
+  }).join('');
+
+  document.getElementById('reportContent').innerHTML=
+    '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+    +'<thead><tr style="background:var(--gray-light)"><th style="padding:8px;text-align:left">Employee</th><th style="padding:8px;text-align:left">Days</th><th style="padding:8px;text-align:left">Reg Hrs</th><th style="padding:8px;text-align:left">Live Hrs</th><th style="padding:8px;text-align:left">Total Hrs</th></tr></thead>'
+    +'<tbody>'+rows+'</tbody>'
+    +'</table>';
+}
+
+async function rptLate(start,end){
+  var dr=await fetch(PB+'/api/collections/dtr_logs/records?filter=(time_in%3E%3D%22'+start+'%2000%3A00%3A00%22%26%26time_in%3C%3D%22'+end+'%2023%3A59%3A59%22)&perPage=200&expand=employee_id&sort=time_in');
+  var dd=await dr.json(); var dtrs=dd.items||[];
+  var sr=await fetch(PB+'/api/collections/schedules/records?filter=(week_start%3C%3D%22'+end+'%2000%3A00%3A00%22%26%26week_end%3E%3D%22'+start+'%2000%3A00%3A00%22)&perPage=100');
+  var sd=await sr.json(); var schedules=sd.items||[];
+  var days=['sun','mon','tue','wed','thu','fri','sat'];
+  var empLate={};
+  dtrs.forEach(function(dtr){
+    var name=dtr.expand&&dtr.expand.employee_id?dtr.expand.employee_id.name:dtr.employee_id;
+    var empId=dtr.employee_id;
+    var date=dtr.time_in.substring(0,10);
+    var timeIn=new Date(dtr.time_in);
+    var dayKey=days[timeIn.getDay()]+'_start';
+    var sched=schedules.find(function(s){return s.employee_id===empId&&s.week_start.substring(0,10)<=date&&s.week_end.substring(0,10)>=date;});
+    if(!sched||!sched[dayKey])return;
+    var schedDt=new Date(date+'T'+sched[dayKey]+':00');
+    var diffMins=Math.floor((timeIn-schedDt)/60000);
+    if(diffMins>5){
+      if(!empLate[name]) empLate[name]={count:0,totalMins:0};
+      empLate[name].count++;
+      empLate[name].totalMins+=diffMins;
+    }
+  });
+
+  if(!Object.keys(empLate).length){ document.getElementById('reportContent').innerHTML='<div class="empty" style="color:var(--green)">✅ No late records found!</div>'; return; }
+
+  var rows=Object.keys(empLate).sort(function(a,b){return empLate[b].count-empLate[a].count}).map(function(name){
+    var e=empLate[name];
+    return '<tr><td>'+name+'</td><td><span class="badge badge-orange">'+e.count+'x</span></td><td>'+e.totalMins+' mins</td><td>'+Math.round(e.totalMins/e.count)+' mins avg</td></tr>';
+  }).join('');
+
+  document.getElementById('reportContent').innerHTML=
+    '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+    +'<thead><tr style="background:var(--gray-light)"><th style="padding:8px;text-align:left">Employee</th><th style="padding:8px;text-align:left">Times Late</th><th style="padding:8px;text-align:left">Total Mins</th><th style="padding:8px;text-align:left">Avg Late</th></tr></thead>'
+    +'<tbody>'+rows+'</tbody>'
+    +'</table>';
+}
+
+async function rptAbsent(start,end){
+  var dr=await fetch(PB+'/api/collections/dtr_logs/records?filter=(time_in%3E%3D%22'+start+'%2000%3A00%3A00%22%26%26time_in%3C%3D%22'+end+'%2023%3A59%3A59%22)&perPage=200&expand=employee_id');
+  var dd=await dr.json(); var dtrs=dd.items||[];
+  var sr=await fetch(PB+'/api/collections/schedules/records?filter=(week_start%3C%3D%22'+end+'%2000%3A00%3A00%22%26%26week_end%3E%3D%22'+start+'%2000%3A00%3A00%22)&perPage=100');
+  var sd=await sr.json(); var schedules=sd.items||[];
+  var days=['sun','mon','tue','wed','thu','fri','sat'];
+  var dtrDates={};
+  dtrs.forEach(function(d){ var key=d.employee_id+'_'+d.time_in.substring(0,10); dtrDates[key]=true; });
+
+  var empAbsent={};
+  schedules.forEach(function(sched){
+    var empId=sched.employee_id;
+    var empName=allEmps.find(function(e){return e.id===empId;});
+    var name=empName?empName.name:empId;
+    var cur=new Date(sched.week_start.substring(0,10));
+    var weekEnd=new Date(sched.week_end.substring(0,10));
+    var periodStart=new Date(start); var periodEnd=new Date(end);
+    while(cur<=weekEnd){
+      if(cur>=periodStart&&cur<=periodEnd){
+        var date=cur.toISOString().split('T')[0];
+        var dayKey=days[cur.getDay()]+'_start';
+        if(sched[dayKey]){
+          var key=empId+'_'+date;
+          if(!dtrDates[key]){
+            if(!empAbsent[name]) empAbsent[name]=[];
+            empAbsent[name].push(date);
+          }
+        }
+      }
+      cur.setDate(cur.getDate()+1);
+    }
+  });
+
+  if(!Object.keys(empAbsent).length){ document.getElementById('reportContent').innerHTML='<div class="empty" style="color:var(--green)">✅ No absences found!</div>'; return; }
+
+  var rows=Object.keys(empAbsent).sort(function(a,b){return empAbsent[b].length-empAbsent[a].length}).map(function(name){
+    return '<tr><td>'+name+'</td><td><span class="badge badge-red">'+empAbsent[name].length+'x</span></td><td style="font-size:11px">'+empAbsent[name].join(', ')+'</td></tr>';
+  }).join('');
+
+  document.getElementById('reportContent').innerHTML=
+    '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+    +'<thead><tr style="background:var(--gray-light)"><th style="padding:8px;text-align:left">Employee</th><th style="padding:8px;text-align:left">Absences</th><th style="padding:8px;text-align:left">Dates</th></tr></thead>'
+    +'<tbody>'+rows+'</tbody>'
+    +'</table>';
+}
+
+async function rptPayroll(start,end){
+  var r=await fetch(PB+'/api/collections/payroll_periods/records?filter=(period_start%3E%3D%22'+start+'%2000%3A00%3A00%22%26%26period_end%3C%3D%22'+end+'%2023%3A59%3A59%22)&perPage=100&expand=employee_id&sort=period_start');
+  var d=await r.json(); var items=d.items||[];
+  if(!items.length){ document.getElementById('reportContent').innerHTML='<div class="empty">No payroll records found.</div>'; return; }
+
+  var totalGross=0,totalNet=0;
+  var rows=items.map(function(p){
+    var name=p.expand&&p.expand.employee_id?p.expand.employee_id.name:p.employee_id;
+    totalGross+=p.gross_pay||0; totalNet+=p.net_pay||0;
+    var statusBadge=p.status==='released'?'<span class="badge badge-green">Released</span>':'<span class="badge badge-orange">Draft</span>';
+    return '<tr><td>'+name+'</td><td>'+p.period_start.substring(0,10)+'</td><td>'+p.period_end.substring(0,10)+'</td><td>₱'+(p.gross_pay||0).toLocaleString()+'</td><td>₱'+(p.net_pay||0).toLocaleString()+'</td><td>'+statusBadge+'</td></tr>';
+  }).join('');
+
+  document.getElementById('reportContent').innerHTML=
+    '<div style="display:flex;gap:12px;margin-bottom:14px">'
+    +'<div class="stat-card" style="flex:1"><div class="stat-num stat-green">₱'+totalGross.toLocaleString()+'</div><div class="stat-label">Total Gross</div></div>'
+    +'<div class="stat-card" style="flex:1"><div class="stat-num stat-blue">₱'+totalNet.toLocaleString()+'</div><div class="stat-label">Total Net Pay</div></div>'
+    +'</div>'
+    +'<table style="width:100%;border-collapse:collapse;font-size:13px">'
+    +'<thead><tr style="background:var(--gray-light)"><th style="padding:8px;text-align:left">Employee</th><th style="padding:8px;text-align:left">From</th><th style="padding:8px;text-align:left">To</th><th style="padding:8px;text-align:left">Gross</th><th style="padding:8px;text-align:left">Net</th><th style="padding:8px;text-align:left">Status</th></tr></thead>'
+    +'<tbody>'+rows+'</tbody>'
+    +'</table>';
+}
+
+async function rptSales(start,end){
+  var r=await fetch(PB+'/api/collections/live_sessions/records?filter=(start_time%3E%3D%22'+start+'%2000%3A00%3A00%22%26%26start_time%3C%3D%22'+end+'%2023%3A59%3A59%22%26%26status%3D%22done%22)&perPage=200');
+  var d=await r.json(); var items=d.items||[];
+  var platTotals={};
+  var grandTotal=0;
+  items.forEach(function(s){
+    var p=s.platform||'Others';
+    platTotals[p]=(platTotals[p]||0)+(s.sales_amount||0);
+    grandTotal+=(s.sales_amount||0);
+  });
+
+  var rows=['FB Live','FB Post','TikTok','Shopee','Walk-in','Others'].map(function(p){
+    var amt=platTotals[p]||0;
+    var pct=grandTotal>0?Math.round((amt/grandTotal)*100):0;
+    return '<tr><td>'+p+'</td><td>₱'+amt.toLocaleString()+'</td><td>'+pct+'%</td></tr>';
+  }).join('');
+
+  document.getElementById('reportContent').innerHTML=
+    '<div class="stat-card" style="margin-bottom:14px"><div class="stat-num stat-green">₱'+grandTotal.toLocaleString()+'</div><div class="stat-label">Total Sales</div></div>'
+    +'<table style="width:100%;border-collapse:collapse;font-size:13px">'
+    +'<thead><tr style="background:var(--gray-light)"><th style="padding:8px;text-align:left">Platform</th><th style="padding:8px;text-align:left">Sales</th><th style="padding:8px;text-align:left">%</th></tr></thead>'
+    +'<tbody>'+rows+'</tbody>'
+    +'</table>';
+}
+
+async function rptLiveSeller(start,end){
+  var r=await fetch(PB+'/api/collections/live_sessions/records?filter=(start_time%3E%3D%22'+start+'%2000%3A00%3A00%22%26%26start_time%3C%3D%22'+end+'%2023%3A59%3A59%22%26%26status%3D%22done%22)&perPage=200&expand=employee_id');
+  var d=await r.json(); var items=d.items||[];
+  var sellerMap={};
+  items.forEach(function(s){
+    var name=s.expand&&s.expand.employee_id?s.expand.employee_id.name:s.employee_id;
+    if(!sellerMap[name]) sellerMap[name]={sessions:0,hours:0,sales:0};
+    sellerMap[name].sessions++;
+    sellerMap[name].hours+=(s.duration_hours||0);
+    sellerMap[name].sales+=(s.sales_amount||0);
+  });
+
+  if(!Object.keys(sellerMap).length){ document.getElementById('reportContent').innerHTML='<div class="empty">No live sessions found.</div>'; return; }
+
+  var rows=Object.keys(sellerMap).sort(function(a,b){return sellerMap[b].sales-sellerMap[a].sales}).map(function(name){
+    var s=sellerMap[name];
+    return '<tr><td>'+name+'</td><td>'+s.sessions+'</td><td>'+s.hours.toFixed(2)+'h</td><td>₱'+s.sales.toLocaleString()+'</td><td>₱'+Math.round(s.sales/(s.hours||1)).toLocaleString()+'/hr</td></tr>';
+  }).join('');
+
+  document.getElementById('reportContent').innerHTML=
+    '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+    +'<thead><tr style="background:var(--gray-light)"><th style="padding:8px;text-align:left">Seller</th><th style="padding:8px;text-align:left">Sessions</th><th style="padding:8px;text-align:left">Hours</th><th style="padding:8px;text-align:left">Sales</th><th style="padding:8px;text-align:left">₱/hr</th></tr></thead>'
+    +'<tbody>'+rows+'</tbody>'
+    +'</table>';
+}
+
+function printReport(){
+  var content=document.getElementById('reportContent').innerHTML;
+  var title=document.getElementById('reportTitle').textContent;
+  var win=window.open('','_blank');
+  win.document.write('<html><head><title>'+title+'</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse}th,td{padding:8px;text-align:left;border-bottom:1px solid #eee}th{background:#f5f5f5}</style></head><body><h2>'+title+'</h2>'+content+'</body></html>');
+  win.document.close(); win.print();
+}
+
+// PRINT WEEKLY SCHEDULE
+async function printSchedule(){
+  var weekVal=document.getElementById('schedWeek')?document.getElementById('schedWeek').value:'';
+  if(!weekVal){
+    weekVal=prompt('Enter week (e.g. 2026-W19):');
+    if(!weekVal)return;
+  }
+  var dates=getWeekDates(weekVal);
+  var days=['mon','tue','wed','thu','fri','sat','sun'];
+  var dayNames=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  var months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  try{
+    var sr=await fetch(PB+'/api/collections/schedules/records?filter=(week_start%3E%3D%22'+dates.start+'%2000%3A00%3A00%22%26%26week_end%3C%3D%22'+dates.end+'%2023%3A59%3A59%22)&perPage=100');
+    var sd=await sr.json(); var schedules=sd.items||[];
+    var schedMap={};
+    schedules.forEach(function(s){ schedMap[s.employee_id]=s; });
+
+    var rows=allEmps.map(function(emp){
+      var s=schedMap[emp.id];
+      var cells=days.map(function(d){
+        var t=s?s[d+'_start']:'';
+        if(!s) return '<td style="background:#f9f9f9;text-align:center;color:#999;font-size:12px">—</td>';
+        if(!t) return '<td style="background:#f5f5f5;text-align:center;color:#999;font-size:12px">OFF</td>';
+        var h=parseInt(t.split(':')[0]);
+        var ampm=h>=12?'PM':'AM';
+        var h12=h%12||12;
+        return '<td style="background:#E8F5EE;text-align:center;font-size:12px;font-weight:500;color:#2D7A4F">'+h12+':00 '+ampm+'</td>';
+      }).join('');
+      return '<tr><td style="padding:8px 12px;font-weight:500;font-size:13px;border-bottom:1px solid #eee">'+emp.name+'</td>'+cells+'</tr>';
+    }).join('');
+
+    var headerCells=dayNames.map(function(d,i){
+      var date=new Date(dates.start);
+      date.setDate(date.getDate()+i);
+      return '<th style="padding:8px;text-align:center;background:#FEF3DC;font-size:12px">'+d+'<br><span style="font-weight:400;color:#6B6355">'+months[date.getMonth()]+' '+date.getDate()+'</span></th>';
+    }).join('');
+
+    var win=window.open('','_blank');
+    win.document.write(`<html><head><title>Weekly Schedule</title><style>
+      body{font-family:sans-serif;padding:20px;max-width:900px;margin:0 auto}
+      table{width:100%;border-collapse:collapse;border:1px solid #eee}
+      th,td{border:1px solid #eee;padding:8px}
+      @media print{button{display:none}}
+    </style></head><body>
+      <div style="text-align:center;margin-bottom:20px">
+        <img src="https://maryqueengonzaga-create.github.io/bbeeco/bbeeco_logo.jpg" style="width:50px;height:50px;object-fit:contain"/>
+        <h2 style="margin:8px 0 4px">Bbee.Co — Weekly Schedule</h2>
+        <p style="color:#6B6355;margin:0">${dates.start} to ${dates.end}</p>
+      </div>
+      <button onclick="window.print()" style="margin-bottom:16px;padding:8px 16px;background:#F5A623;border:none;border-radius:8px;cursor:pointer;font-weight:600">🖨️ Print</button>
+      <table>
+        <thead><tr><th style="padding:8px 12px;background:#FEF3DC;text-align:left">Employee</th>${headerCells}</tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div style="margin-top:16px;font-size:11px;color:#6B6355;text-align:center">
+        Generated: ${new Date().toLocaleDateString('en-PH')} | Bbee.Co HR System
+      </div>
+    </body></html>`);
+    win.document.close();
+  }catch(e){ toast('Error generating schedule.','err'); }
 }
   
 // ══════════════════════════════
