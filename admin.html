@@ -2169,16 +2169,16 @@ async function sendPayslipEmail(payroll){
       })
     });
 
-    if(res.ok){
-      // mark email as sent
-      await fetch(PB+'/api/collections/payroll_periods/records/'+payroll.id,{
-        method:'PATCH',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({email_sent:true})
-      });
-      console.log('Email sent to '+emp.email);
-    } else {
-      console.log('Email failed for '+emp.name);
-    }
+   if(res.ok){
+    await fetch(PB+'/api/collections/payroll_periods/records/'+payroll.id,{
+      method:'PATCH',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({email_sent:true})
+    });
+    console.log('✅ Email sent to '+emp.email);
+  } else {
+    var errData=await res.json();
+    console.log('❌ Email failed for '+emp.name, JSON.stringify(errData));
+  }
   }catch(e){ console.log('Email error:',e); }
 }
   
