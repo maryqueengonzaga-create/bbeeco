@@ -726,6 +726,28 @@ tr:hover td{background:var(--gray-light)}
   </div>
 </div>
 
+  <!-- MODAL: PRINT SCHEDULE -->
+<div class="modal-overlay" id="schedPrintModal">
+  <div class="modal" style="max-width:360px">
+    <div class="modal-title">Print Weekly Schedule</div>
+    <div class="form-group">
+      <label class="form-label">Select Week</label>
+      <select class="form-select" id="schedPrintWeek"></select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">View</label>
+      <select class="form-select" id="schedPrintView">
+        <option value="week">Single Week</option>
+        <option value="month">4 Weeks (Monthly)</option>
+      </select>
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-ghost" onclick="closeModal('schedPrintModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="doPrintSchedule()">🖨️ Print</button>
+    </div>
+  </div>
+</div>
+
   <!-- MODAL: REPORT -->
 <div class="modal-overlay" id="reportModal">
   <div class="modal" style="max-width:600px">
@@ -2946,62 +2968,116 @@ function printReport(){
   win.document.close(); win.print();
 }
 
-// PRINT WEEKLY SCHEDULE
 async function printSchedule(){
-  var weekVal=document.getElementById('schedWeek')?document.getElementById('schedWeek').value:'';
-  if(!weekVal){
-    weekVal=prompt('Enter week (e.g. 2026-W19):');
-    if(!weekVal)return;
+  // show schedule print modal instead of prompt
+  document.getElementById('schedPrintModal').classList.add('show');
+  // populate week options
+  var weekSel=document.getElementById('schedPrintWeek');
+  weekSel.innerHTML='';
+  var now=new Date();
+  for(var i=-2;i<=8;i++){
+    var d=new Date(now);
+    d.setDate(d.getDate()+(i*7)-d.getDay()+1);
+    var weekStart=d.toISOString().split('T')[0];
+    var weekEnd=new Date(d);
+    weekEnd.setDate(d.getDate()+6);
+    var weekEndStr=weekEnd.toISOString().split('T')[0];
+    var isoWeek=getISOWeek(d);
+    var year=d.getFullYear();
+    var weekVal=year+'-W'+String(isoWeek).padStart(2,'0');
+    weekSel.innerHTML+='<option value="'+weekVal+'">'+weekStart+' to '+weekEndStr+'</option>';
   }
+}
+
+async function doPrintSchedule(){
+  var weekVal=document.getElementById('schedPrintWeek').value;
+  var viewType=document.getElementById('schedPrintView').value;
+  closeModal('schedPrintModal');
+  if(!weekVal)return;
+
   var dates=getWeekDates(weekVal);
+
+  // if monthly view, get 4 weeks
+  var weeksToShow=[];
+  if(viewType==='month'){
+    for(var i=0;i<4;i++){
+      var wd=new Date(dates.start);
+      wd.setDate(wd.getDate()+(i*7));
+      var iw=getISOWeek(wd);
+      var iy=wd.getFullYear();
+      weeksToShow.push(iy+'-W'+String(iw).padStart(2,'0'));
+    }
+  } else {
+    weeksToShow=[weekVal];
+  }
+
   var days=['mon','tue','wed','thu','fri','sat','sun'];
-  var dayNames=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  var dayNames=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   var months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
   try{
-    var sr=await fetch(PB+'/api/collections/schedules/records?filter=(week_start%3E%3D%22'+dates.start+'%2000%3A00%3A00%22%26%26week_end%3C%3D%22'+dates.end+'%2023%3A59%3A59%22)&perPage=100');
+    // get all weeks date ranges
+    var allDates=weeksToShow.map(function(w){ return getWeekDates(w); });
+    var periodStart=allDates[0].start;
+    var periodEnd=allDates[allDates.length-1].end;
+
+    var sr=await fetch(PB+'/api/collections/schedules/records?filter=(week_start%3E%3D%22'+periodStart+'%2000%3A00%3A00%22%26%26week_end%3C%3D%22'+periodEnd+'%2023%3A59%3A59%22)&perPage=200');
     var sd=await sr.json(); var schedules=sd.items||[];
-    var schedMap={};
-    schedules.forEach(function(s){ schedMap[s.employee_id]=s; });
 
-    var rows=allEmps.map(function(emp){
-      var s=schedMap[emp.id];
-      var cells=days.map(function(d){
-        var t=s?s[d+'_start']:'';
-        if(!s) return '<td style="background:#f9f9f9;text-align:center;color:#999;font-size:12px">—</td>';
-        if(!t) return '<td style="background:#f5f5f5;text-align:center;color:#999;font-size:12px">OFF</td>';
-        var h=parseInt(t.split(':')[0]);
-        var ampm=h>=12?'PM':'AM';
-        var h12=h%12||12;
-        return '<td style="background:#E8F5EE;text-align:center;font-size:12px;font-weight:500;color:#2D7A4F">'+h12+':00 '+ampm+'</td>';
+    var tablesHtml='';
+
+    weeksToShow.forEach(function(weekV){
+      var wDates=getWeekDates(weekV);
+      var weekScheds=schedules.filter(function(s){
+        return s.week_start.substring(0,10)===wDates.start||
+               (s.week_start.substring(0,10)<=wDates.start&&s.week_end.substring(0,10)>=wDates.end);
+      });
+      var schedMap={};
+      weekScheds.forEach(function(s){ schedMap[s.employee_id]=s; });
+
+      var headerCells=days.map(function(d,i){
+        var date=new Date(wDates.start);
+        date.setDate(date.getDate()+i);
+        return '<th style="padding:6px 8px;text-align:center;background:#FEF3DC;font-size:11px">'+dayNames[i]+'<br><span style="font-weight:400;color:#6B6355">'+months[date.getMonth()]+' '+date.getDate()+'</span></th>';
       }).join('');
-      return '<tr><td style="padding:8px 12px;font-weight:500;font-size:13px;border-bottom:1px solid #eee">'+emp.name+'</td>'+cells+'</tr>';
-    }).join('');
 
-    var headerCells=dayNames.map(function(d,i){
-      var date=new Date(dates.start);
-      date.setDate(date.getDate()+i);
-      return '<th style="padding:8px;text-align:center;background:#FEF3DC;font-size:12px">'+d+'<br><span style="font-weight:400;color:#6B6355">'+months[date.getMonth()]+' '+date.getDate()+'</span></th>';
-    }).join('');
+      var rows=allEmps.map(function(emp){
+        var s=schedMap[emp.id];
+        var cells=days.map(function(d){
+          var t=s?s[d+'_start']:'';
+          if(!s) return '<td style="background:#f9f9f9;text-align:center;color:#bbb;font-size:11px">—</td>';
+          if(!t) return '<td style="background:#f5f5f5;text-align:center;color:#999;font-size:11px">OFF</td>';
+          var h=parseInt(t.split(':')[0]);
+          var ampm=h>=12?'PM':'AM';
+          var h12=h%12||12;
+          return '<td style="background:#E8F5EE;text-align:center;font-size:11px;font-weight:600;color:#2D7A4F">'+h12+':00 '+ampm+'</td>';
+        }).join('');
+        return '<tr><td style="padding:6px 10px;font-size:12px;font-weight:500;border-bottom:1px solid #eee;white-space:nowrap">'+emp.name+'</td>'+cells+'</tr>';
+      }).join('');
+
+      tablesHtml+='<div style="margin-bottom:24px">'
+        +'<div style="font-weight:600;font-size:13px;color:#C8841A;margin-bottom:8px">Week of '+wDates.start+' — '+wDates.end+'</div>'
+        +'<table style="width:100%;border-collapse:collapse;border:1px solid #eee">'
+        +'<thead><tr><th style="padding:6px 10px;background:#FEF3DC;text-align:left;font-size:11px">Employee</th>'+headerCells+'</tr></thead>'
+        +'<tbody>'+rows+'</tbody>'
+        +'</table></div>';
+    });
 
     var win=window.open('','_blank');
-    win.document.write(`<html><head><title>Weekly Schedule</title><style>
-      body{font-family:sans-serif;padding:20px;max-width:900px;margin:0 auto}
-      table{width:100%;border-collapse:collapse;border:1px solid #eee}
-      th,td{border:1px solid #eee;padding:8px}
-      @media print{button{display:none}}
+    win.document.write(`<html><head><title>Schedule</title><style>
+      body{font-family:sans-serif;padding:20px;max-width:960px;margin:0 auto}
+      table{width:100%;border-collapse:collapse}
+      td,th{border:1px solid #eee}
+      @media print{.no-print{display:none}}
     </style></head><body>
       <div style="text-align:center;margin-bottom:20px">
-        <img src="https://maryqueengonzaga-create.github.io/bbeeco/bbeeco_logo.jpg" style="width:50px;height:50px;object-fit:contain"/>
-        <h2 style="margin:8px 0 4px">Bbee.Co — Weekly Schedule</h2>
-        <p style="color:#6B6355;margin:0">${dates.start} to ${dates.end}</p>
+        <img src="https://maryqueengonzaga-create.github.io/bbeeco/bbeeco_logo.jpg" style="width:44px;height:44px;object-fit:contain"/>
+        <h2 style="margin:6px 0 2px">Bbee.Co — Staff Schedule</h2>
+        <p style="color:#6B6355;margin:0;font-size:12px">${periodStart} to ${periodEnd}</p>
       </div>
-      <button onclick="window.print()" style="margin-bottom:16px;padding:8px 16px;background:#F5A623;border:none;border-radius:8px;cursor:pointer;font-weight:600">🖨️ Print</button>
-      <table>
-        <thead><tr><th style="padding:8px 12px;background:#FEF3DC;text-align:left">Employee</th>${headerCells}</tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-      <div style="margin-top:16px;font-size:11px;color:#6B6355;text-align:center">
+      <button class="no-print" onclick="window.print()" style="margin-bottom:16px;padding:8px 16px;background:#F5A623;border:none;border-radius:8px;cursor:pointer;font-weight:600">🖨️ Print</button>
+      ${tablesHtml}
+      <div style="margin-top:16px;font-size:10px;color:#6B6355;text-align:center">
         Generated: ${new Date().toLocaleDateString('en-PH')} | Bbee.Co HR System
       </div>
     </body></html>`);
