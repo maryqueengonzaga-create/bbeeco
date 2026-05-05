@@ -2055,6 +2055,10 @@ async function viewPayslip(id){
         <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--gray-light);font-size:13px"><span>Cash Advance</span><span style="color:var(--red)">-₱${(p.cash_advance||0).toLocaleString()}</span></div>
         <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--gray-light);font-size:13px"><span>Item Charges</span><span style="color:var(--red)">-₱${(p.item_charge||0).toLocaleString()}</span></div>
         <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;font-weight:600"><span>Total Deductions</span><span style="color:var(--red)">-₱${totalDed.toLocaleString()}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid var(--gray-light);font-size:13px;margin-top:4px">
+        <span style="color:var(--green)">Allowance ${p.allowance_is_overridden?'<span style="font-size:10px;background:#FEF0E6;color:#E67E22;padding:1px 6px;border-radius:99px">Override</span>':'(Auto)'}</span>
+        <span style="color:var(--green);font-weight:500">+₱${(p.allowance||0).toLocaleString()}</span>
+      </div>
       </div>
 
       <!-- NET PAY -->
