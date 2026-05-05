@@ -1800,6 +1800,20 @@ async function releasePayroll(){
   if(!val){ toast('Select a cutoff period first.','err'); return; }
   var parts=val.split('|');
   var start=parts[0], end=parts[1];
+
+  // check for negative net pay first
+  var checkR=await fetch(PB+'/api/collections/payroll_periods/records?filter=(period_start%3E%3D%22'+start+'%2000%3A00%3A00%22%26%26period_end%3C%3D%22'+end+'%2023%3A59%3A59%22%26%26status%3D%22draft%22)&perPage=50&expand=employee_id');
+  var checkD=await checkR.json();
+  var negatives=(checkD.items||[]).filter(function(p){return(p.net_pay||0)<0});
+  if(negatives.length>0){
+    var names=negatives.map(function(p){
+      var name=p.expand&&p.expand.employee_id?p.expand.employee_id.name:p.employee_id;
+      return name+' (₱'+p.net_pay.toLocaleString()+')';
+    }).join('\n');
+    alert('⚠️ Cannot release! Negative net pay detected:\n\n'+names+'\n\nPlease adjust deductions before releasing.');
+    return;
+  }
+
   if(!confirm('Release all draft payrolls for this period?'))return;
   toast('Releasing payroll...');
   try{
