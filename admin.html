@@ -361,6 +361,7 @@ tr:hover td{background:var(--gray-light)}
             <th>Pag-IBIG</th>
             <th>Cash Adv.</th>
             <th>Item Chg.</th>
+            <th>Allowance</th>
             <th>Net Pay</th>
             <th>Status</th>
             <th>Actions</th>
@@ -1640,9 +1641,13 @@ async function loadPayroll(){
         +'<td>₱'+(p.pagibig_ee||0).toLocaleString()+'</td>'
         +'<td>₱'+(p.cash_advance||0).toLocaleString()+'</td>'
         +'<td>₱'+(p.item_charge||0).toLocaleString()+'</td>'
+        +'<td>₱'+(p.allowance||0).toLocaleString()+(p.allowance_is_overridden?'<span class="badge badge-orange" style="margin-left:4px">Override</span>':'')+'</td>'
         +'<td><strong>₱'+(p.net_pay||0).toLocaleString()+'</strong></td>'
         +'<td>'+statusBadge+'</td>'
-        +'<td><button class="btn btn-ghost btn-sm" onclick="viewPayslip(\''+p.id+'\')">View</button></td>'
+        +'<td style="display:flex;gap:4px">'
+        +'<button class="btn btn-ghost btn-sm" onclick="viewPayslip(\''+p.id+'\')">View</button>'
+        +'<button class="btn btn-primary btn-sm" onclick="overrideAllowance(\''+p.id+'\','+(p.allowance||0)+')">₱ Allow</button>'
+        +'</td>'
         +'</tr>';
     }).join('');
     document.getElementById('prStatGross').textContent='₱'+totalGross.toLocaleString();
@@ -1796,8 +1801,22 @@ async function computePayroll(){
       var lateDeductPeso=lateDeductHrs*(emp.reg_rate||62.50);
       var breakDeductPeso=totalBreakHrs*(emp.reg_rate||62.50);
 
+      // allowance computation
+      var weeksWithDTR=Object.keys(dtrByDate).length>0?Math.ceil(Object.keys(dtrByDate).length/5):0;
+      // count distinct weeks
+      var weekSet={};
+      Object.keys(dtrByDate).forEach(function(date){
+        var d=new Date(date);
+        var weekNum=Math.floor((d-new Date(start))/604800000);
+        weekSet[weekNum]=true;
+      });
+      var weeksCount=Object.keys(weekSet).length;
+      var weeklyAllow=(emp.weekly_allowance||0)*weeksCount;
+      var cutoffAllow=emp.cutoff_allowance||0;
+      var totalAllowance=weeklyAllow+cutoffAllow;
+      
       // net pay
-      var netPay=grossPay-lateDeductPeso-breakDeductPeso-sssEE-phicEE-pagibigEE-caDeduct-icDeduct;
+      var netPay=grossPay-lateDeductPeso-breakDeductPeso-sssEE-phicEE-pagibigEE-caDeduct-icDeduct+totalAllowance;
 
       // check if existing payroll record
       var existR=await fetch(PB+'/api/collections/payroll_periods/records?filter=(employee_id%3D%22'+emp.id+'%22%26%26period_start%3E%3D%22'+start+'%2000%3A00%3A00%22%26%26period_end%3C%3D%22'+end+'%2023%3A59%3A59%22)&perPage=1');
@@ -1817,9 +1836,11 @@ async function computePayroll(){
         pagibig_ee:Math.round(pagibigEE*100)/100,
         cash_advance:Math.round(caDeduct*100)/100,
         item_charge:Math.round(icDeduct*100)/100,
+        allowance:Math.round(totalAllowance*100)/100,
         net_pay:Math.round(netPay*100)/100,
         status:'draft',
-        email_sent:false
+        email_sent:false,
+        allowance_is_overridden:false
       };
 
       if(existD.items&&existD.items.length>0){
@@ -1885,6 +1906,8 @@ async function releasePayroll(){
   }catch(e){ toast('Error releasing payroll.','err'); }
 }
 
+
+  
 async function viewPayslip(id){
   try{
     var r=await fetch(PB+'/api/collections/payroll_periods/records/'+id+'?expand=employee_id');
@@ -2257,6 +2280,10 @@ var emailHtml=`
     <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px;font-weight:600"><span>Total Deductions</span><span style="color:#C0392B">-₱${totalDed.toLocaleString()}</span></div>
   </div>
 
+  <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--gray-light);font-size:13px">
+  <span>Allowance ${p.allowance_is_overridden?'(Admin Override)':'(Auto-computed)'}</span>
+  <span style="color:var(--green)">+₱${(p.allowance||0).toLocaleString()}</span>
+  </div>
   <div style="background:#FEF3DC;border:1.5px solid #F0D9A8;border-radius:10px;padding:14px;display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
     <span style="font-size:15px;font-weight:600">NET PAY</span>
     <span style="font-size:22px;font-weight:600;color:#C8841A">₱${(payroll.net_pay||0).toLocaleString()}</span>
@@ -2416,6 +2443,30 @@ async function deleteDedGroup(id, memberCount){
     toast('Group deleted.','ok');
     await loadDedGroups();
   }catch(e){ toast('Error deleting group.','err'); }
+}
+
+async function overrideAllowance(id, current){
+  var amount=prompt('Set allowance amount for this cutoff:\n(Current: ₱'+current+')', current);
+  if(amount===null)return;
+  var num=parseFloat(amount)||0;
+  toast('Updating allowance...');
+  try{
+    var netR=await fetch(PB+'/api/collections/payroll_periods/records/'+id);
+    var netD=await netR.json();
+    var oldNet=netD.net_pay||0;
+    var oldAllow=netD.allowance||0;
+    var newNet=oldNet-oldAllow+num;
+    await fetch(PB+'/api/collections/payroll_periods/records/'+id,{
+      method:'PATCH',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        allowance:num,
+        allowance_is_overridden:true,
+        net_pay:Math.round(newNet*100)/100
+      })
+    });
+    toast('Allowance updated!','ok');
+    await loadPayroll();
+  }catch(e){ toast('Error updating allowance.','err'); }
 }
   
 // ══════════════════════════════
