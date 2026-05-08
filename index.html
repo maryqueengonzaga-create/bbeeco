@@ -28,8 +28,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--white);color:var(--black)
 .screen.active{display:block}
 .card{background:var(--white);border:1.5px solid #E8E0D4;border-radius:var(--radius);padding:24px 20px;box-shadow:var(--shadow);margin-bottom:14px}
 .card-title{font-size:11px;font-weight:500;color:var(--gray);text-transform:uppercase;letter-spacing:.08em;margin-bottom:16px}
-
-/* JIS: CONNECTION BADGE */
 .conn-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:99px;font-size:11px;font-weight:500;margin-bottom:16px}
 .conn-badge.online{background:var(--green-light);color:var(--green)}
 .conn-badge.offline{background:var(--red-light);color:var(--red)}
@@ -39,17 +37,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--white);color:var(--black)
 .conn-badge.offline .conn-dot{background:var(--red)}
 .conn-badge.checking .conn-dot{background:var(--orange);animation:pulse 1s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
-
-/* JIS: OFFLINE BANNER */
 .offline-banner{position:fixed;top:0;left:0;right:0;background:var(--red);color:var(--white);text-align:center;font-size:12px;font-weight:600;padding:8px;z-index:300;display:none}
 .offline-banner.show{display:block}
-
-/* JIS: NETWORK LOADING OVERLAY */
-.net-loading{position:fixed;inset:0;background:rgba(255,251,245,.85);z-index:250;display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px}
+.net-loading{position:fixed;inset:0;background:rgba(255,251,245,.88);z-index:250;display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px}
 .net-loading.show{display:flex}
 .net-loading-text{font-size:14px;font-weight:500;color:var(--gray)}
 .net-spinner{width:32px;height:32px;border:3px solid var(--gray-light);border-top-color:var(--honey);border-radius:50%;animation:spin .8s linear infinite}
-
 .emp-list{display:flex;flex-direction:column;gap:8px;max-height:460px;overflow-y:auto}
 .emp-item{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;border:1.5px solid #E8E0D4;cursor:pointer;transition:all .15s;background:var(--white)}
 .emp-item:active{background:var(--honey-light);border-color:var(--honey);transform:scale(.98)}
@@ -68,29 +61,22 @@ body{font-family:'DM Sans',sans-serif;background:var(--white);color:var(--black)
 .loading-list{text-align:center;padding:32px;color:var(--gray);font-size:14px}
 .spinner{width:22px;height:22px;border:2px solid var(--gray-light);border-top-color:var(--honey);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 10px}
 @keyframes spin{to{transform:rotate(360deg)}}
-
 .sel-emp{display:flex;align-items:center;gap:12px;background:var(--honey-light);border:1.5px solid #F0D9A8;border-radius:12px;padding:14px 16px;margin-bottom:16px}
 .sel-avatar{width:44px;height:44px;border-radius:50%;background:var(--honey);display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:600;color:var(--white);flex-shrink:0}
 .sel-avatar.live-seller{background:var(--blue)}
 .sel-name{font-size:15px;font-weight:600}
 .sel-role{font-size:11px;color:var(--gray);margin-top:2px}
-
-/* JIS: PIN with shake animation */
 .pin-display{background:var(--gray-light);border-radius:10px;padding:13px 20px;font-family:'DM Mono',monospace;font-size:26px;letter-spacing:8px;text-align:center;margin-bottom:14px;min-height:54px;color:var(--black);transition:background .2s}
 .pin-display.wrong{background:var(--red-light);animation:shake .4s ease}
 .pin-display.locked-pin{background:var(--red-light);color:var(--red)}
 @keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-6px)}80%{transform:translateX(6px)}}
-
+.pin-lockout-msg{font-size:12px;color:var(--red);text-align:center;margin-bottom:10px;font-weight:500;min-height:18px}
 .pin-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
 .pin-btn{background:var(--white);border:1.5px solid #E8E0D4;border-radius:12px;padding:17px 0;font-family:'DM Sans',sans-serif;font-size:19px;font-weight:500;color:var(--black);cursor:pointer;transition:all .12s;user-select:none}
 .pin-btn:active{background:var(--honey-light);border-color:var(--honey);transform:scale(.96)}
 .pin-btn:disabled{opacity:.4;cursor:not-allowed}
 .pin-btn.del{font-size:15px;color:var(--gray)}
 .pin-btn.clr{font-size:12px;color:var(--red)}
-
-/* JIS: PIN lockout warning */
-.pin-lockout-msg{font-size:12px;color:var(--red);text-align:center;margin-bottom:10px;font-weight:500;min-height:18px}
-
 .camera-wrap{position:relative;width:100%;border-radius:14px;overflow:hidden;background:#111;margin-bottom:16px;aspect-ratio:4/3}
 #videoEl{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
 .camera-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
@@ -129,12 +115,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--white);color:var(--black)
 .success-emoji{font-size:52px;margin-bottom:14px}
 .success-title{font-size:20px;font-weight:600;margin-bottom:8px}
 .success-sub{font-size:13px;color:var(--gray);margin-bottom:24px;line-height:1.6;white-space:pre-line}
-
-/* JIS: Auto-dismiss progress bar on success */
 .success-countdown{height:3px;background:var(--gray-light);border-radius:99px;margin-bottom:16px;overflow:hidden}
 .success-countdown-bar{height:100%;background:var(--honey);border-radius:99px;width:100%;transition:width 5s linear}
-
-.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--black);color:var(--white);padding:11px 22px;border-radius:99px;font-size:13px;font-weight:500;opacity:0;transition:opacity .25s;pointer-events:none;z-index:200;white-space:nowrap;max-width:90vw}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--black);color:var(--white);padding:11px 22px;border-radius:99px;font-size:13px;font-weight:500;opacity:0;transition:opacity .25s;pointer-events:none;z-index:400;white-space:nowrap;max-width:90vw}
 .toast.show{opacity:1}
 .toast.ok{background:var(--green)}
 .toast.err{background:var(--red)}
@@ -151,20 +134,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--white);color:var(--black)
 .form-input.err{border-color:var(--red)}
 .hours-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .warn-banner{background:var(--orange-light);border:1.5px solid #F0C080;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:12px;color:var(--orange);font-weight:500;line-height:1.5}
-
-/* JIS: Retry error UI */
-.retry-wrap{text-align:center;padding:20px 0}
-.retry-emoji{font-size:36px;margin-bottom:10px}
-.retry-msg{font-size:13px;color:var(--gray);margin-bottom:16px;line-height:1.5}
-.retry-attempts{font-size:11px;color:var(--orange);font-weight:600;margin-bottom:12px}
 </style>
 </head>
 <body>
 
-<!-- JIS: Offline Banner -->
 <div class="offline-banner" id="offlineBanner">⚠️ No internet connection — please check your network</div>
-
-<!-- JIS: Network Loading Overlay -->
 <div class="net-loading" id="netLoading">
   <div class="net-spinner"></div>
   <div class="net-loading-text" id="netLoadingText">Please wait...</div>
@@ -201,7 +175,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--white);color:var(--black)
       <div><div class="sel-name" id="s2Name"></div><div class="sel-role" id="s2Role"></div></div>
     </div>
     <div class="pin-display" id="pinDisplay">____</div>
-    <!-- JIS: lockout message -->
     <div class="pin-lockout-msg" id="pinLockoutMsg"></div>
     <div class="pin-grid" id="pinGrid">
       <button class="pin-btn" onclick="pinPress('1')">1</button>
@@ -278,7 +251,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--white);color:var(--black)
       <div class="success-emoji" id="sucEmoji"></div>
       <div class="success-title" id="sucTitle"></div>
       <div class="success-sub" id="sucSub"></div>
-      <!-- JIS: countdown bar -->
       <div class="success-countdown"><div class="success-countdown-bar" id="sucBar"></div></div>
       <button class="btn btn-primary" onclick="goHome()">Done</button>
     </div>
@@ -346,41 +318,63 @@ body{font-family:'DM Sans',sans-serif;background:var(--white);color:var(--black)
 // ══════════════════════════════════════════════════════
 // CONFIG
 // ══════════════════════════════════════════════════════
-var PB = 'https://pocketbase-production-2d49.up.railway.app';
-var ST = { OUT:0, IN:1, IN_LIVE:2, LIVE:3, LIVE_DONE:4, SOFT_LOCK:5, HARD_LOCK:6 };
-
-// JIS: Tunable constants
-var API_TIMEOUT     = 10000;  // 10s per request
-var MAX_RETRIES     = 3;      // retry attempts
-var RETRY_DELAY     = 1500;   // ms between retries
-var IDLE_RESET_SECS = 300;    // 5 min idle → go home
-var WATCHDOG_MS     = 30000;  // 30s watchdog interval
-var PIN_MAX_ATTEMPTS= 5;      // lockout after 5 wrong PINs
-var PIN_LOCKOUT_MS  = 60000;  // 1 min lockout
+var PB              = 'https://pocketbase-production-2d49.up.railway.app';
+var ST              = { OUT:0, IN:1, IN_LIVE:2, LIVE:3, LIVE_DONE:4, SOFT_LOCK:5, HARD_LOCK:6 };
+var API_TIMEOUT     = 10000;
+var MAX_RETRIES     = 3;
+var RETRY_DELAY     = 1500;
+var IDLE_RESET_SECS = 300;
+var WATCHDOG_MS     = 30000;
+var PIN_MAX_ATTEMPTS= 5;
+var PIN_LOCKOUT_MS  = 60000;
 
 // ══════════════════════════════════════════════════════
-// STATE
+// JIS: SESSION LOCK — prevents any background process
+//      from interfering while a user is in S2–S7
 // ══════════════════════════════════════════════════════
-var emps=[], selEmp=null, plcState=ST.OUT;
-var openDTR=null, openLive=null, prevDTR=null;
-var pin='', photo=null, platform='', stream=null;
-var holdTimer=null, pendingAction=null, idleTimer=null, watchdogTimer=null;
-var liveWarnings=[];
-var pinAttempts=0, pinLockedUntil=0;
-var successTimer=null;
+var SESSION_ACTIVE = false; // true = user is in login/action flow
+
+function setSessionActive(val){
+  SESSION_ACTIVE = val;
+}
+
+function isOnHomeScreen(){
+  return document.getElementById('s1').classList.contains('active');
+}
+
+// ══════════════════════════════════════════════════════
+// STATE — isolated per session, never shared across logins
+// ══════════════════════════════════════════════════════
+var emps = [];
+
+// Current session snapshot — set fresh on every pickEmp(), cleared on goHome()
+var sess = {
+  emp: null,
+  plcState: ST.OUT,
+  openDTR: null,
+  openLive: null,
+  prevDTR: null,
+  liveWarnings: [],
+  pin: '',
+  photo: null,
+  platform: ''
+};
+
+var pinAttempts = 0, pinLockedUntil = 0;
+var holdTimer = null, idleTimer = null, watchdogTimer = null, successTimer = null;
 
 // ══════════════════════════════════════════════════════
 // CLOCK
 // ══════════════════════════════════════════════════════
 function tick(){
-  var n=new Date();
-  document.getElementById('clockTime').textContent=n.toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-  document.getElementById('clockDate').textContent=n.toLocaleDateString('en-PH',{weekday:'short',month:'short',day:'numeric'});
+  var n = new Date();
+  document.getElementById('clockTime').textContent = n.toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  document.getElementById('clockDate').textContent = n.toLocaleDateString('en-PH',{weekday:'short',month:'short',day:'numeric'});
 }
-setInterval(tick,1000); tick();
+setInterval(tick, 1000); tick();
 
 // ══════════════════════════════════════════════════════
-// JIS: NETWORK HELPERS — timeout + retry
+// JIS: NETWORK HELPERS
 // ══════════════════════════════════════════════════════
 async function fetchWithTimeout(url, opts, timeout){
   timeout = timeout || API_TIMEOUT;
@@ -388,35 +382,24 @@ async function fetchWithTimeout(url, opts, timeout){
   var t = setTimeout(function(){ ctrl.abort(); }, timeout);
   try{
     var r = await fetch(url, Object.assign({}, opts, {signal: ctrl.signal}));
-    clearTimeout(t);
-    return r;
-  } catch(e){
-    clearTimeout(t);
-    throw e;
-  }
+    clearTimeout(t); return r;
+  } catch(e){ clearTimeout(t); throw e; }
 }
 
 async function fetchWithRetry(url, opts, retries){
   retries = (retries !== undefined) ? retries : MAX_RETRIES;
   var lastErr;
-  for(var i=0; i<=retries; i++){
-    try{
-      var r = await fetchWithTimeout(url, opts);
-      return r;
-    } catch(e){
-      lastErr = e;
-      if(i < retries){
-        await delay(RETRY_DELAY);
-      }
-    }
+  for(var i = 0; i <= retries; i++){
+    try{ return await fetchWithTimeout(url, opts); }
+    catch(e){ lastErr = e; if(i < retries) await delay(RETRY_DELAY); }
   }
   throw lastErr;
 }
 
-function delay(ms){ return new Promise(function(r){ setTimeout(r,ms); }); }
+function delay(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
 
 // ══════════════════════════════════════════════════════
-// JIS: NETWORK LOADING OVERLAY
+// JIS: LOADING OVERLAY
 // ══════════════════════════════════════════════════════
 function showNetLoading(msg){
   document.getElementById('netLoadingText').textContent = msg || 'Please wait...';
@@ -427,64 +410,61 @@ function hideNetLoading(){
 }
 
 // ══════════════════════════════════════════════════════
-// JIS: CONNECTIVITY — online/offline detection
+// JIS: CONNECTIVITY
 // ══════════════════════════════════════════════════════
 function updConn(status){
   var b = document.getElementById('connBadge');
   var txt = document.getElementById('connText');
   var banner = document.getElementById('offlineBanner');
-  if(status === 'checking'){
-    b.className='conn-badge checking'; txt.textContent='Checking...';
-  } else if(status === 'offline' || !navigator.onLine){
-    b.className='conn-badge offline'; txt.textContent='Offline';
-    banner.classList.add('show');
-  } else {
-    b.className='conn-badge online'; txt.textContent='Connected';
-    banner.classList.remove('show');
-  }
+  if(status==='checking'){ b.className='conn-badge checking'; txt.textContent='Checking...'; }
+  else if(status==='offline'||!navigator.onLine){ b.className='conn-badge offline'; txt.textContent='Offline'; banner.classList.add('show'); }
+  else { b.className='conn-badge online'; txt.textContent='Connected'; banner.classList.remove('show'); }
 }
 window.addEventListener('online', function(){ updConn('online'); toast('Connection restored','ok'); });
 window.addEventListener('offline', function(){ updConn('offline'); toast('Connection lost — check your network','err'); });
 updConn('online');
 
 // ══════════════════════════════════════════════════════
-// JIS: WATCHDOG — PocketBase health check every 30s
+// JIS: WATCHDOG — health check only, never touches session
 // ══════════════════════════════════════════════════════
 async function runWatchdog(){
   try{
     updConn('checking');
     await fetchWithTimeout(PB+'/api/health', {}, 5000);
     updConn('online');
-    // JIS: only run autoTimeout in background — never interrupt active session
-    await autoTimeout();
-    // JIS: only refresh employee list if user is on home screen (S1)
-    if(document.getElementById('s1').classList.contains('active')){
-      await renderList(); // re-render only, emps already loaded
+    // background autoTimeout — safe, never changes UI
+    autoTimeout();
+    // only refresh employee list badges if on home screen and no session active
+    if(isOnHomeScreen() && !SESSION_ACTIVE){
+      renderList();
     }
-  } catch(e){
-    updConn('offline');
-  }
+  } catch(e){ updConn('offline'); }
 }
-function startWatchdog(){
-  clearInterval(watchdogTimer);
-  watchdogTimer = setInterval(runWatchdog, WATCHDOG_MS);
-}
-startWatchdog();
+watchdogTimer = setInterval(runWatchdog, WATCHDOG_MS);
 
 // ══════════════════════════════════════════════════════
-// JIS: IDLE RESET — 5 min inactivity → go home
+// JIS: IDLE RESET — only fires when NOT in active session
 // ══════════════════════════════════════════════════════
 function resetIdle(){
   clearTimeout(idleTimer);
   idleTimer = setTimeout(function(){
-    // don't reset if on employee list screen (s1)
-    if(document.getElementById('s1').classList.contains('active')) return;
+    // never interrupt an active login/action session
+    if(SESSION_ACTIVE) return;
+    if(isOnHomeScreen()) return;
+    if(document.getElementById('netLoading').classList.contains('show')) return;
     toast('Session timed out — returning to home');
     setTimeout(goHome, 1500);
   }, IDLE_RESET_SECS * 1000);
 }
-document.addEventListener('touchstart', resetIdle);
-document.addEventListener('click', resetIdle);
+// global listener — PIN grid excluded
+document.addEventListener('touchstart', function(e){
+  if(e.target.closest && e.target.closest('#pinGrid')) return;
+  resetIdle();
+});
+document.addEventListener('click', function(e){
+  if(e.target.closest && e.target.closest('#pinGrid')) return;
+  resetIdle();
+});
 resetIdle();
 
 // ══════════════════════════════════════════════════════
@@ -492,8 +472,7 @@ resetIdle();
 // ══════════════════════════════════════════════════════
 function toast(m, t){
   var el = document.getElementById('toast');
-  el.textContent = m;
-  el.className = 'toast show ' + (t||'');
+  el.textContent = m; el.className = 'toast show '+(t||'');
   clearTimeout(el._t);
   el._t = setTimeout(function(){ el.className='toast'; }, 2800);
 }
@@ -504,29 +483,42 @@ function toast(m, t){
 function show(id){
   document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('active'); });
   document.getElementById(id).classList.add('active');
-  resetIdle();
 }
 
+// ══════════════════════════════════════════════════════
+// JIS: GO HOME — full state reset + release session lock
+// ══════════════════════════════════════════════════════
 function goHome(){
-  stopCam(); cancelHold();
-  if(successTimer){ clearTimeout(successTimer); successTimer=null; }
-  pin=''; selEmp=null; plcState=ST.OUT;
-  openDTR=null; openLive=null; prevDTR=null;
-  photo=null; platform=''; liveWarnings=[];
-  pinAttempts=0; pinLockedUntil=0;
-  document.getElementById('pinDisplay').textContent='____';
-  document.getElementById('pinDisplay').className='pin-display';
-  document.getElementById('pinLockoutMsg').textContent='';
-  document.getElementById('salesInput').value='';
+  stopCam();
+  cancelHold();
+  if(successTimer){ clearTimeout(successTimer); successTimer = null; }
+
+  // release session lock
+  setSessionActive(false);
+
+  // clear session snapshot
+  sess = { emp:null, plcState:ST.OUT, openDTR:null, openLive:null, prevDTR:null, liveWarnings:[], pin:'', photo:null, platform:'' };
+
+  // reset PIN state
+  pinAttempts = 0; pinLockedUntil = 0;
+  document.getElementById('pinDisplay').textContent = '____';
+  document.getElementById('pinDisplay').className = 'pin-display';
+  document.getElementById('pinLockoutMsg').textContent = '';
+  setPinBtnsDisabled(false);
+
+  // reset form fields
+  document.getElementById('salesInput').value = '';
   document.getElementById('salesWrap').classList.remove('err');
-  document.getElementById('reportReason').value='';
+  document.getElementById('reportReason').value = '';
   document.getElementById('reportReason').classList.remove('err');
-  document.getElementById('reportRegHrs').value='';
-  document.getElementById('reportLiveHrs').value='';
+  document.getElementById('reportRegHrs').value = '';
+  document.getElementById('reportLiveHrs').value = '';
   document.querySelectorAll('.platform-btn').forEach(function(b){ b.classList.remove('selected'); });
   closeDialog();
-  loadEmps();
+
+  // go to home and refresh list
   show('s1');
+  loadEmps();
 }
 
 // ══════════════════════════════════════════════════════
@@ -539,28 +531,28 @@ function timeStr(d){ return d.toLocaleTimeString('en-PH',{hour:'2-digit',minute:
 function todayStr(){ return new Date().toISOString().split('T')[0]; }
 
 // ══════════════════════════════════════════════════════
-// AUTO-TIMEOUT (runs via watchdog)
+// AUTO-TIMEOUT (background, never touches UI)
 // ══════════════════════════════════════════════════════
 async function autoTimeout(){
   try{
-    var now=new Date();
-    var cutoffStr=new Date(now.getTime()-(12*60*60*1000)).toISOString();
-    var r=await fetchWithRetry(PB+'/api/collections/dtr_logs/records?filter=(status%3D%22open%22%26%26time_in%3C%22'+cutoffStr+'%22)&perPage=50');
-    var d=await r.json();
+    var now = new Date();
+    var cutoffStr = new Date(now.getTime()-(12*60*60*1000)).toISOString();
+    var r = await fetchWithRetry(PB+'/api/collections/dtr_logs/records?filter=(status%3D%22open%22%26%26time_in%3C%22'+cutoffStr+'%22)&perPage=50');
+    var d = await r.json();
     (d.items||[]).forEach(async function(dtr){
       try{
-        var hrs=Math.round(((now-new Date(dtr.time_in))/3600000)*100)/100;
+        var hrs = Math.round(((now-new Date(dtr.time_in))/3600000)*100)/100;
         await fetchWithTimeout(PB+'/api/collections/dtr_logs/records/'+dtr.id,{
           method:'PATCH',headers:{'Content-Type':'application/json'},
           body:JSON.stringify({time_out:now.toISOString(),status:'closed',total_hours:hrs,is_auto_timeout:true})
         });
       }catch(e){}
     });
-    var lr=await fetchWithRetry(PB+'/api/collections/live_sessions/records?filter=(status%3D%22active%22%26%26start_time%3C%22'+cutoffStr+'%22)&perPage=50');
-    var ld=await lr.json();
+    var lr = await fetchWithRetry(PB+'/api/collections/live_sessions/records?filter=(status%3D%22active%22%26%26start_time%3C%22'+cutoffStr+'%22)&perPage=50');
+    var ld = await lr.json();
     (ld.items||[]).forEach(async function(live){
       try{
-        var dur=Math.round(((now-new Date(live.start_time))/3600000)*100)/100;
+        var dur = Math.round(((now-new Date(live.start_time))/3600000)*100)/100;
         await fetchWithTimeout(PB+'/api/collections/live_sessions/records/'+live.id,{
           method:'PATCH',headers:{'Content-Type':'application/json'},
           body:JSON.stringify({end_time:now.toISOString(),status:'done',duration_hours:dur,is_auto_timeout:true})
@@ -576,37 +568,40 @@ async function autoTimeout(){
 async function loadEmps(){
   document.getElementById('empList').innerHTML='<div class="loading-list"><div class="spinner"></div>Loading...</div>';
   try{
-    var r=await fetchWithRetry(PB+'/api/collections/employees/records?filter=(is_active%3Dtrue)&sort=name&perPage=50');
+    var r = await fetchWithRetry(PB+'/api/collections/employees/records?filter=(is_active%3Dtrue)&sort=name&perPage=50');
     if(!r.ok) throw new Error('HTTP '+r.status);
-    var d=await r.json();
-    emps=d.items||[];
-    await renderList();
+    var d = await r.json();
+    emps = d.items||[];
+    renderList();
   }catch(e){
     document.getElementById('empList').innerHTML=
-      '<div class="loading-list">'+
-      '<div style="font-size:24px;margin-bottom:8px">📡</div>'+
-      'Cannot load employees.<br><span style="font-size:12px">Check your connection.</span><br><br>'+
-      '<button class="btn btn-primary" style="width:auto;padding:10px 24px;margin:0 auto" onclick="loadEmps()">Retry</button>'+
-      '</div>';
+      '<div class="loading-list"><div style="font-size:24px;margin-bottom:8px">📡</div>Cannot load employees.<br><span style="font-size:12px">Check your connection.</span><br><br>'+
+      '<button class="btn btn-primary" style="width:auto;padding:10px 24px;margin:0 auto" onclick="loadEmps()">Retry</button></div>';
   }
 }
 
 async function renderList(){
+  // JIS: never re-render list if a session is active (would flash the screen)
+  if(SESSION_ACTIVE) return;
+
   var dtrMap={}, liveMap={};
   try{
-    var dr=await fetchWithRetry(PB+'/api/collections/dtr_logs/records?filter=(status%3D%22open%22)&perPage=50');
-    var dd=await dr.json();
+    var dr = await fetchWithRetry(PB+'/api/collections/dtr_logs/records?filter=(status%3D%22open%22)&perPage=50');
+    var dd = await dr.json();
     (dd.items||[]).forEach(function(d){ dtrMap[d.employee_id]=d; });
-    var lr=await fetchWithRetry(PB+'/api/collections/live_sessions/records?filter=(status%3D%22active%22)&perPage=50');
-    var ld=await lr.json();
+    var lr = await fetchWithRetry(PB+'/api/collections/live_sessions/records?filter=(status%3D%22active%22)&perPage=50');
+    var ld = await lr.json();
     (ld.items||[]).forEach(function(l){ liveMap[l.employee_id]=l; });
   }catch(e){}
 
-  document.getElementById('empList').innerHTML=emps.map(function(emp){
+  // JIS: double-check session still not active before touching the DOM
+  if(SESSION_ACTIVE) return;
+
+  document.getElementById('empList').innerHTML = emps.map(function(emp){
     var hasDTR=!!dtrMap[emp.id], hasLive=!!liveMap[emp.id];
     var isHardLocked=emp.is_locked;
-    var isSoftLocked=!isHardLocked && hasDTR && dtrMap[emp.id] && dtrMap[emp.id].date && dtrMap[emp.id].date.substring(0,10)!==todayStr();
-    var stTxt, stCls, avCls, itemCls='emp-item';
+    var isSoftLocked=!isHardLocked&&hasDTR&&dtrMap[emp.id]&&dtrMap[emp.id].date&&dtrMap[emp.id].date.substring(0,10)!==todayStr();
+    var stTxt,stCls,avCls,itemCls='emp-item';
     if(isHardLocked){ stTxt='LOCKED'; stCls='st-locked'; avCls='locked'; itemCls+=' locked'; }
     else if(isSoftLocked){ stTxt='!'; stCls='st-warn'; avCls=isLS(emp)?'live-seller':''; }
     else if(!hasDTR){ stTxt='OUT'; stCls='st-out'; avCls=isLS(emp)?'live-seller':''; }
@@ -617,108 +612,98 @@ async function renderList(){
 }
 
 // ══════════════════════════════════════════════════════
-// PICK EMPLOYEE
+// PICK EMPLOYEE — JIS: sets SESSION_ACTIVE immediately
 // ══════════════════════════════════════════════════════
 async function pickEmp(id){
-  selEmp = emps.find(function(e){ return e.id===id; });
-  if(!selEmp) return;
-  var t = todayStr();
+  // JIS: lock session immediately so no background process can interfere
+  setSessionActive(true);
 
-  if(selEmp.is_locked){
-    document.getElementById('s7Sub').textContent = selEmp.lock_reason||'Your account has been locked. Please report to your admin to unlock.';
+  var emp = emps.find(function(e){ return e.id===id; });
+  if(!emp){ setSessionActive(false); return; }
+
+  // create a fresh session snapshot
+  sess = { emp:emp, plcState:ST.OUT, openDTR:null, openLive:null, prevDTR:null, liveWarnings:[], pin:'', photo:null, platform:'' };
+
+  if(emp.is_locked){
+    document.getElementById('s7Sub').textContent = emp.lock_reason||'Your account has been locked. Please report to your admin to unlock.';
     show('s7'); return;
   }
 
+  var t = todayStr();
   showNetLoading('Loading employee data...');
   try{
-    var dr=await fetchWithRetry(PB+'/api/collections/dtr_logs/records?filter=(employee_id%3D%22'+selEmp.id+'%22%26%26status%3D%22open%22)&sort=-created');
-    var dd=await dr.json();
-    openDTR = dd.items&&dd.items.length>0 ? dd.items[0] : null;
+    var dr = await fetchWithRetry(PB+'/api/collections/dtr_logs/records?filter=(employee_id%3D%22'+emp.id+'%22%26%26status%3D%22open%22)&sort=-created');
+    var dd = await dr.json();
+    sess.openDTR = dd.items&&dd.items.length>0 ? dd.items[0] : null;
 
-    if(openDTR){
-      var dtrDate = openDTR.date ? openDTR.date.substring(0,10) : '';
+    if(sess.openDTR){
+      var dtrDate = sess.openDTR.date ? sess.openDTR.date.substring(0,10) : '';
       if(dtrDate && dtrDate!==t){
-        prevDTR=openDTR; openDTR=null;
-        plcState=ST.SOFT_LOCK;
+        sess.prevDTR = sess.openDTR; sess.openDTR = null;
+        sess.plcState = ST.SOFT_LOCK;
         hideNetLoading();
         showSoftLock(); return;
       }
     }
 
-    openLive=null;
-    if(isLS(selEmp)){
-      var lr=await fetchWithRetry(PB+'/api/collections/live_sessions/records?filter=(employee_id%3D%22'+selEmp.id+'%22%26%26status%3D%22active%22)&sort=-created');
-      var ld=await lr.json();
-      openLive = ld.items&&ld.items.length>0 ? ld.items[0] : null;
+    if(isLS(emp)){
+      var lr = await fetchWithRetry(PB+'/api/collections/live_sessions/records?filter=(employee_id%3D%22'+emp.id+'%22%26%26status%3D%22active%22)&sort=-created');
+      var ld = await lr.json();
+      sess.openLive = ld.items&&ld.items.length>0 ? ld.items[0] : null;
     }
 
-    liveWarnings=[];
-    if(isLS(selEmp)){
-      var dlr=await fetchWithRetry(PB+'/api/collections/live_sessions/records?filter=(employee_id%3D%22'+selEmp.id+'%22%26%26date%3D%22'+t+'%22)&perPage=50');
-      var dld=await dlr.json();
-      var totalLiveHrs=0;
+    if(isLS(emp)){
+      var dlr = await fetchWithRetry(PB+'/api/collections/live_sessions/records?filter=(employee_id%3D%22'+emp.id+'%22%26%26date%3D%22'+t+'%22)&perPage=50');
+      var dld = await dlr.json();
+      var totalLiveHrs = 0;
       (dld.items||[]).forEach(function(s){ totalLiveHrs+=(s.duration_hours||0); });
-      if(totalLiveHrs>=8) liveWarnings.push('Total live hours ngayon: '+totalLiveHrs.toFixed(1)+' hrs (8hrs+). Flagged para sa admin review.');
-    }
-
-    // JIS: Concurrent access check — detect duplicate open DTR from another device
-    if(openDTR){
-      var cdr=await fetchWithRetry(PB+'/api/collections/dtr_logs/records?filter=(employee_id%3D%22'+selEmp.id+'%22%26%26status%3D%22open%22%26%26date%3D%22'+t+'%22)&perPage=5');
-      var cdd=await cdr.json();
-      if(cdd.items&&cdd.items.length>1){
-        toast('⚠️ Duplicate session detected — contact admin','warn');
-      }
+      if(totalLiveHrs>=8) sess.liveWarnings.push('Total live hours ngayon: '+totalLiveHrs.toFixed(1)+' hrs (8hrs+). Flagged para sa admin review.');
     }
 
   }catch(e){
     hideNetLoading();
+    setSessionActive(false);
     toast('Connection error. Please try again.','err'); return;
   }
   hideNetLoading();
 
-  if(!openDTR)          plcState=ST.OUT;
-  else if(openLive)     plcState=ST.LIVE;
-  else if(isLS(selEmp)) plcState=ST.IN_LIVE;
-  else                  plcState=ST.IN;
+  // determine PLC state from session snapshot
+  if(!sess.openDTR)           sess.plcState = ST.OUT;
+  else if(sess.openLive)      sess.plcState = ST.LIVE;
+  else if(isLS(emp))          sess.plcState = ST.IN_LIVE;
+  else                        sess.plcState = ST.IN;
 
-  // fetch today's schedule
-  var todaySchedule=null;
+  // fetch schedule
+  var todaySchedule = null;
   try{
-    var days=['sun','mon','tue','wed','thu','fri','sat'];
-    var dayKey=days[new Date().getDay()]+'_start';
-    var wr=await fetchWithRetry(PB+'/api/collections/schedules/records?filter=(employee_id%3D%22'+selEmp.id+'%22%26%26week_start%3C%3D%22'+t+'%2000%3A00%3A00%22%26%26week_end%3E%3D%22'+t+'%2000%3A00%3A00%22)&sort=-week_start&perPage=1');
-    var wd=await wr.json();
-    if(wd.items&&wd.items.length>0){
-      var sched=wd.items[0];
-      if(sched[dayKey]) todaySchedule=sched[dayKey];
-    }
+    var days = ['sun','mon','tue','wed','thu','fri','sat'];
+    var dayKey = days[new Date().getDay()]+'_start';
+    var wr = await fetchWithRetry(PB+'/api/collections/schedules/records?filter=(employee_id%3D%22'+emp.id+'%22%26%26week_start%3C%3D%22'+t+'%2000%3A00%3A00%22%26%26week_end%3E%3D%22'+t+'%2000%3A00%3A00%22)&sort=-week_start&perPage=1');
+    var wd = await wr.json();
+    if(wd.items&&wd.items.length>0&&wd.items[0][dayKey]) todaySchedule=wd.items[0][dayKey];
   }catch(e){}
 
-  selEmp.todaySchedule=todaySchedule;
+  var av = document.getElementById('s2Av');
+  av.textContent = inits(emp);
+  av.className = 'sel-avatar'+(isLS(emp)?' live-seller':'');
+  document.getElementById('s2Name').textContent = emp.name;
 
-  var av=document.getElementById('s2Av');
-  av.textContent=inits(selEmp);
-  av.className='sel-avatar'+(isLS(selEmp)?' live-seller':'');
-  document.getElementById('s2Name').textContent=selEmp.name;
-
-  var schedInfo='';
+  var schedInfo = '';
   if(todaySchedule){
-    var now2=new Date();
-    var sp=todaySchedule.split(':');
-    var schedDate=new Date(); schedDate.setHours(parseInt(sp[0]),parseInt(sp[1]),0,0);
-    var diffMins=Math.floor((now2-schedDate)/60000);
-    var h=parseInt(sp[0]), ampm=h>=12?'PM':'AM', h12=h%12||12;
-    var tLabel=h12+':00 '+ampm;
-    schedInfo=diffMins>5
-      ? '⏰ Shift: '+tLabel+' &nbsp;|&nbsp; <span style="color:var(--red)">'+diffMins+' mins late</span>'
-      : '⏰ Shift today: '+tLabel;
+    var now2=new Date(), sp=todaySchedule.split(':');
+    var sd=new Date(); sd.setHours(parseInt(sp[0]),parseInt(sp[1]),0,0);
+    var diffMins=Math.floor((now2-sd)/60000);
+    var h=parseInt(sp[0]),ampm=h>=12?'PM':'AM',h12=h%12||12;
+    schedInfo = diffMins>5
+      ? '⏰ Shift: '+h12+':00 '+ampm+' &nbsp;|&nbsp; <span style="color:var(--red)">'+diffMins+' mins late</span>'
+      : '⏰ Shift today: '+h12+':00 '+ampm;
   } else {
-    schedInfo='📅 No schedule set for today';
+    schedInfo = '📅 No schedule set for today';
   }
-  document.getElementById('s2Role').innerHTML=roleLabel(selEmp)+'<br><span style="font-size:11px;color:var(--gray)">'+schedInfo+'</span>';
+  document.getElementById('s2Role').innerHTML = roleLabel(emp)+'<br><span style="font-size:11px;color:var(--gray)">'+schedInfo+'</span>';
 
-  // JIS: reset pin state
-  pin=''; pinAttempts=0; pinLockedUntil=0;
+  // reset PIN UI
+  sess.pin = ''; pinAttempts=0; pinLockedUntil=0;
   document.getElementById('pinDisplay').textContent='____';
   document.getElementById('pinDisplay').className='pin-display';
   document.getElementById('pinLockoutMsg').textContent='';
@@ -730,14 +715,15 @@ async function pickEmp(id){
 // SOFT LOCK
 // ══════════════════════════════════════════════════════
 function showSoftLock(){
-  var strikes=(selEmp.incomplete_sessions||0)+1;
-  document.getElementById('s6Av').textContent=inits(selEmp);
-  document.getElementById('s6Name').textContent=selEmp.name;
-  document.getElementById('s6Role').textContent=roleLabel(selEmp);
-  var date=prevDTR&&prevDTR.date?prevDTR.date.substring(0,10):'nakaraang araw';
-  document.getElementById('s6Sub').textContent='May hindi natapos na session mula '+date+'. Kailangan mong mag-report bago makapag-proceed.';
-  document.getElementById('s6Strike').textContent='Strike '+strikes+' ng 3';
-  document.getElementById('reportLiveHrsGroup').style.display=isLS(selEmp)?'block':'none';
+  var emp = sess.emp;
+  var strikes = (emp.incomplete_sessions||0)+1;
+  document.getElementById('s6Av').textContent = inits(emp);
+  document.getElementById('s6Name').textContent = emp.name;
+  document.getElementById('s6Role').textContent = roleLabel(emp);
+  var date = sess.prevDTR&&sess.prevDTR.date ? sess.prevDTR.date.substring(0,10) : 'nakaraang araw';
+  document.getElementById('s6Sub').textContent = 'May hindi natapos na session mula '+date+'. Kailangan mong mag-report bago makapag-proceed.';
+  document.getElementById('s6Strike').textContent = 'Strike '+strikes+' ng 3';
+  document.getElementById('reportLiveHrsGroup').style.display = isLS(emp)?'block':'none';
   show('s6');
 }
 
@@ -745,85 +731,61 @@ function showSoftLock(){
 // SUBMIT REPORT
 // ══════════════════════════════════════════════════════
 async function submitReport(){
-  var reason=document.getElementById('reportReason').value.trim();
-  var regHrs=parseFloat(document.getElementById('reportRegHrs').value)||0;
-  var liveHrs=parseFloat(document.getElementById('reportLiveHrs').value)||0;
-
-  // JIS: input validation
-  var hasErr=false;
+  var emp = sess.emp;
+  var reason = document.getElementById('reportReason').value.trim();
+  var regHrs = parseFloat(document.getElementById('reportRegHrs').value)||0;
+  var liveHrs = parseFloat(document.getElementById('reportLiveHrs').value)||0;
+  var hasErr = false;
   if(!reason){ document.getElementById('reportReason').classList.add('err'); hasErr=true; }
   else { document.getElementById('reportReason').classList.remove('err'); }
   if(!regHrs&&!liveHrs){ toast('Required: Ilagay ang hours worked.','err'); hasErr=true; }
   if(hasErr){ toast('Please fill in all required fields.','err'); return; }
 
-  var strikes=(selEmp.incomplete_sessions||0)+1;
-  var willLock=strikes>=3;
-
+  var strikes = (emp.incomplete_sessions||0)+1;
+  var willLock = strikes>=3;
   showNetLoading('Submitting report...');
   try{
     await fetchWithRetry(PB+'/api/collections/incident_reports/records',{
       method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        employee_id:selEmp.id,
-        date:prevDTR&&prevDTR.date?prevDTR.date.substring(0,10):todayStr(),
-        reason:reason,
-        reg_hours_claimed:regHrs,
-        live_hours_claimed:liveHrs,
-        strike_number:strikes,
-        status:'pending'
-      })
+      body:JSON.stringify({employee_id:emp.id,date:sess.prevDTR&&sess.prevDTR.date?sess.prevDTR.date.substring(0,10):todayStr(),reason:reason,reg_hours_claimed:regHrs,live_hours_claimed:liveHrs,strike_number:strikes,status:'pending'})
     });
-    var empUpdate={ incomplete_sessions:strikes };
+    var empUpdate={incomplete_sessions:strikes};
     if(willLock){ empUpdate.is_locked=true; empUpdate.lock_reason='3 incomplete sessions. Report to admin to unlock.'; }
-    await fetchWithRetry(PB+'/api/collections/employees/records/'+selEmp.id,{
-      method:'PATCH',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify(empUpdate)
-    });
-    if(prevDTR){
-      await fetchWithRetry(PB+'/api/collections/dtr_logs/records/'+prevDTR.id,{
-        method:'PATCH',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({status:'closed',is_auto_timeout:true,total_hours:regHrs+liveHrs})
-      });
+    await fetchWithRetry(PB+'/api/collections/employees/records/'+emp.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(empUpdate)});
+    if(sess.prevDTR){
+      await fetchWithRetry(PB+'/api/collections/dtr_logs/records/'+sess.prevDTR.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'closed',is_auto_timeout:true,total_hours:regHrs+liveHrs})});
     }
     hideNetLoading();
     if(willLock){ showSuccess('🔒','Account Locked','Ang iyong account ay na-lock dahil sa 3 incomplete sessions.\nPumunta sa admin para ma-unlock.',null); }
     else { showSuccess('📋','Report Submitted','Salamat! Ang iyong report ay naipadala na sa admin.\nStrike '+strikes+' ng 3.',null); }
-  }catch(e){
-    hideNetLoading();
-    toast('Error submitting. Please try again.','err');
-  }
+  }catch(e){ hideNetLoading(); toast('Error submitting. Please try again.','err'); }
 }
 
 // ══════════════════════════════════════════════════════
-// JIS: PIN — with lockout after 5 wrong attempts
+// PIN — with lockout
 // ══════════════════════════════════════════════════════
 function setPinBtnsDisabled(dis){
   document.querySelectorAll('#pinGrid .pin-btn').forEach(function(b){ b.disabled=dis; });
 }
-
 function pinPress(n){
-  if(Date.now() < pinLockedUntil){
-    var secsLeft=Math.ceil((pinLockedUntil-Date.now())/1000);
-    toast('Too many attempts. Wait '+secsLeft+'s.','err'); return;
-  }
-  if(pin.length>=4) return;
-  pin+=n;
-  document.getElementById('pinDisplay').textContent=pin.replace(/./g,'●').padEnd(4,'_');
-  if(pin.length===4) setTimeout(verifyPin,300);
+  if(Date.now()<pinLockedUntil){ var s=Math.ceil((pinLockedUntil-Date.now())/1000); toast('Too many attempts. Wait '+s+'s.','err'); return; }
+  if(sess.pin.length>=4) return;
+  sess.pin+=n;
+  document.getElementById('pinDisplay').textContent=sess.pin.replace(/./g,'●').padEnd(4,'_');
+  if(sess.pin.length===4) setTimeout(verifyPin,300);
 }
 function pinDel(){
   if(Date.now()<pinLockedUntil) return;
-  pin=pin.slice(0,-1);
-  document.getElementById('pinDisplay').textContent=pin.replace(/./g,'●').padEnd(4,'_');
+  sess.pin=sess.pin.slice(0,-1);
+  document.getElementById('pinDisplay').textContent=sess.pin.replace(/./g,'●').padEnd(4,'_');
 }
 function pinClear(){
   if(Date.now()<pinLockedUntil) return;
-  pin='';
+  sess.pin='';
   document.getElementById('pinDisplay').textContent='____';
 }
-
 async function verifyPin(){
-  if(pin!==selEmp.pin){
+  if(sess.pin!==sess.emp.pin){
     pinAttempts++;
     var disp=document.getElementById('pinDisplay');
     disp.className='pin-display wrong';
@@ -838,15 +800,13 @@ async function verifyPin(){
         pinAttempts=0; pinLockedUntil=0;
         setPinBtnsDisabled(false);
         document.getElementById('pinLockoutMsg').textContent='';
-        disp.className='pin-display';
-        pinClear();
-      }, PIN_LOCKOUT_MS);
+        disp.className='pin-display'; pinClear();
+      },PIN_LOCKOUT_MS);
     } else {
       document.getElementById('pinLockoutMsg').textContent='Wrong PIN — '+remaining+' attempt'+(remaining!==1?'s':'')+' left';
     }
     toast('Wrong PIN.','err'); pinClear(); return;
   }
-  // correct PIN
   pinAttempts=0;
   document.getElementById('pinLockoutMsg').textContent='';
   showAction();
@@ -856,71 +816,58 @@ async function verifyPin(){
 // ACTION SCREEN
 // ══════════════════════════════════════════════════════
 function showAction(){
+  var emp = sess.emp;
   var av=document.getElementById('s3Av');
-  av.textContent=inits(selEmp);
-  av.className='sel-avatar'+(isLS(selEmp)?' live-seller':'');
-  document.getElementById('s3Name').textContent=selEmp.name;
-  document.getElementById('s3Role').textContent=roleLabel(selEmp);
-
-  var warnBanner=document.getElementById('s3WarnBanner');
-  if(liveWarnings.length>0){ warnBanner.textContent='⚠️ '+liveWarnings.join(' '); warnBanner.style.display='block'; }
-  else { warnBanner.style.display='none'; }
-
+  av.textContent=inits(emp); av.className='sel-avatar'+(isLS(emp)?' live-seller':'');
+  document.getElementById('s3Name').textContent=emp.name;
+  document.getElementById('s3Role').textContent=roleLabel(emp);
+  var wb=document.getElementById('s3WarnBanner');
+  if(sess.liveWarnings.length>0){ wb.textContent='⚠️ '+sess.liveWarnings.join(' '); wb.style.display='block'; }
+  else { wb.style.display='none'; }
   var lbl=document.getElementById('actionLabel');
   var cam=document.getElementById('camSec');
   var btns=document.getElementById('actionBtns');
   cam.style.display='none'; stopCam();
-
-  switch(plcState){
+  switch(sess.plcState){
     case ST.OUT:
       lbl.textContent='Not clocked in — tap Time In to start your shift';
       cam.style.display='block'; startCam();
-      btns.innerHTML=mkBtn('btn-timein','timein','Time In',false,false);
-      break;
+      btns.innerHTML=mkBtn('btn-timein','timein','Time In',false,false); break;
     case ST.IN:
       lbl.textContent='Currently clocked in — hold Time Out to end your shift';
       cam.style.display='block'; startCam();
-      btns.innerHTML=mkBtn('btn-timeout','timeout','Time Out',true,true);
-      break;
+      btns.innerHTML=mkBtn('btn-timeout','timeout','Time Out',true,true); break;
     case ST.IN_LIVE:
       lbl.textContent='Choose your action';
-      btns.innerHTML=mkBtn('btn-startlive','startlive','Start Live',true,true)+mkBtn('btn-timeout','timeout','Time Out',true,true);
-      break;
+      btns.innerHTML=mkBtn('btn-startlive','startlive','Start Live',true,true)+mkBtn('btn-timeout','timeout','Time Out',true,true); break;
     case ST.LIVE:
       lbl.textContent='Live session active — hold to end live';
-      btns.innerHTML=mkBtn('btn-endlive','endlive','End Live',true,false);
-      break;
+      btns.innerHTML=mkBtn('btn-endlive','endlive','End Live',true,false); break;
     case ST.LIVE_DONE:
       lbl.textContent='Live ended — hold Time Out to end your shift';
       cam.style.display='block'; startCam();
-      btns.innerHTML=mkBtn('btn-timeout','timeout','Time Out',true,true);
-      break;
+      btns.innerHTML=mkBtn('btn-timeout','timeout','Time Out',true,true); break;
   }
   show('s3');
 }
 
 function mkBtn(cls,action,label,needsHold,needsDialog){
-  if(!needsHold){
-    return '<button class="btn '+cls+'" onclick="execAction(\''+action+'\')">'+label+'</button>';
-  }
+  if(!needsHold) return '<button class="btn '+cls+'" onclick="execAction(\''+action+'\')">'+label+'</button>';
   return '<button class="btn '+cls+'" id="btn_'+action+'"'
     +' onmousedown="startHold(\''+action+'\','+needsDialog+')"'
     +' ontouchstart="startHold(\''+action+'\','+needsDialog+')"'
     +' onmouseup="cancelHold()" onmouseleave="cancelHold()"'
     +' ontouchend="cancelHold()" ontouchcancel="cancelHold()">'
-    +label
-    +'<span class="hold-hint">Hold to confirm</span>'
-    +'<div class="hold-bar" id="hbar_'+action+'"></div>'
-    +'</button>';
+    +label+'<span class="hold-hint">Hold to confirm</span>'
+    +'<div class="hold-bar" id="hbar_'+action+'"></div></button>';
 }
 
 // ══════════════════════════════════════════════════════
-// HOLD-TO-CONFIRM (JIS: interlock)
+// HOLD-TO-CONFIRM
 // ══════════════════════════════════════════════════════
-function startHold(action, needsDialog){
+function startHold(action,needsDialog){
   cancelHold();
-  var bar=document.getElementById('hbar_'+action);
-  var btn=document.getElementById('btn_'+action);
+  var bar=document.getElementById('hbar_'+action), btn=document.getElementById('btn_'+action);
   if(bar){ bar.style.transition='none'; bar.style.width='0%'; setTimeout(function(){ bar.style.transition='width 2s linear'; bar.style.width='100%'; },30); }
   if(btn) btn.style.opacity='0.8';
   holdTimer=setTimeout(function(){
@@ -944,116 +891,94 @@ var dlgMeta={
   timeout:{ emoji:'🔴', title:'Time Out?', sub:'This will end your shift for today. Make sure you are done for the day.', btnLabel:'Yes, Time Out', btnCls:'btn-danger' },
   endlive_warn:{ emoji:'⚠️', title:'Live session is 6+ hours', sub:'Ang live session mo ay 6+ hours na. Tama ba ito? Ire-record ito at ire-review ng admin.', btnLabel:'Yes, End Live', btnCls:'btn-endlive' }
 };
-
 function showDialog(action){
-  pendingAction=action;
   var m=dlgMeta[action];
   document.getElementById('dlgEmoji').textContent=m.emoji;
   document.getElementById('dlgTitle').textContent=m.title;
   document.getElementById('dlgSub').textContent=m.sub;
   var cb=document.getElementById('dlgConfirm');
-  cb.textContent=m.btnLabel;
-  cb.className='btn '+m.btnCls;
-  cb.onclick=function(){
-    closeDialog();
-    execAction(action==='endlive_warn'?'endlive_confirmed':action);
-  };
+  cb.textContent=m.btnLabel; cb.className='btn '+m.btnCls;
+  cb.onclick=function(){ closeDialog(); execAction(action==='endlive_warn'?'endlive_confirmed':action); };
   document.getElementById('dialogOverlay').classList.add('show');
 }
 function closeDialog(){
   document.getElementById('dialogOverlay').classList.remove('show');
-  pendingAction=null;
 }
 
 // ══════════════════════════════════════════════════════
-// EXECUTE ACTION — JIS: retry + loading overlay
+// EXECUTE ACTION — all reads/writes use sess.* snapshot
 // ══════════════════════════════════════════════════════
 async function execAction(action){
-  var now=new Date(), t=todayStr(), ts=timeStr(now);
+  var emp=sess.emp, now=new Date(), t=todayStr(), ts=timeStr(now);
 
   if(action==='timein'){
-    photo=capPhoto(); stopCam();
+    sess.photo=capPhoto(); stopCam();
     showNetLoading('Recording time in...');
     try{
-      var body={employee_id:selEmp.id,time_in:now.toISOString(),date:t,type:isLS(selEmp)?'live_sell':'regular',status:'open',is_auto_timeout:false};
+      var body={employee_id:emp.id,time_in:now.toISOString(),date:t,type:isLS(emp)?'live_sell':'regular',status:'open',is_auto_timeout:false};
       var r=await fetchWithRetry(PB+'/api/collections/dtr_logs/records',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
       if(!r.ok) throw new Error('HTTP '+r.status);
-      openDTR=await r.json();
-      if(photo&&openDTR.id){
+      sess.openDTR=await r.json();
+      if(sess.photo&&sess.openDTR.id){
         try{
-          var blob=dataURLtoBlob(photo);
-          var fd=new FormData();
-          fd.append('time_in_photo',blob,'timein_'+selEmp.id+'_'+Date.now()+'.jpg');
-          await fetchWithTimeout(PB+'/api/collections/dtr_logs/records/'+openDTR.id,{method:'PATCH',body:fd});
-        }catch(pe){ console.log('Photo upload error',pe); }
+          var blob=dataURLtoBlob(sess.photo), fd=new FormData();
+          fd.append('time_in_photo',blob,'timein_'+emp.id+'_'+Date.now()+'.jpg');
+          await fetchWithTimeout(PB+'/api/collections/dtr_logs/records/'+sess.openDTR.id,{method:'PATCH',body:fd});
+        }catch(pe){}
       }
-      logAct('create','dtr_logs',openDTR.id,body);
+      logAct('create','dtr_logs',sess.openDTR.id,body);
       hideNetLoading();
-      showSuccess('🟢','Time In Recorded!',selEmp.name+'\n'+ts,photo);
-    }catch(e){
-      hideNetLoading();
-      toast('Failed to record time in. Please try again.','err');
-      startCam();
-    }
+      showSuccess('🟢','Time In Recorded!',emp.name+'\n'+ts,sess.photo);
+    }catch(e){ hideNetLoading(); toast('Failed to record time in. Please try again.','err'); startCam(); }
 
   } else if(action==='startlive'){
     showNetLoading('Starting live session...');
     try{
-      var body={employee_id:selEmp.id,start_time:now.toISOString(),date:t,status:'active'};
+      var body={employee_id:emp.id,start_time:now.toISOString(),date:t,status:'active'};
       var r=await fetchWithRetry(PB+'/api/collections/live_sessions/records',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
       if(!r.ok) throw new Error('HTTP '+r.status);
-      openLive=await r.json();
-      logAct('create','live_sessions',openLive.id,body);
-      if(liveWarnings.length>0) logAct('warn','live_sessions',openLive.id,{warning:'daily live hours exceeded 8hrs'});
+      sess.openLive=await r.json();
+      logAct('create','live_sessions',sess.openLive.id,body);
       hideNetLoading();
-      showSuccess('📡','Live Session Started!',selEmp.name+'\nStarted: '+ts,null);
-    }catch(e){
-      hideNetLoading();
-      toast('Failed to start live. Please try again.','err');
-    }
+      showSuccess('📡','Live Session Started!',emp.name+'\nStarted: '+ts,null);
+    }catch(e){ hideNetLoading(); toast('Failed to start live. Please try again.','err'); }
 
   } else if(action==='endlive'){
-    if(openLive){
-      var start=new Date(openLive.start_time);
+    if(sess.openLive){
+      var start=new Date(sess.openLive.start_time);
       if((now-start)/3600000>=6){ showDialog('endlive_warn'); return; }
     }
-    document.getElementById('s4Av').textContent=inits(selEmp);
-    document.getElementById('s4Name').textContent=selEmp.name;
+    document.getElementById('s4Av').textContent=inits(emp);
+    document.getElementById('s4Name').textContent=emp.name;
     show('s4');
 
   } else if(action==='endlive_confirmed'){
-    document.getElementById('s4Av').textContent=inits(selEmp);
-    document.getElementById('s4Name').textContent=selEmp.name;
+    document.getElementById('s4Av').textContent=inits(emp);
+    document.getElementById('s4Name').textContent=emp.name;
     show('s4');
 
   } else if(action==='timeout'){
-    photo=capPhoto(); stopCam();
+    sess.photo=capPhoto(); stopCam();
     showNetLoading('Recording time out...');
     try{
-      var tin=new Date(openDTR.time_in);
+      var tin=new Date(sess.openDTR.time_in);
       var hrs=Math.round(((now-tin)/3600000)*100)/100;
       var upd={time_out:now.toISOString(),status:'closed',total_hours:hrs};
-      var r=await fetchWithRetry(PB+'/api/collections/dtr_logs/records/'+openDTR.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(upd)});
+      var r=await fetchWithRetry(PB+'/api/collections/dtr_logs/records/'+sess.openDTR.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(upd)});
       if(!r.ok) throw new Error('HTTP '+r.status);
-      if(photo&&openDTR.id){
+      if(sess.photo&&sess.openDTR.id){
         try{
-          var blob=dataURLtoBlob(photo);
-          var fd=new FormData();
-          fd.append('time_out_photo',blob,'timeout_'+selEmp.id+'_'+Date.now()+'.jpg');
-          await fetchWithTimeout(PB+'/api/collections/dtr_logs/records/'+openDTR.id,{method:'PATCH',body:fd});
-        }catch(pe){ console.log('Photo upload error',pe); }
+          var blob=dataURLtoBlob(sess.photo), fd=new FormData();
+          fd.append('time_out_photo',blob,'timeout_'+emp.id+'_'+Date.now()+'.jpg');
+          await fetchWithTimeout(PB+'/api/collections/dtr_logs/records/'+sess.openDTR.id,{method:'PATCH',body:fd});
+        }catch(pe){}
       }
-      logAct('update','dtr_logs',openDTR.id,upd);
-      // JIS: reset incomplete_sessions on successful time out
-      await fetchWithRetry(PB+'/api/collections/employees/records/'+selEmp.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({incomplete_sessions:0})});
+      logAct('update','dtr_logs',sess.openDTR.id,upd);
+      await fetchWithRetry(PB+'/api/collections/employees/records/'+emp.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({incomplete_sessions:0})});
       hideNetLoading();
-      var h=Math.floor(hrs), m2=Math.round((hrs-h)*60);
-      showSuccess('🔴','Time Out Recorded!',selEmp.name+'\n'+ts+'\nTotal: '+h+'h '+m2+'m',photo);
-    }catch(e){
-      hideNetLoading();
-      toast('Failed to record time out. Please try again.','err');
-      startCam();
-    }
+      var h=Math.floor(hrs),m2=Math.round((hrs-h)*60);
+      showSuccess('🔴','Time Out Recorded!',emp.name+'\n'+ts+'\nTotal: '+h+'h '+m2+'m',sess.photo);
+    }catch(e){ hideNetLoading(); toast('Failed to record time out. Please try again.','err'); startCam(); }
   }
 }
 
@@ -1061,69 +986,55 @@ async function execAction(action){
 // PLATFORM
 // ══════════════════════════════════════════════════════
 function selPlat(p){
-  platform=p;
-  document.querySelectorAll('.platform-btn').forEach(function(b){
-    b.classList.toggle('selected', b.textContent.trim()===p);
-  });
+  sess.platform=p;
+  document.querySelectorAll('.platform-btn').forEach(function(b){ b.classList.toggle('selected',b.textContent.trim()===p); });
   document.getElementById('salesWrap').classList.remove('err');
 }
 
 // ══════════════════════════════════════════════════════
-// SUBMIT END LIVE — JIS: input validation
+// SUBMIT END LIVE
 // ══════════════════════════════════════════════════════
 async function submitEndLive(){
   var salesVal=document.getElementById('salesInput').value;
   var sales=parseFloat(salesVal)||0;
+  var ok=true;
+  if(salesVal===''||isNaN(parseFloat(salesVal))||sales<0){ document.getElementById('salesWrap').classList.add('err'); toast('Enter a valid sales amount (0 or more).','err'); ok=false; }
+  else { document.getElementById('salesWrap').classList.remove('err'); }
+  if(!sess.platform){ toast('Please select a platform.','err'); ok=false; }
+  if(!ok) return;
 
-  // JIS: validate sales amount
-  var salesOk=true;
-  if(salesVal===''||isNaN(parseFloat(salesVal))||sales<0){
-    document.getElementById('salesWrap').classList.add('err');
-    toast('Enter a valid sales amount (0 or more).','err');
-    salesOk=false;
-  } else {
-    document.getElementById('salesWrap').classList.remove('err');
-  }
-  if(!platform){ toast('Please select a platform.','err'); salesOk=false; }
-  if(!salesOk) return;
-
-  var now=new Date(), ts=timeStr(now);
+  var emp=sess.emp, now=new Date(), ts=timeStr(now);
   showNetLoading('Ending live session...');
   try{
-    var start=new Date(openLive.start_time);
+    var start=new Date(sess.openLive.start_time);
     var dur=Math.round(((now-start)/3600000)*100)/100;
-    var upd={end_time:now.toISOString(),status:'done',duration_hours:dur,sales_amount:sales,platform:platform};
+    var upd={end_time:now.toISOString(),status:'done',duration_hours:dur,sales_amount:sales,platform:sess.platform};
     if(dur>=6) upd.is_flagged=true;
-    var r=await fetchWithRetry(PB+'/api/collections/live_sessions/records/'+openLive.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(upd)});
+    var r=await fetchWithRetry(PB+'/api/collections/live_sessions/records/'+sess.openLive.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(upd)});
     if(!r.ok) throw new Error('HTTP '+r.status);
-    logAct('update','live_sessions',openLive.id,upd);
+    logAct('update','live_sessions',sess.openLive.id,upd);
     hideNetLoading();
-    var h=Math.floor(dur), m2=Math.round((dur-h)*60);
-    plcState=ST.LIVE_DONE;
-    showSuccess('⏹','Live Session Ended!',selEmp.name+'\nDuration: '+h+'h '+m2+'m\nSales: ₱'+sales.toLocaleString()+'\nPlatform: '+platform,null);
-  }catch(e){
-    hideNetLoading();
-    toast('Failed to end live. Please try again.','err');
-  }
+    var h=Math.floor(dur),m2=Math.round((dur-h)*60);
+    sess.plcState=ST.LIVE_DONE;
+    showSuccess('⏹','Live Session Ended!',emp.name+'\nDuration: '+h+'h '+m2+'m\nSales: ₱'+sales.toLocaleString()+'\nPlatform: '+sess.platform,null);
+  }catch(e){ hideNetLoading(); toast('Failed to end live. Please try again.','err'); }
 }
 
 // ══════════════════════════════════════════════════════
 // CAMERA
 // ══════════════════════════════════════════════════════
+var stream=null;
 async function startCam(){
   try{
     stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:false});
     document.getElementById('videoEl').srcObject=stream;
-  }catch(e){
-    toast('Camera unavailable — check permissions.');
-    document.getElementById('camSec').style.display='none';
-  }
+  }catch(e){ toast('Camera unavailable — check permissions.'); document.getElementById('camSec').style.display='none'; }
 }
 function stopCam(){
   if(stream){ stream.getTracks().forEach(function(t){ t.stop(); }); stream=null; }
 }
 function capPhoto(){
-  var v=document.getElementById('videoEl'), c=document.getElementById('canvasEl');
+  var v=document.getElementById('videoEl'),c=document.getElementById('canvasEl');
   if(!stream||!v.videoWidth) return null;
   c.width=v.videoWidth; c.height=v.videoHeight;
   var ctx=c.getContext('2d');
@@ -1132,7 +1043,7 @@ function capPhoto(){
 }
 
 // ══════════════════════════════════════════════════════
-// JIS: SUCCESS with countdown bar + operator acknowledgment
+// SUCCESS — with countdown bar
 // ══════════════════════════════════════════════════════
 function showSuccess(emoji,title,sub,pic){
   document.getElementById('sucEmoji').textContent=pic?'':emoji;
@@ -1141,13 +1052,11 @@ function showSuccess(emoji,title,sub,pic){
   var p=document.getElementById('sucPhoto');
   if(pic){ p.src=pic; p.style.display='block'; } else { p.style.display='none'; }
   show('s5');
-  // reset and animate countdown bar
   var bar=document.getElementById('sucBar');
   bar.style.transition='none'; bar.style.width='100%';
-  setTimeout(function(){ bar.style.transition='width 5s linear'; bar.style.width='0%'; }, 50);
-  // auto-go home after 5s
+  setTimeout(function(){ bar.style.transition='width 5s linear'; bar.style.width='0%'; },50);
   if(successTimer) clearTimeout(successTimer);
-  successTimer=setTimeout(goHome, 5000);
+  successTimer=setTimeout(goHome,5000);
 }
 
 // ══════════════════════════════════════════════════════
@@ -1163,13 +1072,13 @@ async function logAct(action,col,rid,val){
 }
 
 // ══════════════════════════════════════════════════════
-// SECRET 5-TAP LOGO
+// SECRET 5-TAP
 // ══════════════════════════════════════════════════════
-var tapCount=0, tapTimer=null;
+var tapCount=0,tapTimer=null;
 function logoTapped(){
   tapCount++;
   clearTimeout(tapTimer);
-  tapTimer=setTimeout(function(){ tapCount=0; }, 2000);
+  tapTimer=setTimeout(function(){ tapCount=0; },2000);
   if(tapCount>=5){ tapCount=0; clearTimeout(tapTimer); window.location.href='admin.html'; }
 }
 
@@ -1177,8 +1086,8 @@ function logoTapped(){
 // UTIL
 // ══════════════════════════════════════════════════════
 function dataURLtoBlob(dataURL){
-  var arr=dataURL.split(','), mime=arr[0].match(/:(.*?);/)[1];
-  var bstr=atob(arr[1]), n=bstr.length, u8arr=new Uint8Array(n);
+  var arr=dataURL.split(','),mime=arr[0].match(/:(.*?);/)[1];
+  var bstr=atob(arr[1]),n=bstr.length,u8arr=new Uint8Array(n);
   while(n--){ u8arr[n]=bstr.charCodeAt(n); }
   return new Blob([u8arr],{type:mime});
 }
