@@ -455,7 +455,12 @@ async function runWatchdog(){
     updConn('checking');
     await fetchWithTimeout(PB+'/api/health', {}, 5000);
     updConn('online');
+    // JIS: only run autoTimeout in background — never interrupt active session
     await autoTimeout();
+    // JIS: only refresh employee list if user is on home screen (S1)
+    if(document.getElementById('s1').classList.contains('active')){
+      await renderList(); // re-render only, emps already loaded
+    }
   } catch(e){
     updConn('offline');
   }
