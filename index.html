@@ -5401,11 +5401,72 @@ async function viewBbPayslip(periodId) {
     const regRate = e ? (e.reg_rate || 62.50) : 62.50;
     const liveRate = e ? (e.live_rate || 83.33) : 83.33;
 
+    // Fetch per-day DTR + live for the breakdown
+    const periodStart = p.period_start.substring(0, 10);
+    const periodEnd = p.period_end.substring(0, 10);
+    const [dayDtrs, dayLives] = await Promise.all([
+      pbGetList('dtr_logs', { filter: `employee_id="${p.employee_id}" && date>="${periodStart} 00:00:00" && date<="${periodEnd} 23:59:59"`, sort: 'date', perPage: 200 }),
+      pbGetList('live_sessions', { filter: `employee_id="${p.employee_id}" && date>="${periodStart} 00:00:00" && date<="${periodEnd} 23:59:59"`, sort: 'date', perPage: 200 })
+    ]);
+    // Group by date
+    const byDate = {};
+    dayDtrs.forEach(d => {
+      const k = (d.date || d.time_in || '').substring(0, 10);
+      if (!byDate[k]) byDate[k] = { dtr: [], live: [] };
+      byDate[k].dtr.push(d);
+    });
+    dayLives.forEach(l => {
+      const k = (l.date || l.start_time || '').substring(0, 10);
+      if (!byDate[k]) byDate[k] = { dtr: [], live: [] };
+      byDate[k].live.push(l);
+    });
+    const sortedDates = Object.keys(byDate).sort();
+
     const regPay = (p.reg_hours || 0) * regRate;
     const livePay = (p.live_hours || 0) * liveRate;
     const totalDed = (p.late_deduction || 0) + (p.break_deduction || 0) + (p.sss_ee || 0) + (p.phic_ee || 0) + (p.pagibig_ee || 0) + (p.cash_advance || 0);
 
     const row = (label, val, bold) => `<div style="display:flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--bb-border); font-size: ${bold ? '14px' : '13px'}; ${bold ? 'font-weight: 600;' : ''}">${label}<span>${val}</span></div>`;
+
+    // Build per-day breakdown HTML
+    let breakdownHtml = '';
+    if (sortedDates.length) {
+      breakdownHtml = `
+      <div style="font-size: 11px; font-weight: 600; color: var(--bb-gray); text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 8px;">Daily Breakdown</div>
+      <div style="border: 1px solid var(--bb-border); border-radius: 8px; overflow: hidden; margin-bottom: 16px;">
+        <table style="width: 100%; font-size: 11px; border-collapse: collapse;">
+          <thead><tr style="background: var(--bb-gray-light);">
+            <th style="padding: 6px 8px; text-align: left;">Date</th>
+            <th style="padding: 6px 8px; text-align: left;">Time In</th>
+            <th style="padding: 6px 8px; text-align: left;">Time Out</th>
+            <th style="padding: 6px 8px; text-align: right;">DTR</th>
+            <th style="padding: 6px 8px; text-align: right;">Live</th>
+            <th style="padding: 6px 8px; text-align: right;">Reg</th>
+            <th style="padding: 6px 8px; text-align: right;">Late</th>
+            <th style="padding: 6px 8px; text-align: left;">Type</th>
+          </tr></thead><tbody>` +
+        sortedDates.map(date => {
+          const dayData = byDate[date];
+          const dtrHrs = dayData.dtr.reduce((s, d) => s + (d.total_hours || 0), 0);
+          const liveHrs = dayData.live.reduce((s, l) => s + (l.duration_hours || 0), 0);
+          const regHrs = Math.max(0, dtrHrs - liveHrs);
+          const lateMins = dayData.dtr.reduce((s, d) => s + (d.late_minutes || 0), 0);
+          const firstDtr = dayData.dtr[0];
+          const tIn = firstDtr && firstDtr.time_in ? new Date(firstDtr.time_in).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' }) : '—';
+          const tOut = firstDtr && firstDtr.time_out ? new Date(firstDtr.time_out).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' }) : '—';
+          const types = [...new Set(dayData.dtr.map(d => d.type || 'regular'))].join(', ');
+          return `<tr style="border-top: 1px solid var(--bb-border);">
+            <td style="padding: 5px 8px;">${fmtDate(date)}</td>
+            <td style="padding: 5px 8px;">${tIn}</td>
+            <td style="padding: 5px 8px;">${tOut}</td>
+            <td style="padding: 5px 8px; text-align: right;">${dtrHrs.toFixed(2)}</td>
+            <td style="padding: 5px 8px; text-align: right; color: ${liveHrs > 0 ? 'var(--bb-blue)' : 'inherit'};">${liveHrs > 0 ? liveHrs.toFixed(2) : '—'}</td>
+            <td style="padding: 5px 8px; text-align: right;">${regHrs.toFixed(2)}</td>
+            <td style="padding: 5px 8px; text-align: right; color: ${lateMins > 0 ? 'var(--bb-red)' : 'inherit'};">${lateMins > 0 ? lateMins + 'm' : '—'}</td>
+            <td style="padding: 5px 8px;"><small>${types}</small></td>
+          </tr>`;
+        }).join('') + '</tbody></table></div>';
+    }
 
     document.getElementById('payslipBody').innerHTML = `
       <div style="background: var(--bb-honey-light); padding: 14px 16px; border-radius: 10px; margin-bottom: 16px;">
@@ -5413,6 +5474,8 @@ async function viewBbPayslip(periodId) {
         <div style="font-size: 12px; color: var(--bb-gray);">${e ? (e.role === 'live_seller' ? 'Live Seller' : 'Regular Staff') : ''}</div>
         <div style="font-size: 11px; color: var(--bb-gray); margin-top: 4px;">Cutoff: ${fmtDate(p.period_start)} → ${fmtDate(p.period_end)}</div>
       </div>
+
+      ${breakdownHtml}
 
       <div style="font-size: 11px; font-weight: 600; color: var(--bb-gray); text-transform: uppercase; letter-spacing: 0.5px; margin: 14px 0 4px;">Earnings</div>
       ${row(`Regular (${(p.reg_hours || 0).toFixed(2)}h × ₱${regRate.toFixed(2)})`, '₱' + regPay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }))}
