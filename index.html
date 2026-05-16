@@ -2187,7 +2187,7 @@
             </div>
             <div class="table-wrap">
               <table class="bb-table">
-                <thead><tr><th>Name</th><th>Role</th><th>Reg Rate</th><th>Live Rate</th><th>Strikes</th><th>Status</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Name</th><th>Role</th><th>Rates</th><th>Allowance</th><th>Ded Group</th><th>Status</th><th>Actions</th></tr></thead>
                 <tbody id="bbEmpBody"></tbody>
               </table>
             </div>
@@ -2841,7 +2841,10 @@
         <div class="card" style="margin-bottom: 16px;">
           <div class="card-h">
             <h3>Deduction Groups</h3>
-            <button class="btn btn-primary btn-sm" onclick="openDedModal()">+ New Group</button>
+            <div style="display:flex; gap:8px;">
+              <button class="btn btn-secondary btn-sm" onclick="openBulkAssignModal()">👥 Bulk Assign to Employees</button>
+              <button class="btn btn-primary btn-sm" onclick="openDedModal()">+ New Group</button>
+            </div>
           </div>
           <p style="font-size: 12px; color: var(--bb-gray); margin-bottom: 12px;">SSS / PhilHealth / Pag-IBIG amounts per employee bracket. Assign sa employee via deduction_group_id. Default kung walang group: SSS ₱581.30, PhilHealth ₱200.00, Pag-IBIG ₱100.</p>
           <div class="table-wrap">
@@ -3023,6 +3026,34 @@
             <button class="btn btn-danger" id="dedDelBtn" onclick="deleteDed()" style="display:none;">Delete</button>
             <button class="btn btn-secondary" onclick="closeModal('dedModal')">Cancel</button>
             <button class="btn btn-primary" onclick="saveDed()">Save Group</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- BULK ASSIGN DEDUCTION GROUP MODAL -->
+      <div class="modal-bg" id="bulkAssignModal">
+        <div class="modal" style="max-width: 540px;">
+          <div class="modal-header">
+            <h3>Bulk Assign Deduction Group</h3>
+            <button class="close-btn" onclick="closeModal('bulkAssignModal')">×</button>
+          </div>
+          <div class="modal-body">
+            <p style="font-size: 13px; color: var(--bb-gray); margin-bottom: 12px;">Pumili ng deduction group, then i-check ang mga employees para i-assign sa group na yan. Existing assignments will be overwritten.</p>
+
+            <label>Deduction Group *</label>
+            <select id="baGroup" style="margin-bottom: 14px;"></select>
+
+            <label>Employees</label>
+            <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+              <button class="btn btn-secondary btn-sm" onclick="baSelectAll(true)">Select All</button>
+              <button class="btn btn-secondary btn-sm" onclick="baSelectAll(false)">Clear</button>
+            </div>
+            <div id="baEmpList" style="max-height: 280px; overflow-y: auto; border: 1px solid var(--bb-border); border-radius: 6px; padding: 8px; background: var(--bb-bg);"></div>
+            <p style="font-size: 12px; color: var(--bb-honey-dark); margin-top: 8px;" id="baSelectedCount">0 employees selected</p>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('bulkAssignModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="runBulkAssign()">Apply to Selected</button>
           </div>
         </div>
       </div>
@@ -3267,6 +3298,9 @@
             </div>
 
             <div id="estab-allowance" style="display:none;">
+              <div style="background: var(--bb-blue-light); border-left: 4px solid var(--bb-blue); padding: 10px 14px; border-radius: 6px; margin-bottom: 14px; font-size: 12px; color: var(--bb-blue);">
+                💡 <strong>Tip:</strong> Sa cutoff allowance, ilagay ang lump sum na ibibigay every payroll (e.g., transportation, meal). Sa weekly allowance, ilagay yung per-week amount na multiply sa # of weeks worked. Deduction Group = SSS/PhilHealth/Pag-IBIG bracket. Pag wala, defaults ang ginagamit.
+              </div>
               <p style="font-size: 12px; color: var(--bb-gray); margin-bottom: 12px;">Set per-employee allowance at deduction group. Eto ang gagamitin ng payroll engine sa compute.</p>
               <div class="form-row">
                 <div><label>Weekly Allowance (₱)</label><input type="number" id="esWeeklyAllow" step="0.01" min="0" placeholder="0"></div>
@@ -3372,11 +3406,16 @@
           <div style="background: var(--bb-honey-light); padding: 14px 16px; border-radius: 8px; font-size: 12.5px; line-height: 1.7;">
             <p style="font-weight: 600; margin-bottom: 8px;">Per-Day Hours Computation:</p>
             <ul style="padding-left: 18px; margin-bottom: 10px;">
-              <li><strong>Regular Hours (regHrs)</strong> = sum ng <code>dtr_logs.total_hours</code> sa araw (time-in to time-out)</li>
-              <li><strong>Live Hours (liveHrs)</strong> = sum ng <code>live_sessions.duration_hours</code> sa araw</li>
-              <li><strong>Total</strong> = regHrs + liveHrs</li>
-              <li><strong>8-hour daily cap:</strong> kung total &gt; 8, regHrs trim with live priority (live always counted full)</li>
-              <li><strong>Break deduction:</strong> Kung total ≥ 8 hours → -1 hour from regHrs. Kung ≥ 6 hours → -0.5 hour.</li>
+              <li><strong>DTR Total Hours</strong> = sum ng <code>dtr_logs.total_hours</code> (time-in to time-out window)</li>
+              <li><strong>Live Hours (liveHrs)</strong> = sum ng <code>live_sessions.duration_hours</code> — subset ng DTR window (live happens during time-in)</li>
+              <li><strong>Regular Hours (regHrs) = DTR Total − Live Hours</strong> — yung natitirang oras sa time-in na hindi live selling</li>
+              <li><strong>Break deduction:</strong> Based sa DTR total (full worked window):
+                <ul>
+                  <li>DTR Total ≥ 8 hours → -1 hour deducted from regHrs</li>
+                  <li>DTR Total ≥ 6 hours → -0.5 hour deducted from regHrs</li>
+                </ul>
+                Break is deducted from regular hours (employee takes break during regular work, not live).
+              </li>
               <li><strong>Late deduction (from <code>schedules.{day}_start</code>):</strong>
                 <ul>
                   <li>0-5 mins late: grace period, walang deduction</li>
@@ -3387,6 +3426,10 @@
               </li>
               <li><strong>Overtime (OT):</strong> Pwede mag-time-in with <code>type='ot'</code> for OT hours. Currently treated as regular hours sa payroll engine — OT-specific rate at request flow ay future feature.</li>
             </ul>
+
+            <p style="background: white; padding: 10px; border-radius: 6px; font-size: 12px; color: var(--bb-gray); margin: 10px 0;">
+              💡 <strong>Example:</strong> Employee time-in 8 AM, time-out 5 PM (9 hours DTR). Did 3 hours of FB Live selling between 10 AM - 1 PM. Result: liveHrs = 3, regHrs = 9 - 3 = 6 (then -1 break = 5). Pay = 5 × reg_rate + 3 × live_rate.
+            </p>
             <p style="font-weight: 600; margin-bottom: 8px; margin-top: 12px;">Per-Cutoff Pay Computation:</p>
             <ul style="padding-left: 18px;">
               <li><strong>regPay</strong> = max(0, totalRegHrs - lateHrs) × <code>reg_rate</code> (per-employee, default ₱62.50/hr)</li>
@@ -4686,16 +4729,21 @@ async function loadBbDashboard() {
 
 let BB_EMPLOYEES_CACHE = [];
 
+let BB_DED_GROUPS_CACHE = {};
+
 async function loadBbHR() {
   try {
     const today = todayStr();
     const dayStart = today + ' 00:00:00';
-    const [emps, dtrs, incidents] = await Promise.all([
+    const [emps, dtrs, incidents, dedGroups] = await Promise.all([
       pbGetList('employees', { sort: 'name', perPage: 500 }),
       pbGetList('dtr_logs', { filter: `date>="${dayStart}"`, sort: '-time_in', expand: 'employee_id', perPage: 200 }),
-      pbGetList('incident_reports', { sort: '-date', expand: 'employee_id', perPage: 200 })
+      pbGetList('incident_reports', { sort: '-date', expand: 'employee_id', perPage: 200 }),
+      pbGetList('deduction_groups', { perPage: 100 })
     ]);
     BB_EMPLOYEES_CACHE = emps;
+    BB_DED_GROUPS_CACHE = {};
+    dedGroups.forEach(g => BB_DED_GROUPS_CACHE[g.id] = g);
     renderBbEmployees();
     renderBbDtrToday(dtrs);
     renderBbIncidents(incidents);
@@ -4717,12 +4765,19 @@ function renderBbEmployees() {
       : '<span class="bb-badge green">Active</span>';
     const lockBtn = canLock ? `<button class="btn btn-sm ${e.is_locked ? 'btn-secondary' : 'btn-danger'}" onclick="toggleEmpLock('${e.id}', ${e.is_locked || false})">${e.is_locked ? 'Unlock' : 'Lock'}</button>` : '';
     const settingsBtn = canEdit ? `<button class="btn btn-ghost btn-sm" onclick="openEmpSettings('${e.id}')" style="margin-right: 4px;">⚙ Settings</button>` : '';
+    const dedGroup = BB_DED_GROUPS_CACHE[e.deduction_group_id];
+    const groupCell = dedGroup
+      ? `<span class="bb-badge green" title="SSS ₱${(dedGroup.sss_amount||0).toFixed(2)} • PHIC ₱${(dedGroup.phic_percent||0).toFixed(2)} • Pag-IBIG ₱${(dedGroup.pagibig_amount||0).toFixed(2)}">${dedGroup.name}</span>`
+      : '<span class="bb-badge gray" title="Falls back to defaults">⚠ none</span>';
+    const allowanceCell = (e.weekly_allowance || e.cutoff_allowance)
+      ? `<small>W: ₱${(e.weekly_allowance||0).toFixed(0)}<br>C: ₱${(e.cutoff_allowance||0).toFixed(0)}</small>`
+      : '<small style="color:#bbb;">none</small>';
     return `<tr>
       <td><strong>${e.name}</strong><br><small style="color:var(--bb-gray);">${e.email || '—'}</small></td>
       <td>${roleBadge}</td>
-      <td>₱${(e.reg_rate || 0).toFixed(2)}</td>
-      <td>₱${(e.live_rate || 0).toFixed(2)}</td>
-      <td>${e.incomplete_sessions || 0}/3</td>
+      <td><small>Reg ₱${(e.reg_rate || 0).toFixed(0)}/hr<br>Live ₱${(e.live_rate || 0).toFixed(0)}/hr</small></td>
+      <td>${allowanceCell}</td>
+      <td>${groupCell}</td>
       <td>${statusBadge}</td>
       <td style="white-space: nowrap;">${settingsBtn}${lockBtn}</td>
     </tr>`;
@@ -4805,8 +4860,8 @@ async function saveEmpSettings() {
     is_locked: document.getElementById('esLocked').value === 'true',
     lock_reason: document.getElementById('esLockReason').value
   };
-  const dedGroupId = document.getElementById('esDedGroup').value;
-  if (dedGroupId) body.deduction_group_id = dedGroupId;
+  // Always set deduction_group_id (even empty string clears the relation)
+  body.deduction_group_id = document.getElementById('esDedGroup').value || '';
   if (!body.name) { toast('Name required', 'err'); return; }
   try {
     await pbUpdate('employees', id, body);
@@ -5161,17 +5216,20 @@ async function runComputePayroll() {
       allDates.forEach(date => {
         const dayDTRs = dtrByDate[date] || [];
         const dayLive = liveByDate[date] || [];
-        let regHrs = dayDTRs.reduce((s, d) => s + (d.total_hours || 0), 0);
-        let liveHrs = dayLive.reduce((s, l) => s + (l.duration_hours || 0), 0);
-        const total = regHrs + liveHrs;
 
-        // 8-hour cap with live priority
-        if (total > 8) regHrs = Math.max(0, regHrs - (total - 8));
+        // DTR total = total worked window (time-in to time-out)
+        const dtrHrs = dayDTRs.reduce((s, d) => s + (d.total_hours || 0), 0);
+        // Live hours = portion within DTR window spent doing live selling
+        const liveHrs = dayLive.reduce((s, l) => s + (l.duration_hours || 0), 0);
 
-        // Break deduction
+        // Regular hours = DTR total MINUS live hours (live is subset of DTR window)
+        let regHrs = Math.max(0, dtrHrs - liveHrs);
+
+        // Break deduction based on total worked window (dtrHrs)
         let breakHrs = 0;
-        if (total >= 8) breakHrs = 1;
-        else if (total >= 6) breakHrs = 0.5;
+        if (dtrHrs >= 8) breakHrs = 1;
+        else if (dtrHrs >= 6) breakHrs = 0.5;
+        // Break is deducted from regular hours (employee takes break during regular work, not live)
         regHrs = Math.max(0, regHrs - breakHrs);
 
         // Late deduction
@@ -5804,6 +5862,55 @@ async function saveDed() {
     closeModal('dedModal');
     loadBbDed();
   } catch (e) { alert('Failed: ' + e.message); }
+}
+
+async function openBulkAssignModal() {
+  try {
+    const [groups, emps] = await Promise.all([
+      pbGetList('deduction_groups', { sort: 'name', perPage: 100 }),
+      pbGetList('employees', { filter: 'is_active=true', sort: 'name', perPage: 500 })
+    ]);
+    if (!groups.length) { toast('Create a deduction group first', 'err'); return; }
+    document.getElementById('baGroup').innerHTML = groups.map(g => `<option value="${g.id}">${g.name} (SSS ₱${(g.sss_amount||0).toFixed(2)} / PHIC ₱${(g.phic_percent||0).toFixed(2)} / Pag-IBIG ₱${(g.pagibig_amount||0).toFixed(2)})</option>`).join('');
+    document.getElementById('baEmpList').innerHTML = emps.map(e => `
+      <label style="display: flex; align-items: center; gap: 10px; padding: 6px 8px; cursor: pointer; border-radius: 4px;" onmouseover="this.style.background='var(--bb-honey-light)'" onmouseout="this.style.background=''">
+        <input type="checkbox" data-empid="${e.id}" onchange="baUpdateCount()">
+        <span style="flex: 1; font-size: 13px;"><strong>${e.name}</strong> <small style="color: var(--bb-gray);">(currently: ${BB_DED_GROUPS_CACHE[e.deduction_group_id] ? BB_DED_GROUPS_CACHE[e.deduction_group_id].name : 'none'})</small></span>
+      </label>
+    `).join('');
+    baUpdateCount();
+    document.getElementById('bulkAssignModal').classList.add('open');
+  } catch (e) { toast('Failed: ' + e.message, 'err'); }
+}
+
+function baSelectAll(check) {
+  document.querySelectorAll('#baEmpList input[type="checkbox"]').forEach(cb => cb.checked = check);
+  baUpdateCount();
+}
+
+function baUpdateCount() {
+  const count = document.querySelectorAll('#baEmpList input:checked').length;
+  document.getElementById('baSelectedCount').textContent = count + ' employee(s) selected';
+}
+
+async function runBulkAssign() {
+  const groupId = document.getElementById('baGroup').value;
+  const empIds = [...document.querySelectorAll('#baEmpList input:checked')].map(cb => cb.dataset.empid);
+  if (!groupId) { toast('Pick a group', 'err'); return; }
+  if (!empIds.length) { toast('Select at least one employee', 'err'); return; }
+  if (!confirm(`Assign ${empIds.length} employee(s) to this deduction group? Existing assignments will be overwritten.`)) return;
+  let ok = 0, failed = 0;
+  for (const id of empIds) {
+    try {
+      await pbUpdate('employees', id, { deduction_group_id: groupId });
+      ok++;
+    } catch (e) { failed++; console.error(e); }
+  }
+  closeModal('bulkAssignModal');
+  toast(`✓ Assigned ${ok} employees${failed ? ` (${failed} failed)` : ''}`, ok > 0 ? 'ok' : 'err');
+  // Refresh
+  await loadBbDed();
+  if (typeof loadBbHR === 'function') loadBbHR();
 }
 
 async function deleteDed() {
