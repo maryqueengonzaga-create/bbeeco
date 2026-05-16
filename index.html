@@ -1635,6 +1635,9 @@
       <div class="nav-item" data-view="bbCheckins" data-perm="any"><span class="nav-icon">📝</span> Weekly Check-Ins</div>
       <div class="nav-item" data-view="bbSales" data-perm="view_sales"><span class="nav-icon">💰</span> Sales &amp; Live</div>
       <div class="nav-item" data-view="bbSalesEntries" data-perm="view_sales"><span class="nav-icon">🛒</span> Non-Live Sales</div>
+      <div class="nav-item" data-view="bbTaskReview" data-perm="any"><span class="nav-icon">✓</span> Task Review</div>
+      <div class="nav-item" data-view="bbTaskSummary" data-perm="any"><span class="nav-icon">📊</span> Task Summary</div>
+      <div class="nav-item" data-view="bbCashFlow" data-perm="view_payroll"><span class="nav-icon">💸</span> Cash Flow</div>
       <div class="nav-item" data-view="bbPayroll" data-perm="view_payroll"><span class="nav-icon">₱</span> Payroll</div>
 
       <div class="nav-section">BbeeCo Settings</div>
@@ -2432,6 +2435,198 @@
             <button class="btn btn-danger" id="seDelBtn" onclick="deleteSE()" style="display:none;">Delete</button>
             <button class="btn btn-secondary" onclick="closeModal('seModal')">Cancel</button>
             <button class="btn btn-primary" onclick="saveSE()">Save</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TASK REVIEW VIEW -->
+      <section class="view" id="view-bbTaskReview">
+        <div class="card" style="margin-bottom: 16px;">
+          <div class="card-h">
+            <h3>Task Review — Rate Completed Tasks</h3>
+            <button class="btn btn-secondary btn-sm" onclick="loadBbTaskReview()">⟳ Refresh</button>
+          </div>
+          <p style="font-size: 13px; color: var(--bb-gray); margin-bottom: 12px;">
+            Lista ng tasks na minarkahan na "done" ng employees. Bigyan mo ng quality rating (1-5) para makuha sa KPI score.
+          </p>
+          <div class="bb-stats-row">
+            <div class="bb-stat-card honey"><div class="label">Pending Review (Done, No Rating)</div><div class="value" id="trPending">—</div></div>
+            <div class="bb-stat-card green"><div class="label">Reviewed (Rated)</div><div class="value" id="trReviewed">—</div></div>
+            <div class="bb-stat-card blue"><div class="label">Avg Quality Score</div><div class="value" id="trAvgQuality">—</div></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-h"><h3>Pending Review</h3></div>
+          <div id="bbTaskReviewList"></div>
+        </div>
+        <div class="card" style="margin-top: 16px;">
+          <div class="card-h"><h3>Recently Reviewed</h3></div>
+          <div class="table-wrap">
+            <table class="bb-table">
+              <thead><tr><th>Task</th><th>Employee</th><th>Completed</th><th>Quality</th></tr></thead>
+              <tbody id="bbTaskReviewedBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TASK SUMMARY VIEW -->
+      <section class="view" id="view-bbTaskSummary">
+        <div class="card" style="margin-bottom: 16px;">
+          <div class="card-h">
+            <h3>Weekly Task Summary per Employee</h3>
+            <div style="display:flex; gap: 8px;">
+              <select id="tsWeek" onchange="loadBbTaskSummary()" style="padding: 6px 11px; font-size: 12px; border: 1px solid var(--bb-border); border-radius: 6px;">
+                <option value="current">This Week</option>
+                <option value="last">Last Week</option>
+                <option value="2weeks">Last 2 Weeks</option>
+                <option value="month">This Month</option>
+                <option value="all">All Time</option>
+              </select>
+              <button class="btn btn-secondary btn-sm" onclick="exportToCsv('tms_tasks')">⬇ CSV</button>
+            </div>
+          </div>
+          <div class="bb-stats-row">
+            <div class="bb-stat-card honey"><div class="label">Total Tasks</div><div class="value" id="tsTotal">—</div></div>
+            <div class="bb-stat-card green"><div class="label">Completed</div><div class="value" id="tsDone">—</div></div>
+            <div class="bb-stat-card red"><div class="label">Overdue</div><div class="value" id="tsOverdue">—</div></div>
+            <div class="bb-stat-card blue"><div class="label">Avg Quality</div><div class="value" id="tsQuality">—</div></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-h"><h3>Per-Employee Breakdown</h3></div>
+          <div class="table-wrap">
+            <table class="bb-table">
+              <thead><tr><th>Employee</th><th>Assigned</th><th>Completed</th><th>Pending</th><th>Overdue</th><th>Completion %</th><th>Avg Quality</th></tr></thead>
+              <tbody id="bbTaskSummaryBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="grid-2" style="margin-top: 16px;">
+          <div class="card">
+            <div class="card-h"><h3>Completion Rate by Employee</h3></div>
+            <div class="chart-box"><canvas id="tsChartCompletion"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><h3>Quality Distribution</h3></div>
+            <div class="chart-box"><canvas id="tsChartQuality"></canvas></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CASH FLOW VIEW -->
+      <section class="view" id="view-bbCashFlow">
+        <div class="card" style="margin-bottom: 16px;">
+          <div class="card-h">
+            <h3>Cash Flow — Inflow & Outflow Tracker</h3>
+            <div style="display:flex; gap:8px;">
+              <select id="cfFilter" onchange="loadBbCashFlow()" style="padding: 6px 11px; font-size: 12px; border: 1px solid var(--bb-border); border-radius: 6px;">
+                <option value="today">Today</option>
+                <option value="week" selected>This Week</option>
+                <option value="month">This Month</option>
+                <option value="all">All Time</option>
+              </select>
+              <button class="btn btn-secondary btn-sm" onclick="exportToCsv('tms_cash_flow')">⬇ CSV</button>
+              <button class="btn btn-secondary btn-sm" onclick="loadBbCashFlow()">⟳ Refresh</button>
+              <button class="btn btn-primary btn-sm" onclick="openCashFlowModal()">+ Add Entry</button>
+            </div>
+          </div>
+          <p style="font-size: 13px; color: var(--bb-gray); margin-bottom: 12px;">
+            Record ng pera na pumapasok (sales, deposits) at lumalabas (expenses, payroll, supplies). I-upload din ang receipt photo para sa audit.
+          </p>
+          <div class="bb-stats-row">
+            <div class="bb-stat-card green"><div class="label">Total Inflow</div><div class="value" id="cfInflow">—</div></div>
+            <div class="bb-stat-card red"><div class="label">Total Outflow</div><div class="value" id="cfOutflow">—</div></div>
+            <div class="bb-stat-card honey"><div class="label">Net (Inflow − Outflow)</div><div class="value" id="cfNet">—</div></div>
+            <div class="bb-stat-card blue"><div class="label">Entries</div><div class="value" id="cfCount">—</div></div>
+          </div>
+        </div>
+
+        <div class="grid-2" style="margin-bottom: 16px;">
+          <div class="card">
+            <div class="card-h"><h3>By Category</h3></div>
+            <div class="chart-box"><canvas id="cfChartCat"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><h3>Daily Trend</h3></div>
+            <div class="chart-box"><canvas id="cfChartDaily"></canvas></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-h"><h3>All Entries</h3></div>
+          <div class="table-wrap">
+            <table class="bb-table">
+              <thead><tr><th>Date</th><th>Type</th><th>Category</th><th>Amount</th><th>Description</th><th>Receipt</th><th>By</th><th>Action</th></tr></thead>
+              <tbody id="bbCashFlowBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- CASH FLOW MODAL -->
+      <div class="modal-bg" id="cashFlowModal">
+        <div class="modal" style="max-width: 560px;">
+          <div class="modal-header">
+            <h3 id="cashFlowTitle">New Cash Flow Entry</h3>
+            <button class="close-btn" onclick="closeModal('cashFlowModal')">×</button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" id="cfId">
+            <div class="form-row">
+              <div><label>Date *</label><input type="date" id="cfDate"></div>
+              <div><label>Type *</label><select id="cfType" onchange="updateCfCategoryOptions()">
+                <option value="inflow">💰 Inflow (Income)</option>
+                <option value="outflow">💸 Outflow (Expense)</option>
+              </select></div>
+            </div>
+            <div class="form-row">
+              <div><label>Category *</label><select id="cfCategory"></select></div>
+              <div><label>Amount (₱) *</label><input type="number" id="cfAmount" min="0" step="0.01"></div>
+            </div>
+            <div class="form-row single">
+              <div><label>Description</label><input type="text" id="cfDescription" placeholder="e.g., Office supplies for May"></div>
+            </div>
+            <div class="form-row">
+              <div><label>Reference No. (optional)</label><input type="text" id="cfRefNo" placeholder="OR/Invoice #"></div>
+              <div><label>Receipt Photo (optional)</label><input type="file" id="cfReceipt" accept="image/*,application/pdf"></div>
+            </div>
+            <div id="cfReceiptPreview" style="margin-top: 8px;"></div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-danger" id="cfDelBtn" onclick="deleteCashFlow()" style="display:none;">Delete</button>
+            <button class="btn btn-secondary" onclick="closeModal('cashFlowModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="saveCashFlow()">Save Entry</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TASK QUALITY RATING MODAL -->
+      <div class="modal-bg" id="taskRateModal">
+        <div class="modal" style="max-width: 460px;">
+          <div class="modal-header">
+            <h3>Rate Task Quality</h3>
+            <button class="close-btn" onclick="closeModal('taskRateModal')">×</button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" id="trTaskId">
+            <div style="background: var(--bb-honey-light); padding: 14px; border-radius: 8px; margin-bottom: 14px;">
+              <div style="font-weight: 600; font-size: 14px;" id="trTaskTitle">—</div>
+              <div style="font-size: 12px; color: var(--bb-gray); margin-top: 4px;" id="trTaskMeta">—</div>
+            </div>
+            <label>Quality Rating (1-5 stars)</label>
+            <div style="display: flex; gap: 6px; margin-top: 8px; font-size: 32px; cursor: pointer; user-select: none;" id="trStars">
+              <span data-rate="1" onclick="selectTaskRating(1)">☆</span>
+              <span data-rate="2" onclick="selectTaskRating(2)">☆</span>
+              <span data-rate="3" onclick="selectTaskRating(3)">☆</span>
+              <span data-rate="4" onclick="selectTaskRating(4)">☆</span>
+              <span data-rate="5" onclick="selectTaskRating(5)">☆</span>
+            </div>
+            <p style="font-size: 11px; color: var(--bb-gray); margin-top: 6px;" id="trRatingLabel">1=Poor • 2=Below • 3=Average • 4=Good • 5=Excellent</p>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('taskRateModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="saveTaskRating()">Save Rating</button>
           </div>
         </div>
       </div>
@@ -5759,6 +5954,352 @@ async function deleteAa() {
   } catch (e) { alert('Failed: ' + e.message); }
 }
 
+/* ===================== TASK REVIEW + RATING ===================== */
+async function loadBbTaskReview() {
+  try {
+    const tasks = await pbGetList('tms_tasks', { filter: 'status="done"', sort: '-completed_at', expand: 'assigned_to', perPage: 500 });
+    const pending = tasks.filter(t => !t.quality_rating);
+    const reviewed = tasks.filter(t => t.quality_rating);
+    const avgQuality = reviewed.length ? (reviewed.reduce((s, t) => s + (t.quality_rating || 0), 0) / reviewed.length).toFixed(2) : '—';
+    document.getElementById('trPending').textContent = pending.length;
+    document.getElementById('trReviewed').textContent = reviewed.length;
+    document.getElementById('trAvgQuality').textContent = avgQuality;
+
+    const list = document.getElementById('bbTaskReviewList');
+    if (!pending.length) {
+      list.innerHTML = '<div style="text-align:center; padding: 30px; color: var(--bb-gray); background: var(--bb-green-light); border-radius: 10px;"><div style="font-size: 40px; margin-bottom: 8px;">🎉</div><strong style="color: var(--bb-green);">All caught up!</strong><div style="font-size: 12px;">Walang pending review na tasks.</div></div>';
+    } else {
+      list.innerHTML = pending.map(t => {
+        const e = t.expand && t.expand.assigned_to;
+        return `<div style="background: white; padding: 14px; border-radius: 8px; border: 1.5px solid var(--bb-border); margin-bottom: 10px;">
+          <div style="display:flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
+            <div style="flex:1; min-width:0;">
+              <div style="font-weight: 600; font-size: 14px;">${t.title}</div>
+              ${t.description ? `<div style="font-size: 12px; color: var(--bb-gray); margin-top: 4px;">${(t.description || '').substring(0, 120)}</div>` : ''}
+              <div style="font-size: 11px; color: var(--bb-gray); margin-top: 6px;">
+                ${e ? e.name : '—'} • ${t.category} • Completed: ${t.completed_at ? fmtDate(t.completed_at) : '—'}
+              </div>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="openTaskRating('${t.id}', '${t.title.replace(/'/g, "&apos;")}', '${e ? e.name : 'Unknown'}', '${t.completed_at || ''}')">⭐ Rate</button>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    // Recent reviewed
+    const body = document.getElementById('bbTaskReviewedBody');
+    if (!reviewed.length) {
+      body.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;color:#999;">Walang reviewed tasks yet.</td></tr>';
+    } else {
+      body.innerHTML = reviewed.slice(0, 20).map(t => {
+        const e = t.expand && t.expand.assigned_to;
+        return `<tr>
+          <td><strong>${t.title}</strong></td>
+          <td>${e ? e.name : '—'}</td>
+          <td>${t.completed_at ? fmtDate(t.completed_at) : '—'}</td>
+          <td>${'⭐'.repeat(t.quality_rating)} <small>(${t.quality_rating}/5)</small></td>
+        </tr>`;
+      }).join('');
+    }
+  } catch (e) { console.error(e); }
+}
+
+let _tr_rating = 0;
+function openTaskRating(taskId, title, empName, completedAt) {
+  document.getElementById('trTaskId').value = taskId;
+  document.getElementById('trTaskTitle').textContent = title.replace(/&apos;/g, "'");
+  document.getElementById('trTaskMeta').textContent = `Done by ${empName} on ${completedAt ? fmtDate(completedAt) : '—'}`;
+  _tr_rating = 0;
+  updateStarsUI();
+  document.getElementById('taskRateModal').classList.add('open');
+}
+
+function selectTaskRating(n) {
+  _tr_rating = n;
+  updateStarsUI();
+}
+
+function updateStarsUI() {
+  document.querySelectorAll('#trStars span').forEach((s, i) => {
+    s.textContent = i < _tr_rating ? '⭐' : '☆';
+  });
+  const labels = ['—','Poor','Below Average','Average','Good','Excellent'];
+  document.getElementById('trRatingLabel').textContent = labels[_tr_rating] || '1=Poor • 2=Below • 3=Average • 4=Good • 5=Excellent';
+}
+
+async function saveTaskRating() {
+  const id = document.getElementById('trTaskId').value;
+  if (!_tr_rating) { toast('Please pick a rating', 'err'); return; }
+  try {
+    await pbUpdate('tms_tasks', id, { quality_rating: _tr_rating });
+    closeModal('taskRateModal');
+    loadBbTaskReview();
+    toast('✓ Task rated ' + _tr_rating + ' star' + (_tr_rating === 1 ? '' : 's'), 'ok');
+  } catch (e) { toast('Failed: ' + e.message, 'err'); }
+}
+
+/* ===================== TASK SUMMARY ===================== */
+async function loadBbTaskSummary() {
+  const filter = document.getElementById('tsWeek').value;
+  let dateFilter = '';
+  const now = new Date();
+  if (filter === 'current') {
+    const monday = new Date(now); const day = monday.getDay();
+    monday.setDate(monday.getDate() - (day === 0 ? 6 : day - 1));
+    dateFilter = `due_date>="${monday.toISOString().substring(0,10)}"`;
+  } else if (filter === 'last') {
+    const lastMon = new Date(now); const day = lastMon.getDay();
+    lastMon.setDate(lastMon.getDate() - (day === 0 ? 6 : day - 1) - 7);
+    const lastSun = new Date(lastMon); lastSun.setDate(lastMon.getDate() + 6);
+    dateFilter = `due_date>="${lastMon.toISOString().substring(0,10)}" && due_date<="${lastSun.toISOString().substring(0,10)} 23:59:59"`;
+  } else if (filter === '2weeks') {
+    const twoWk = new Date(now.getTime() - 14*86400000);
+    dateFilter = `due_date>="${twoWk.toISOString().substring(0,10)}"`;
+  } else if (filter === 'month') {
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    dateFilter = `due_date>="${monthStart.toISOString().substring(0,10)}"`;
+  }
+
+  try {
+    const [tasks, emps] = await Promise.all([
+      pbGetList('tms_tasks', { filter: dateFilter, sort: '-due_date', expand: 'assigned_to', perPage: 500 }),
+      pbGetList('employees', { filter: 'is_active=true', sort: 'name', perPage: 500 })
+    ]);
+    const empMap = {}; emps.forEach(e => empMap[e.id] = e);
+    const today = todayStr();
+
+    // Aggregate by employee
+    const byEmp = {};
+    emps.forEach(e => { byEmp[e.id] = { name: e.name, assigned: 0, done: 0, pending: 0, overdue: 0, qualities: [] }; });
+    tasks.forEach(t => {
+      const eid = t.assigned_to;
+      if (!eid || !byEmp[eid]) return;
+      byEmp[eid].assigned++;
+      if (t.status === 'done') { byEmp[eid].done++; if (t.quality_rating) byEmp[eid].qualities.push(t.quality_rating); }
+      else {
+        byEmp[eid].pending++;
+        const due = t.due_date ? t.due_date.substring(0,10) : '';
+        if (due && due < today) byEmp[eid].overdue++;
+      }
+    });
+
+    const allDone = tasks.filter(t => t.status === 'done');
+    const allOverdue = tasks.filter(t => t.status !== 'done' && t.due_date && t.due_date.substring(0,10) < today);
+    const allQualities = allDone.filter(t => t.quality_rating).map(t => t.quality_rating);
+    const avgQ = allQualities.length ? (allQualities.reduce((s,v) => s+v, 0) / allQualities.length).toFixed(2) : '—';
+
+    document.getElementById('tsTotal').textContent = tasks.length;
+    document.getElementById('tsDone').textContent = allDone.length;
+    document.getElementById('tsOverdue').textContent = allOverdue.length;
+    document.getElementById('tsQuality').textContent = avgQ;
+
+    // Per-employee table
+    const rows = Object.values(byEmp).filter(r => r.assigned > 0).sort((a,b) => b.done - a.done);
+    document.getElementById('bbTaskSummaryBody').innerHTML = rows.length
+      ? rows.map(r => {
+        const completionPct = r.assigned ? ((r.done / r.assigned) * 100).toFixed(0) : 0;
+        const avgQ = r.qualities.length ? (r.qualities.reduce((s,v) => s+v, 0) / r.qualities.length).toFixed(1) : '—';
+        return `<tr>
+          <td><strong>${r.name}</strong></td>
+          <td>${r.assigned}</td>
+          <td>${r.done}</td>
+          <td>${r.pending}</td>
+          <td>${r.overdue > 0 ? `<strong style="color: var(--bb-red);">${r.overdue}</strong>` : '0'}</td>
+          <td>${completionPct}%</td>
+          <td>${avgQ}</td>
+        </tr>`;
+      }).join('')
+      : '<tr><td colspan="7" style="text-align:center;padding:20px;color:#999;">Walang tasks sa selected period.</td></tr>';
+
+    // Charts
+    if (charts.tsCompletion) charts.tsCompletion.destroy();
+    const topRows = rows.slice(0, 10);
+    charts.tsCompletion = new Chart(document.getElementById('tsChartCompletion'), {
+      type: 'bar',
+      data: { labels: topRows.map(r => r.name.split(' ')[0]), datasets: [{ label: 'Completion %', data: topRows.map(r => r.assigned ? (r.done / r.assigned) * 100 : 0), backgroundColor: '#F5A623' }] },
+      options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { max: 100 } } }
+    });
+
+    if (charts.tsQuality) charts.tsQuality.destroy();
+    const buckets = [0,0,0,0,0];
+    allQualities.forEach(q => { if (q >= 1 && q <= 5) buckets[q-1]++; });
+    charts.tsQuality = new Chart(document.getElementById('tsChartQuality'), {
+      type: 'bar',
+      data: { labels: ['1⭐','2⭐','3⭐','4⭐','5⭐'], datasets: [{ data: buckets, backgroundColor: ['#EF4444','#F59E0B','#FBD34D','#10B981','#059669'] }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+    });
+  } catch (e) { console.error(e); }
+}
+
+/* ===================== CASH FLOW ===================== */
+const CF_CAT_INFLOW = ['Sales Revenue', 'Live Selling', 'Other Income'];
+const CF_CAT_OUTFLOW = ['Salary/Payroll', 'Supplies', 'Rent', 'Utilities', 'Marketing', 'Equipment', 'Transportation', 'Other Expense'];
+
+function updateCfCategoryOptions() {
+  const type = document.getElementById('cfType').value;
+  const cats = type === 'inflow' ? CF_CAT_INFLOW : CF_CAT_OUTFLOW;
+  document.getElementById('cfCategory').innerHTML = cats.map(c => `<option value="${c}">${c}</option>`).join('');
+}
+
+async function loadBbCashFlow() {
+  const filter = document.getElementById('cfFilter').value;
+  let dateFilter = '';
+  const now = new Date();
+  if (filter === 'today') dateFilter = `date>="${todayStr()} 00:00:00"`;
+  else if (filter === 'week') {
+    const weekAgo = new Date(now.getTime() - 7*86400000);
+    dateFilter = `date>="${weekAgo.toISOString().substring(0,10)} 00:00:00"`;
+  } else if (filter === 'month') {
+    const m = new Date(now.getFullYear(), now.getMonth(), 1);
+    dateFilter = `date>="${m.toISOString().substring(0,10)} 00:00:00"`;
+  }
+
+  try {
+    const entries = await pbGetList('tms_cash_flow', { filter: dateFilter, sort: '-date', perPage: 500 });
+    const inflow = entries.filter(e => e.type === 'inflow').reduce((s, e) => s + (e.amount || 0), 0);
+    const outflow = entries.filter(e => e.type === 'outflow').reduce((s, e) => s + (e.amount || 0), 0);
+    document.getElementById('cfInflow').textContent = '₱' + inflow.toLocaleString();
+    document.getElementById('cfOutflow').textContent = '₱' + outflow.toLocaleString();
+    const net = inflow - outflow;
+    document.getElementById('cfNet').textContent = (net >= 0 ? '+₱' : '-₱') + Math.abs(net).toLocaleString();
+    document.getElementById('cfNet').style.color = net >= 0 ? 'var(--bb-green)' : 'var(--bb-red)';
+    document.getElementById('cfCount').textContent = entries.length;
+
+    // Category chart
+    const byCat = {};
+    entries.forEach(e => {
+      const k = (e.type === 'inflow' ? '↑ ' : '↓ ') + e.category;
+      byCat[k] = (byCat[k] || 0) + (e.amount || 0);
+    });
+    if (charts.cfCat) charts.cfCat.destroy();
+    const cats = Object.entries(byCat).sort((a,b) => b[1] - a[1]);
+    charts.cfCat = new Chart(document.getElementById('cfChartCat'), {
+      type: 'doughnut',
+      data: { labels: cats.map(c => c[0]), datasets: [{ data: cats.map(c => c[1]), backgroundColor: ['#10B981','#F5A623','#3B82F6','#EF4444','#F59E0B','#6B7280','#C8841A','#1A6FB0','#059669','#DC2626','#92400E'] }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { font: { size: 10 } } } } }
+    });
+
+    // Daily trend (last 14 days)
+    const days = [];
+    const inflowsByDay = [];
+    const outflowsByDay = [];
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date(now.getTime() - i*86400000);
+      const key = d.toISOString().substring(0,10);
+      days.push(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+      const dayEntries = entries.filter(e => e.date && e.date.substring(0,10) === key);
+      inflowsByDay.push(dayEntries.filter(e => e.type === 'inflow').reduce((s, e) => s + (e.amount || 0), 0));
+      outflowsByDay.push(dayEntries.filter(e => e.type === 'outflow').reduce((s, e) => s + (e.amount || 0), 0));
+    }
+    if (charts.cfDaily) charts.cfDaily.destroy();
+    charts.cfDaily = new Chart(document.getElementById('cfChartDaily'), {
+      type: 'line',
+      data: { labels: days, datasets: [
+        { label: 'Inflow', data: inflowsByDay, borderColor: '#10B981', backgroundColor: 'rgba(16,185,129,0.1)', tension: 0.3 },
+        { label: 'Outflow', data: outflowsByDay, borderColor: '#EF4444', backgroundColor: 'rgba(239,68,68,0.1)', tension: 0.3 }
+      ]},
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+    });
+
+    // Table
+    const body = document.getElementById('bbCashFlowBody');
+    if (!entries.length) {
+      body.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;color:#999;">Walang cash flow entries.</td></tr>';
+      return;
+    }
+    body.innerHTML = entries.map(e => {
+      const receiptUrl = e.receipt ? `${PB_BASE}/api/files/tms_cash_flow/${e.id}/${e.receipt}` : null;
+      const receiptHtml = receiptUrl
+        ? `<a href="${receiptUrl}" target="_blank" style="color: var(--bb-blue);">📎 View</a>`
+        : '<span style="color:#bbb;">—</span>';
+      return `<tr>
+        <td>${fmtDate(e.date)}</td>
+        <td><span class="bb-badge ${e.type === 'inflow' ? 'green' : 'red'}">${e.type === 'inflow' ? '↑ IN' : '↓ OUT'}</span></td>
+        <td><small>${e.category}</small></td>
+        <td><strong style="color: ${e.type === 'inflow' ? 'var(--bb-green)' : 'var(--bb-red)'};">${e.type === 'inflow' ? '+' : '-'}₱${(e.amount || 0).toLocaleString()}</strong></td>
+        <td><small>${e.description || '—'}</small></td>
+        <td>${receiptHtml}</td>
+        <td><small>${e.recorded_by || '—'}</small></td>
+        <td><button class="btn btn-ghost btn-sm" onclick="editCashFlow('${e.id}')">Edit</button></td>
+      </tr>`;
+    }).join('');
+  } catch (e) { console.error('Cash flow load:', e); document.getElementById('bbCashFlowBody').innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--bb-red);padding:20px;">Failed: ' + e.message + '<br><small>Make sure tms_cash_flow collection exists sa PB (run setup_pb_collections.html)</small></td></tr>'; }
+}
+
+function openCashFlowModal() {
+  document.getElementById('cashFlowTitle').textContent = 'New Cash Flow Entry';
+  ['cfId','cfAmount','cfDescription','cfRefNo'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('cfDate').value = todayStr();
+  document.getElementById('cfType').value = 'inflow';
+  updateCfCategoryOptions();
+  document.getElementById('cfReceipt').value = '';
+  document.getElementById('cfReceiptPreview').innerHTML = '';
+  document.getElementById('cfDelBtn').style.display = 'none';
+  document.getElementById('cashFlowModal').classList.add('open');
+}
+
+async function editCashFlow(id) {
+  try {
+    const r = await fetch(PB_API + '/collections/tms_cash_flow/records/' + id);
+    const e = await r.json();
+    document.getElementById('cashFlowTitle').textContent = 'Edit Cash Flow Entry';
+    document.getElementById('cfId').value = e.id;
+    document.getElementById('cfDate').value = (e.date || '').substring(0, 10);
+    document.getElementById('cfType').value = e.type;
+    updateCfCategoryOptions();
+    document.getElementById('cfCategory').value = e.category;
+    document.getElementById('cfAmount').value = e.amount;
+    document.getElementById('cfDescription').value = e.description || '';
+    document.getElementById('cfRefNo').value = e.reference_no || '';
+    document.getElementById('cfReceipt').value = '';
+    if (e.receipt) {
+      const url = `${PB_BASE}/api/files/tms_cash_flow/${e.id}/${e.receipt}`;
+      document.getElementById('cfReceiptPreview').innerHTML = `<a href="${url}" target="_blank" style="font-size: 12px; color: var(--bb-blue);">📎 Current receipt — click to view (upload new to replace)</a>`;
+    }
+    document.getElementById('cfDelBtn').style.display = 'inline-flex';
+    document.getElementById('cashFlowModal').classList.add('open');
+  } catch (e) { alert('Failed: ' + e.message); }
+}
+
+async function saveCashFlow() {
+  const id = document.getElementById('cfId').value;
+  const amount = parseFloat(document.getElementById('cfAmount').value);
+  if (!amount || amount <= 0) { toast('Amount required', 'err'); return; }
+  try {
+    const fd = new FormData();
+    fd.append('date', localPbDateOnly(document.getElementById('cfDate').value));
+    fd.append('type', document.getElementById('cfType').value);
+    fd.append('category', document.getElementById('cfCategory').value);
+    fd.append('amount', amount);
+    fd.append('description', document.getElementById('cfDescription').value);
+    fd.append('reference_no', document.getElementById('cfRefNo').value);
+    fd.append('recorded_by', (kioskState.selectedUser && kioskState.selectedUser.name) || 'admin');
+    const receiptFile = document.getElementById('cfReceipt').files[0];
+    if (receiptFile) fd.append('receipt', receiptFile);
+
+    const url = id
+      ? PB_API + '/collections/tms_cash_flow/records/' + id
+      : PB_API + '/collections/tms_cash_flow/records';
+    const method = id ? 'PATCH' : 'POST';
+    const res = await fetch(url, { method, body: fd });
+    if (!res.ok) { const t = await res.text(); throw new Error('PB ' + res.status + ': ' + t); }
+    closeModal('cashFlowModal');
+    loadBbCashFlow();
+    toast('✓ Cash flow entry saved', 'ok');
+  } catch (e) { toast('Failed: ' + e.message, 'err'); }
+}
+
+async function deleteCashFlow() {
+  const id = document.getElementById('cfId').value;
+  if (!confirm('Delete this cash flow entry?')) return;
+  try {
+    await fetch(PB_API + '/collections/tms_cash_flow/records/' + id, { method: 'DELETE' });
+    closeModal('cashFlowModal');
+    loadBbCashFlow();
+    toast('✓ Deleted', 'ok');
+  } catch (e) { toast('Failed: ' + e.message, 'err'); }
+}
+
 /* ===================== MANUAL DTR ENTRY ===================== */
 async function loadBbManualDtr() {
   try {
@@ -7620,6 +8161,9 @@ document.querySelectorAll('.nav-item').forEach(item => {
       bbHr: ['HR & Employees', 'Employee management, today\'s DTR, incident reports'],
       bbSales: ['Sales & Live Selling', 'Live sessions: FB Live + TikTok streaming (with duration)'],
       bbSalesEntries: ['Non-Live Sales', 'Walk-in, FB Post, Shopee, etc. — one-time sales events'],
+      bbTaskReview: ['Task Review', 'Rate completed tasks (quality 1-5) — feeds employee KPI'],
+      bbTaskSummary: ['Task Summary', 'Weekly per-employee task performance breakdown'],
+      bbCashFlow: ['Cash Flow', 'Inflow / Outflow tracker with receipt photos'],
       bbPayroll: ['Payroll', 'Cutoff periods, payslips, deductions breakdown'],
       bbCheckins: ['Weekly Check-Ins', 'Employee reflections (Hansei) — challenge, personal, company, wins'],
       bbSched: ['Schedules', 'Weekly schedules per employee (used for late computation)'],
@@ -7870,6 +8414,8 @@ async function saveTask() {
       }
     }
 
+    // Always refresh matrix if it exists in DOM (so newly-added tasks show up)
+    try { renderMatrix(); } catch(e) {}
     // Auto-switch to Tasks view
     if (!isUpdate && activeView !== 'tasks') {
       const taskNav = document.querySelector('.nav-item[data-view="tasks"]');
@@ -8757,6 +9303,9 @@ async function renderViewSpecific(view) {
   else if (view === 'bbHr') loadBbHR();
   else if (view === 'bbSales') loadBbSales();
   else if (view === 'bbSalesEntries') loadBbSalesEntries();
+  else if (view === 'bbTaskReview') loadBbTaskReview();
+  else if (view === 'bbTaskSummary') loadBbTaskSummary();
+  else if (view === 'bbCashFlow') loadBbCashFlow();
   else if (view === 'bbPayroll') loadBbPayroll();
   else if (view === 'bbCheckins') loadBbCheckins();
   else if (view === 'bbSched') loadBbSchedules();
