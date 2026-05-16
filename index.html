@@ -1646,7 +1646,6 @@
       <div class="nav-item" data-view="bbAttSettings" data-perm="owner"><span class="nav-icon">📷</span> Attendance Settings</div>
       <div class="nav-item" data-view="bbManualDtr" data-perm="edit_dtr"><span class="nav-icon">✍</span> Manual Attendance</div>
       <div class="nav-item" data-view="bbActions" data-perm="view_action_log"><span class="nav-icon">📋</span> Action Log</div>
-      <div class="nav-item" data-view="bbDanger" data-perm="owner"><span class="nav-icon">⚠</span> Data Reset</div>
 
       <div class="nav-section">JIS Modules</div>
       <div class="nav-item" data-view="fives"><span class="nav-icon">5</span> 5S Audit</div>
@@ -2996,70 +2995,6 @@
         </div>
       </section>
 
-      <!-- DANGER ZONE / DATA RESET VIEW -->
-      <section class="view" id="view-bbDanger">
-        <div class="card" style="margin-bottom: 16px; border-left: 4px solid var(--bb-red);">
-          <div class="card-h">
-            <h3 style="color: var(--bb-red);">⚠ Data Reset / Production Cleanup</h3>
-          </div>
-          <p style="font-size: 14px; color: var(--bb-red); margin-bottom: 14px; padding: 14px; background: var(--bb-red-light); border-radius: 8px; font-weight: 500;">
-            <strong>WARNING:</strong> Para ito sa pre-deployment cleanup — i-delete lahat ng transactional data (DTR logs, tasks, sales, live sessions, incidents, payroll, check-ins, action log) at retain lang ang configuration data (employees, admins, schedules, deductions, roles, sales auth list, settings). Hindi reversible — wala nang Undo!
-          </p>
-
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
-            <div style="background: white; padding: 14px; border-radius: 8px; border: 1.5px solid var(--bb-border);">
-              <div style="font-weight: 600; font-size: 13px; margin-bottom: 6px;">Transactional Data (WILL be deleted)</div>
-              <ul style="font-size: 12px; color: var(--bb-gray); margin: 0; padding-left: 16px;">
-                <li>DTR logs (time-in/out records)</li>
-                <li>Live sessions</li>
-                <li>Tasks (TMS)</li>
-                <li>Non-live sales entries</li>
-                <li>Incident reports</li>
-                <li>Payroll periods</li>
-                <li>Weekly check-ins</li>
-                <li>5S audits</li>
-                <li>PDCA projects</li>
-                <li>Kaizen suggestions</li>
-                <li>Handover logs</li>
-                <li>Roster slots</li>
-                <li>Action log</li>
-              </ul>
-            </div>
-            <div style="background: white; padding: 14px; border-radius: 8px; border: 1.5px solid var(--bb-green);">
-              <div style="font-weight: 600; font-size: 13px; margin-bottom: 6px; color: var(--bb-green);">Config Data (PRESERVED)</div>
-              <ul style="font-size: 12px; color: var(--bb-gray); margin: 0; padding-left: 16px;">
-                <li>Employees (with reset PINs)</li>
-                <li>Admin accounts</li>
-                <li>Schedules</li>
-                <li>Deduction groups</li>
-                <li>Cash advances</li>
-                <li>Item charges</li>
-                <li>Roles &amp; SOPs</li>
-                <li>App config / settings</li>
-                <li>Sales authorization list</li>
-                <li>Attendance settings</li>
-                <li>Admin extra permissions</li>
-              </ul>
-            </div>
-          </div>
-
-          <div style="margin-top: 18px; padding: 14px; background: var(--bb-honey-light); border-radius: 8px;">
-            <div style="font-size: 11px; font-weight: 600; color: var(--bb-honey-dark); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Optional: Reset Employee PINs to Empty (forces PIN self-setup on first login)</div>
-            <label style="display: flex; align-items: center; gap: 8px; font-size: 13px;">
-              <input type="checkbox" id="resetPins"> Reset all employee PINs (will require PIN self-setup on first login)
-            </label>
-          </div>
-
-          <div style="margin-top: 18px;">
-            <p style="font-size: 13px; color: var(--bb-gray); margin-bottom: 10px;">Type <strong>DELETE</strong> to confirm:</p>
-            <input type="text" id="confirmDelete" placeholder="Type DELETE here" style="padding: 10px 14px; font-size: 14px; border: 1.5px solid var(--bb-red); border-radius: 6px; width: 200px;">
-            <button class="btn btn-danger" onclick="runProductionReset()" style="margin-left: 10px; font-weight: 600;">⚠ Reset Production Data</button>
-          </div>
-
-          <div id="resetProgress" style="display:none; margin-top: 18px; padding: 14px; background: #1a1a1a; color: white; border-radius: 8px; font-family: monospace; font-size: 12px; max-height: 300px; overflow-y: auto;"></div>
-        </div>
-      </section>
-
       <!-- MANUAL DTR MODAL -->
       <div class="modal-bg" id="manualDtrModal">
         <div class="modal" style="max-width: 540px;">
@@ -3230,17 +3165,12 @@
             Lahat ng data ay naka-save sa browser mo (localStorage). Walang internet needed. Pwedeng i-export sa CSV anytime. Para sa team-wide use, i-host sa shared server.
           </p>
 
-          <h4 style="margin-top: 16px; font-size: 14px;">7. Reset / Sample Data</h4>
+          <h4 style="margin-top: 16px; font-size: 14px;">7. Local Cache Cleanup (Browser Only)</h4>
           <p style="font-size: 13px; color: #555; margin: 6px 0;">
-            <strong>Sample data cleanup:</strong> After migrating tasks to PocketBase, may natitirang local sample tasks. Use these to clean up:
+            Para sa local browser cache lang. Hindi maa-affect ang PocketBase data:
           </p>
           <p style="font-size: 13px; color: #555; margin: 6px 0; display: flex; flex-wrap: wrap; gap: 8px;">
-            <button class="btn btn-danger btn-sm" onclick="clearLocalSampleTasks()">🗑 Clear Local Sample Tasks (LocalStorage)</button>
-            <button class="btn btn-secondary btn-sm" onclick="loadSampleData()">Reload Sample Data</button>
-            <button class="btn btn-danger btn-sm" onclick="if(confirm('Sigurado ka? Mawawala lahat ng localStorage data (PB data hindi maa-affect).')) { localStorage.clear(); location.reload(); }">Clear All LocalStorage</button>
-          </p>
-          <p style="font-size: 12px; color: var(--bb-gray); margin: 6px 0; font-style: italic;">
-            Note: Ang PocketBase data hindi maa-affect ng buttons na ito. Para mag-delete ng PB records, use PB admin panel o gamitin ang Edit → Delete sa loob ng app.
+            <button class="btn btn-danger btn-sm" onclick="if(confirm('Clear all browser cache? Walang PB data na ma-delete.')) { localStorage.clear(); location.reload(); }">Clear Browser Cache</button>
           </p>
 
           <h4 style="margin-top: 16px; font-size: 14px;">8. Hours & Payroll Rules</h4>
@@ -4299,24 +4229,21 @@ async function enterManagerMode() {
     await applyAdminPermissions(kioskState.selectedUser);
     startAdminSession();
   }
-  // Load real PB data (employees + tasks) — replaces localStorage sample
-  toast('Loading data from PocketBase...', 'warn');
-  const ok1 = await loadEmployeesFromPB();
-  const ok2 = await loadTmsTasksFromPB();
-  if (ok1 && ok2) {
-    // Auto-purge any leftover local sample tasks (only PB-synced tasks remain)
+  // Load real PB data — only employees is critical; tasks is optional (collection may not exist yet)
+  toast('Loading data...', 'warn');
+  const empsLoaded = await loadEmployeesFromPB();
+  await loadTmsTasksFromPB(); // best-effort
+  if (empsLoaded) {
+    // Auto-purge any leftover local sample tasks
     const before = DB.tasks.length;
     DB.tasks = DB.tasks.filter(t => isPbId(t.id));
     const purged = before - DB.tasks.length;
-    if (purged > 0) {
-      saveDB();
-      console.log('Auto-purged', purged, 'local sample tasks');
-    }
+    if (purged > 0) saveDB();
     populateEmpSelects();
     renderAll();
-    toast('✓ Synced with PocketBase — ' + DB.employees.length + ' employees, ' + DB.tasks.length + ' tasks' + (purged ? ` (${purged} sample tasks cleared)` : ''), 'ok');
+    toast('✓ Synced — ' + DB.employees.length + ' employees, ' + DB.tasks.length + ' tasks', 'ok');
   } else {
-    toast('⚠ PB sync partial — using cached data', 'warn');
+    toast('⚠ Could not load employees from PocketBase. Check connection/CORS.', 'err');
   }
 }
 
@@ -5979,80 +5906,6 @@ async function deleteManualDtr(idArg) {
     console.error('Delete failed:', e);
     toast('Delete failed: ' + e.message, 'err');
   }
-}
-
-/* ===================== PRODUCTION DATA RESET ===================== */
-async function runProductionReset() {
-  const confirmText = document.getElementById('confirmDelete').value;
-  if (confirmText !== 'DELETE') { toast('Type DELETE para mag-confirm', 'err'); return; }
-  if (!confirm('LAST WARNING: Delete lahat ng transactional data? Hindi reversible. Proceed?')) return;
-  const resetPins = document.getElementById('resetPins').checked;
-
-  const progress = document.getElementById('resetProgress');
-  progress.style.display = 'block';
-  progress.innerHTML = '';
-  const log = (msg, ok) => {
-    const div = document.createElement('div');
-    div.style.color = ok === false ? '#ff6b6b' : ok === true ? '#6ecb6e' : '#d4d4d4';
-    div.textContent = msg;
-    progress.appendChild(div);
-    progress.scrollTop = progress.scrollHeight;
-  };
-
-  // Collections to wipe
-  const collections = ['dtr_logs', 'live_sessions', 'tms_tasks', 'tms_sales_entries', 'incident_reports', 'payroll_periods', 'tms_weekly_checkins', 'tms_audits_5s', 'tms_pdca_projects', 'tms_kaizen', 'tms_handovers', 'tms_roster_slots', 'action_log'];
-
-  log('=== Starting production reset ===');
-  let totalDeleted = 0;
-  for (const col of collections) {
-    try {
-      log(`Fetching ${col}...`);
-      const records = await pbGetList(col, { perPage: 500 });
-      log(`  Found ${records.length} records`);
-      for (const r of records) {
-        try {
-          await fetch(PB_API + '/collections/' + col + '/records/' + r.id, { method: 'DELETE' });
-          totalDeleted++;
-        } catch (e) {
-          log(`  ✗ Failed to delete ${col}/${r.id}: ${e.message}`, false);
-        }
-      }
-      log(`✓ ${col} cleared (${records.length} deleted)`, true);
-    } catch (e) {
-      log(`✗ ${col}: ${e.message}`, false);
-    }
-  }
-
-  // Reset PINs if checked
-  if (resetPins) {
-    log('\n=== Resetting employee PINs ===');
-    try {
-      const emps = await pbGetList('employees', { perPage: 500 });
-      for (const e of emps) {
-        try {
-          await pbUpdate('employees', e.id, { pin: '' });
-        } catch (err) {
-          log(`  ✗ Failed PIN reset for ${e.name}: ${err.message}`, false);
-        }
-      }
-      log(`✓ Reset ${emps.length} employee PINs (forces self-setup on first login)`, true);
-    } catch (e) { log(`✗ PIN reset failed: ${e.message}`, false); }
-  }
-
-  // Clear local sample data too
-  DB.tasks = [];
-  DB.audits = [];
-  DB.pdca = [];
-  DB.kaizens = [];
-  DB.slots = [];
-  DB.handovers = [];
-  saveDB();
-
-  log(`\n=== DONE ===`);
-  log(`Total records deleted: ${totalDeleted}`, true);
-  log(`System is now production-ready.`, true);
-  toast(`✓ Production reset complete — ${totalDeleted} records deleted`, 'ok');
-  document.getElementById('confirmDelete').value = '';
 }
 
 /* ===================== CUTOFF REMINDER ===================== */
@@ -7744,7 +7597,6 @@ document.querySelectorAll('.nav-item').forEach(item => {
       bbSalesAuth: ['Sales Authorization', 'Pumili kung sino ang pwedeng mag-log ng non-live sales'],
       bbAttSettings: ['Attendance Settings', 'Configure default at per-employee attendance method'],
       bbManualDtr: ['Manual Attendance', 'Add/edit DTR records manually (when kiosk fails)'],
-      bbDanger: ['Data Reset / Production Cleanup', '⚠ Delete transactional data before deployment'],
       bbActions: ['Action Log', 'Audit trail of all admin write operations'],
       fives: ['5S Audit', 'Workplace organization — Seiri Seiton Seiso Seiketsu Shitsuke'],
       pdca: ['PDCA Tracker', 'Plan-Do-Check-Act continuous improvement'],
@@ -8882,7 +8734,6 @@ async function renderViewSpecific(view) {
   else if (view === 'bbSalesAuth') loadBbSalesAuth();
   else if (view === 'bbAttSettings') loadBbAttSettings();
   else if (view === 'bbManualDtr') loadBbManualDtr();
-  else if (view === 'bbDanger') { /* static view, no load needed */ }
   else if (view === 'bbActions') loadBbActions();
   else {
     if (pbRefreshTimer && view !== 'attendance') { clearInterval(pbRefreshTimer); pbRefreshTimer = null; }
@@ -8890,26 +8741,16 @@ async function renderViewSpecific(view) {
 }
 
 /* ===================== INIT ===================== */
-/* Pinch-zoom prevention only (allow normal tapping incl. rapid sequential taps) */
+/* Pinch-zoom prevention only — allow ALL taps unrestricted (including rapid same-element) */
 (function preventPinchZoom() {
-  // Block multi-touch pinch zoom only
+  // Block multi-touch pinch zoom
   document.addEventListener('touchmove', function(e) {
     if (e.touches.length > 1) e.preventDefault();
   }, { passive: false });
   // Block iOS Safari pinch gestures
   document.addEventListener('gesturestart', function(e) { e.preventDefault(); });
   document.addEventListener('gesturechange', function(e) { e.preventDefault(); });
-  // Block double-tap zoom ONLY when on the same element (so PIN keypad rapid taps work)
-  let lastTouchEnd = 0;
-  let lastTouchTarget = null;
-  document.addEventListener('touchend', function(e) {
-    const now = Date.now();
-    if (now - lastTouchEnd <= 300 && e.target === lastTouchTarget) {
-      e.preventDefault();
-    }
-    lastTouchEnd = now;
-    lastTouchTarget = e.target;
-  }, { passive: false });
+  // Note: viewport meta with user-scalable=no handles double-tap zoom natively
 })();
 
 function init() {
