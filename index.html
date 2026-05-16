@@ -3902,7 +3902,6 @@ async function savePinSetup() {
     // Log to action_log
     try {
       await pbCreate('action_log', {
-        actor_id: user.id,
         module: 'hr',
         action: 'update',
         collection: 'employees',
@@ -4619,7 +4618,6 @@ async function saveEmpSettings() {
     if (kioskState.selectedUser) {
       try {
         await pbCreate('action_log', {
-          actor_id: kioskState.selectedUser.id,
           module: 'hr',
           action: 'update',
           collection: 'employees',
@@ -4664,7 +4662,6 @@ async function toggleEmpLock(empId, currentlyLocked) {
     if (kioskState.selectedUser) {
       try {
         await pbCreate('action_log', {
-          actor_id: kioskState.selectedUser.id,
           module: 'hr',
           action: 'update',
           collection: 'employees',
@@ -5102,7 +5099,6 @@ async function runComputePayroll() {
     if (kioskState.selectedUser) {
       try {
         await pbCreate('action_log', {
-          actor_id: kioskState.selectedUser.id,
           module: 'admin',
           action: 'create',
           collection: 'payroll_periods',
@@ -5200,7 +5196,6 @@ async function releaseBbPayroll(periodId) {
     if (kioskState.selectedUser) {
       try {
         await pbCreate('action_log', {
-          actor_id: kioskState.selectedUser.id,
           module: 'admin',
           action: 'update',
           collection: 'payroll_periods',
@@ -5860,17 +5855,18 @@ async function saveManualDtr() {
     let saved;
     if (id) saved = await pbUpdate('dtr_logs', id, body);
     else saved = await pbCreate('dtr_logs', body);
-    // Log to action_log
-    if (kioskState.selectedUser) {
-      await pbCreate('action_log', {
-        actor_id: kioskState.selectedUser.id,
-        module: 'hr',
-        action: id ? 'update' : 'create',
-        collection: 'dtr_logs',
-        record_id: saved.id,
-        new_value: JSON.stringify({ manual: true, reason, by: kioskState.selectedUser.name })
-      });
-    }
+    // Log to action_log (non-blocking)
+    try {
+      if (kioskState.selectedUser) {
+        await pbCreate('action_log', {
+          module: 'hr',
+          action: id ? 'update' : 'create',
+          collection: 'dtr_logs',
+          record_id: saved.id,
+          new_value: JSON.stringify({ manual: true, reason, by: kioskState.selectedUser.name, actor_role: kioskState.selectedUserType })
+        });
+      }
+    } catch (logErr) { console.warn('audit log failed:', logErr.message); }
     closeModal('manualDtrModal');
     loadBbManualDtr();
     toast('✓ DTR entry saved (logged sa audit)', 'ok');
@@ -5890,7 +5886,6 @@ async function deleteManualDtr(idArg) {
     if (kioskState.selectedUser) {
       try {
         await pbCreate('action_log', {
-          actor_id: kioskState.selectedUser.id,
           module: 'hr',
           action: 'delete',
           collection: 'dtr_logs',
@@ -6081,13 +6076,16 @@ async function loadBbActions() {
       const actor = adminMap[l.actor_id];
       const when = new Date(l.created);
       let details = '';
+      let actorFromNewValue = '';
       try {
         const v = JSON.parse(l.new_value || '{}');
-        details = Object.entries(v).slice(0, 3).map(([k, val]) => `${k}: ${val}`).join(', ');
+        actorFromNewValue = v.by || '';
+        details = Object.entries(v).filter(([k]) => k !== 'by' && k !== 'actor_role').slice(0, 3).map(([k, val]) => `${k}: ${val}`).join(', ');
       } catch (e) { details = l.new_value || ''; }
+      const actorName = (actor && actor.name) || actorFromNewValue || (l.actor_id || 'system');
       return `<tr>
         <td><small>${when.toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</small></td>
-        <td>${actor ? actor.name : '<small style="color:#999;">' + (l.actor_id || 'system') + '</small>'}</td>
+        <td>${actorName}</td>
         <td><span class="bb-badge ${l.module === 'admin' ? 'honey' : l.module === 'hr' ? 'blue' : 'gray'}">${l.module}</span></td>
         <td><span class="bb-badge ${l.action === 'create' ? 'green' : l.action === 'delete' ? 'red' : 'honey'}">${l.action}</span></td>
         <td><small>${l.collection}</small></td>
@@ -6702,7 +6700,6 @@ async function bulkReleasePayroll() {
     if (kioskState.selectedUser) {
       try {
         await pbCreate('action_log', {
-          actor_id: kioskState.selectedUser.id,
           module: 'admin',
           action: 'update',
           collection: 'payroll_periods',
@@ -6725,7 +6722,6 @@ async function markCAPaid(caId) {
     if (kioskState.selectedUser) {
       try {
         await pbCreate('action_log', {
-          actor_id: kioskState.selectedUser.id,
           module: 'admin',
           action: 'update',
           collection: 'cash_advances',
@@ -7546,6 +7542,25 @@ function todayStr() {
   const d = new Date();
   const pad = n => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+
+/* Safe audit log writer — non-blocking, omits actor_id (relation conflict with admin_accounts) */
+async function logAction(module, action, collection, recordId, extraData) {
+  try {
+    await pbCreate('action_log', {
+      module: module || 'admin',
+      action: action || 'update',
+      collection: collection || '',
+      record_id: recordId || '',
+      new_value: JSON.stringify({
+        ...(extraData || {}),
+        by: (kioskState.selectedUser && kioskState.selectedUser.name) || 'system',
+        actor_role: kioskState.selectedUserType || 'unknown'
+      })
+    });
+  } catch (e) {
+    console.warn('[audit] action_log write failed (non-blocking):', e.message);
+  }
 }
 
 /* PB-compatible local datetime string: "YYYY-MM-DD HH:mm:ss.000" — uses LOCAL time */
