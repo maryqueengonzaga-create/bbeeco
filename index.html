@@ -8890,23 +8890,26 @@ async function renderViewSpecific(view) {
 }
 
 /* ===================== INIT ===================== */
-/* Aggressive double-tap zoom prevention (iOS Safari workaround) */
-(function preventDoubleTapZoom() {
-  let lastTouchEnd = 0;
-  document.addEventListener('touchend', function(e) {
-    const now = Date.now();
-    if (now - lastTouchEnd <= 350) {
-      e.preventDefault();
-    }
-    lastTouchEnd = now;
-  }, { passive: false });
-  // Prevent multi-touch pinch zoom
+/* Pinch-zoom prevention only (allow normal tapping incl. rapid sequential taps) */
+(function preventPinchZoom() {
+  // Block multi-touch pinch zoom only
   document.addEventListener('touchmove', function(e) {
     if (e.touches.length > 1) e.preventDefault();
   }, { passive: false });
-  // Prevent gesturestart (iOS Safari pinch)
+  // Block iOS Safari pinch gestures
   document.addEventListener('gesturestart', function(e) { e.preventDefault(); });
   document.addEventListener('gesturechange', function(e) { e.preventDefault(); });
+  // Block double-tap zoom ONLY when on the same element (so PIN keypad rapid taps work)
+  let lastTouchEnd = 0;
+  let lastTouchTarget = null;
+  document.addEventListener('touchend', function(e) {
+    const now = Date.now();
+    if (now - lastTouchEnd <= 300 && e.target === lastTouchTarget) {
+      e.preventDefault();
+    }
+    lastTouchEnd = now;
+    lastTouchTarget = e.target;
+  }, { passive: false });
 })();
 
 function init() {
