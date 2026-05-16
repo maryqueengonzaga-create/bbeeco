@@ -7563,16 +7563,17 @@ async function logAction(module, action, collection, recordId, extraData) {
   }
 }
 
-/* PB-compatible local datetime string: "YYYY-MM-DD HH:mm:ss.000" — uses LOCAL time */
+/* PB datetime — convert local Date to UTC ISO. PB stores UTC; JS Date reads back as local. */
 function localPbDate(d) {
   d = d || new Date();
-  const pad = n => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.000`;
+  return d.toISOString();  // e.g. "2026-05-15T01:00:00.000Z" — UTC
 }
 
-/* Date-only PB format: "YYYY-MM-DD 00:00:00.000" */
+/* Date-only PB format — converts local date string to UTC midnight ISO */
 function localPbDateOnly(dateStr) {
-  return (dateStr || todayStr()) + ' 00:00:00.000';
+  if (!dateStr) dateStr = todayStr();
+  // Parse as local midnight, convert to UTC string
+  return new Date(dateStr + 'T00:00:00').toISOString();
 }
 function uid(prefix) { return prefix + Date.now() + Math.random().toString(36).substr(2, 5); }
 
