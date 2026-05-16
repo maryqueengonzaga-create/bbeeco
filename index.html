@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BbeeCo Task Management System — JIS Standard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>BbeeCo Task Management System</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -47,7 +47,11 @@
     --shadow-lg: 0 10px 30px rgba(0,0,0,0.15);
     --radius: 8px;
   }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  button, .btn, .kpad, .kiosk-action-btn, .platform-btn, .nav-item, .kiosk-name-card, input, select, textarea, label {
+    touch-action: manipulation;
+  }
+  input, select, textarea { font-size: 16px; }  /* Prevent iOS zoom on focus */
   body {
     font-family: 'DM Sans', 'Segoe UI', system-ui, -apple-system, sans-serif;
     background: var(--bb-bg);
@@ -932,15 +936,18 @@
   .kpad {
     background: var(--bb-white);
     border: 1.5px solid var(--bb-border);
-    padding: 17px 0;
+    padding: 20px 0;
     font-family: 'DM Sans', sans-serif;
-    font-size: 19px;
+    font-size: 22px;
     font-weight: 500;
     color: var(--bb-black);
     border-radius: 12px;
     cursor: pointer;
     transition: all 0.12s;
     user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+    min-height: 56px;
   }
   .kpad:active {
     background: var(--bb-honey-light);
@@ -1153,10 +1160,61 @@
   }
   .kaizen-meta { font-size: 11px; color: #777; margin-top: 6px; display: flex; gap: 14px; }
 
-  @media (max-width: 768px) {
+  /* Mobile sidebar hamburger toggle */
+  .mobile-menu-btn {
+    display: none;
+    background: var(--bb-honey);
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 18px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .mobile-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 999;
+  }
+  .mobile-overlay.show { display: block; }
+  @media (max-width: 900px) {
     .app { grid-template-columns: 1fr; }
-    .sidebar { position: relative; height: auto; }
-    .content { padding: 16px; }
+    .sidebar {
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      width: 260px;
+      height: 100vh;
+      z-index: 1000;
+      transform: translateX(-100%);
+      transition: transform 0.25s;
+      box-shadow: 4px 0 20px rgba(0,0,0,0.1);
+    }
+    .sidebar.show { transform: translateX(0); }
+    .mobile-menu-btn { display: inline-flex; align-items: center; gap: 6px; }
+    .topbar { padding: 12px 16px; flex-wrap: wrap; gap: 10px; }
+    .topbar-title h2 { font-size: 17px; }
+    .topbar-title p { font-size: 11px; }
+    .topbar-actions { gap: 6px; flex-wrap: wrap; }
+    .topbar-actions .admin-badge { font-size: 10px; padding: 4px 8px; }
+    .topbar-actions .session-badge { font-size: 10px; padding: 4px 8px; }
+    .topbar-actions .date-badge { display: none; }
+    .content { padding: 14px; }
+    .grid-2, .grid-2-1, .grid-3 { grid-template-columns: 1fr !important; }
+    .bb-stats-row { grid-template-columns: 1fr 1fr; }
+    .kpi-grid { grid-template-columns: 1fr 1fr; }
+    .matrix { grid-template-columns: 1fr; min-height: auto; }
+    .quadrant { max-height: 200px; }
+    .modal { width: 96%; }
+    .form-row, .form-row.triple { grid-template-columns: 1fr !important; }
+    h2 { font-size: 18px; }
+    .att-method-grid { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 500px) {
+    .bb-stats-row, .kpi-grid { grid-template-columns: 1fr; }
+    .att-method-grid { grid-template-columns: 1fr; }
   }
 </style>
 </head>
@@ -1535,6 +1593,9 @@
   </div>
 </div>
 
+<!-- Mobile sidebar overlay -->
+<div class="mobile-overlay" id="mobileOverlay" onclick="toggleMobileSidebar()"></div>
+
 <!-- ================================ MAIN TMS APP ================================ -->
 <div class="app" id="mainApp" style="display: none;">
   <!-- SIDEBAR -->
@@ -1600,6 +1661,7 @@
   <!-- MAIN -->
   <main class="main">
     <div class="topbar">
+      <button class="mobile-menu-btn" onclick="toggleMobileSidebar()">☰</button>
       <div class="topbar-title">
         <h2 id="viewTitle">Dashboard Overview</h2>
         <p id="viewSubtitle">Buong overview ng tasks at employee performance</p>
@@ -5797,7 +5859,10 @@ async function loadBbManualDtr() {
         <td>${d.total_hours ? d.total_hours.toFixed(2) + 'h' : '—'}</td>
         <td><span class="bb-badge ${d.type === 'live_sell' ? 'honey' : 'blue'}">${d.type || 'regular'}</span></td>
         <td>${isManual ? '<span class="bb-badge honey">Manual</span>' : '<span class="bb-badge gray">Kiosk</span>'}</td>
-        <td><button class="btn btn-ghost btn-sm" onclick="editManualDtr('${d.id}')">Edit</button></td>
+        <td style="white-space: nowrap;">
+          <button class="btn btn-ghost btn-sm" onclick="editManualDtr('${d.id}')">Edit</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteManualDtr('${d.id}')" style="margin-left: 4px;">Delete</button>
+        </td>
       </tr>`;
     }).join('');
   } catch (e) { console.error(e); }
@@ -5879,25 +5944,35 @@ async function saveManualDtr() {
   } catch (e) { toast('Failed: ' + e.message, 'err'); }
 }
 
-async function deleteManualDtr() {
-  const id = document.getElementById('mdId').value;
-  if (!confirm('Delete this DTR entry? Permanent at maa-log sa audit.')) return;
+async function deleteManualDtr(idArg) {
+  const id = idArg || document.getElementById('mdId').value;
+  if (!id) { toast('No record selected', 'err'); return; }
+  if (!confirm('Delete this DTR entry? Permanent.')) return;
   try {
-    await fetch(PB_API + '/collections/dtr_logs/records/' + id, { method: 'DELETE' });
+    const res = await fetch(PB_API + '/collections/dtr_logs/records/' + id, { method: 'DELETE' });
+    if (!res.ok && res.status !== 404) {
+      const errText = await res.text();
+      throw new Error('PB ' + res.status + ': ' + errText);
+    }
     if (kioskState.selectedUser) {
-      await pbCreate('action_log', {
-        actor_id: kioskState.selectedUser.id,
-        module: 'hr',
-        action: 'delete',
-        collection: 'dtr_logs',
-        record_id: id,
-        new_value: JSON.stringify({ by: kioskState.selectedUser.name })
-      });
+      try {
+        await pbCreate('action_log', {
+          actor_id: kioskState.selectedUser.id,
+          module: 'hr',
+          action: 'delete',
+          collection: 'dtr_logs',
+          record_id: id,
+          new_value: JSON.stringify({ by: kioskState.selectedUser.name })
+        });
+      } catch (e) { /* log failure non-critical */ }
     }
     closeModal('manualDtrModal');
-    loadBbManualDtr();
+    await loadBbManualDtr();
     toast('✓ DTR entry deleted', 'ok');
-  } catch (e) { toast('Failed: ' + e.message, 'err'); }
+  } catch (e) {
+    console.error('Delete failed:', e);
+    toast('Delete failed: ' + e.message, 'err');
+  }
 }
 
 /* ===================== PRODUCTION DATA RESET ===================== */
@@ -7611,12 +7686,28 @@ function todayStr() { return new Date().toISOString().split('T')[0]; }
 function uid(prefix) { return prefix + Date.now() + Math.random().toString(36).substr(2, 5); }
 
 /* ===================== NAVIGATION ===================== */
+function toggleMobileSidebar() {
+  const sb = document.querySelector('.sidebar');
+  const ov = document.getElementById('mobileOverlay');
+  if (sb && ov) {
+    sb.classList.toggle('show');
+    ov.classList.toggle('show');
+  }
+}
+
 document.querySelectorAll('.nav-item').forEach(item => {
   item.addEventListener('click', () => {
     // Permission gate — if hidden, ignore click
     if (item.style.display === 'none') return;
     // Re-apply perms (safety against stale DOM)
     reapplyPerms();
+    // Close mobile sidebar after selecting
+    if (window.innerWidth <= 900) {
+      const sb = document.querySelector('.sidebar');
+      const ov = document.getElementById('mobileOverlay');
+      if (sb) sb.classList.remove('show');
+      if (ov) ov.classList.remove('show');
+    }
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     item.classList.add('active');
