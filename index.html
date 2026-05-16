@@ -5232,9 +5232,10 @@ async function runComputePayroll() {
         // Break is deducted from regular hours (employee takes break during regular work, not live)
         regHrs = Math.max(0, regHrs - breakHrs);
 
-        // Late deduction
-        let lateMins = 0;
-        if (dayDTRs.length) {
+        // Late deduction — get RAW late minutes from any source (Excel import OR schedule comparison)
+        let rawLateMins = dayDTRs.reduce((s, d) => s + (d.late_minutes || 0), 0);
+        // Fallback: compute from schedules if no explicit late_minutes set
+        if (rawLateMins === 0 && dayDTRs.length) {
           const firstDTR = dayDTRs[0];
           const timeIn = new Date(firstDTR.time_in);
           const dayOfWeek = ['sun','mon','tue','wed','thu','fri','sat'][timeIn.getDay()];
@@ -5246,13 +5247,19 @@ async function runComputePayroll() {
           if (sched && sched[dayOfWeek + '_start']) {
             const schedTime = sched[dayOfWeek + '_start'];
             const schedDt = new Date(date + 'T' + schedTime + ':00');
-            const diffMins = Math.floor((timeIn - schedDt) / 60000);
-            if (diffMins > 5) {
-              if (diffMins <= 15) lateMins = 15;
-              else if (diffMins <= 30) lateMins = 30;
-              else lateMins = diffMins;
-            }
+            rawLateMins = Math.max(0, Math.floor((timeIn - schedDt) / 60000));
           }
+        }
+        // Apply BbeeCo late tier rules uniformly:
+        //   0-5 mins  → grace (no deduction)
+        //   6-15 mins → 15 mins deducted
+        //   16-30 mins → 30 mins deducted
+        //   31+ mins  → actual mins deducted
+        let lateMins = 0;
+        if (rawLateMins > 5) {
+          if (rawLateMins <= 15) lateMins = 15;
+          else if (rawLateMins <= 30) lateMins = 30;
+          else lateMins = rawLateMins;
         }
 
         totalRegHrs += regHrs;
