@@ -2648,10 +2648,10 @@
             <h3>Deduction Groups</h3>
             <button class="btn btn-primary btn-sm" onclick="openDedModal()">+ New Group</button>
           </div>
-          <p style="font-size: 12px; color: var(--bb-gray); margin-bottom: 12px;">SSS / PhilHealth / Pag-IBIG amounts per employee bracket. Assign sa employee via deduction_group_id. Default kung walang group: SSS ₱581.30, PhilHealth 2.5%, Pag-IBIG ₱100.</p>
+          <p style="font-size: 12px; color: var(--bb-gray); margin-bottom: 12px;">SSS / PhilHealth / Pag-IBIG amounts per employee bracket. Assign sa employee via deduction_group_id. Default kung walang group: SSS ₱581.30, PhilHealth ₱200.00, Pag-IBIG ₱100.</p>
           <div class="table-wrap">
             <table class="bb-table">
-              <thead><tr><th>Group Name</th><th>SSS</th><th>PhilHealth %</th><th>Pag-IBIG</th><th>Action</th></tr></thead>
+              <thead><tr><th>Group Name</th><th>SSS</th><th>PhilHealth</th><th>Pag-IBIG</th><th>Action</th></tr></thead>
               <tbody id="bbDedBody"></tbody>
             </table>
           </div>
@@ -2820,7 +2820,7 @@
             </div>
             <div class="form-row triple">
               <div><label>SSS (₱) *</label><input type="number" id="dedSss" min="0" step="0.01" value="581.30"></div>
-              <div><label>PhilHealth (%) *</label><input type="number" id="dedPhic" min="0" step="0.01" value="2.5"></div>
+              <div><label>PhilHealth (₱) *</label><input type="number" id="dedPhic" min="0" step="0.01" value="200"></div>
               <div><label>Pag-IBIG (₱) *</label><input type="number" id="dedPagibig" min="0" step="0.01" value="100"></div>
             </div>
           </div>
@@ -3079,7 +3079,7 @@
               </div>
               <p style="font-size: 11px; color: var(--bb-gray); margin-bottom: 12px; font-style: italic;">Weekly allowance multiplied by distinct weeks ng DTR sa period. Cutoff allowance added per cutoff regardless.</p>
               <div class="form-row single">
-                <div><label>Deduction Group (for SSS/PhilHealth/Pag-IBIG bracket)</label><select id="esDedGroup"><option value="">— Use Defaults (SSS ₱581.30, PhilHealth 2.5%, Pag-IBIG ₱100) —</option></select></div>
+                <div><label>Deduction Group (for SSS/PhilHealth/Pag-IBIG bracket)</label><select id="esDedGroup"><option value="">— Use Defaults (SSS ₱581.30, PhilHealth ₱200, Pag-IBIG ₱100) —</option></select></div>
               </div>
             </div>
 
@@ -3198,7 +3198,7 @@
               <li><strong>livePay</strong> = totalLiveHrs × <code>live_rate</code> (per-employee, default ₱83.33/hr)</li>
               <li><strong>Allowance</strong> = (weekly_allowance × distinct weeks worked) + cutoff_allowance</li>
               <li><strong>Gross Pay</strong> = regPay + livePay + allowance</li>
-              <li><strong>Deductions:</strong> SSS (₱581.30 default OR from deduction_group), PhilHealth (2.5% or group %), Pag-IBIG (₱100 or group), late × reg_rate, break × reg_rate, cash_advance per_cutoff, item_charges</li>
+              <li><strong>Deductions:</strong> SSS (₱581.30 default OR from deduction_group), PhilHealth (₱200 default OR from group — fixed amount), Pag-IBIG (₱100 default OR from group), late × reg_rate, break × reg_rate, cash_advance per_cutoff, item_charges</li>
               <li><strong>Net Pay</strong> = Gross - Deductions</li>
             </ul>
             <p style="margin-top: 12px; padding: 10px; background: white; border-radius: 6px; font-size: 12px; color: var(--bb-gray);">
@@ -4558,7 +4558,7 @@ async function openEmpSettings(empId) {
     // Populate deduction groups
     document.getElementById('esDedGroup').innerHTML =
       '<option value="">— Use Defaults —</option>' +
-      dedGroups.map(g => `<option value="${g.id}" ${emp.deduction_group_id === g.id ? 'selected' : ''}>${g.name} (SSS ₱${(g.sss_amount||0).toFixed(2)} / PHIC ${(g.phic_percent||0).toFixed(1)}% / Pag-IBIG ₱${(g.pagibig_amount||0).toFixed(2)})</option>`).join('');
+      dedGroups.map(g => `<option value="${g.id}" ${emp.deduction_group_id === g.id ? 'selected' : ''}>${g.name} (SSS ₱${(g.sss_amount||0).toFixed(2)} / PHIC ₱${(g.phic_percent||0).toFixed(2)} / Pag-IBIG ₱${(g.pagibig_amount||0).toFixed(2)})</option>`).join('');
     document.getElementById('empSettingsTitle').textContent = 'Settings: ' + emp.name;
     // Reset to first tab
     document.querySelectorAll('[data-estab]').forEach(t => t.classList.remove('active'));
@@ -5018,7 +5018,7 @@ async function runComputePayroll() {
 
       // Deductions
       const sssEE = dedGroup ? dedGroup.sss_amount : 581.30;
-      const phicEE = dedGroup ? (grossPay * (dedGroup.phic_percent / 100)) : grossPay * 0.025;
+      const phicEE = dedGroup ? (dedGroup.phic_percent || 200) : 200;  // PhilHealth = fixed peso amount
       const pagibigEE = dedGroup ? dedGroup.pagibig_amount : 100;
       const caDeduct = empCA.reduce((s, c) => s + (c.deduct_per_cutoff || 0), 0);
       const icDeduct = empIC.reduce((s, ic) => s + (ic.amount || 0), 0);
@@ -5560,7 +5560,7 @@ async function loadBbDed() {
     body.innerHTML = groups.map(g => `<tr>
       <td><strong>${g.name}</strong></td>
       <td>₱${(g.sss_amount || 0).toFixed(2)}</td>
-      <td>${(g.phic_percent || 0).toFixed(2)}%</td>
+      <td>₱${(g.phic_percent || 0).toFixed(2)}</td>
       <td>₱${(g.pagibig_amount || 0).toFixed(2)}</td>
       <td><button class="btn btn-ghost btn-sm" onclick="editDed('${g.id}')">Edit</button></td>
     </tr>`).join('');
@@ -5572,7 +5572,7 @@ function openDedModal() {
   document.getElementById('dedId').value = '';
   document.getElementById('dedName').value = '';
   document.getElementById('dedSss').value = '581.30';
-  document.getElementById('dedPhic').value = '2.5';
+  document.getElementById('dedPhic').value = '200';
   document.getElementById('dedPagibig').value = '100';
   document.getElementById('dedDelBtn').style.display = 'none';
   document.getElementById('dedModal').classList.add('open');
