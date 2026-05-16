@@ -5347,11 +5347,13 @@ async function runComputePayroll() {
         } catch (e) {}
       }
 
-      // Mark item charges as deducted
+      // Mark item charges as deducted (skip payroll_period_id if no existing — empty relation can cause 400)
       for (const ic of empIC) {
         try {
-          await pbUpdate('item_charges', ic.id, { status: 'deducted', payroll_period_id: existing.length ? existing[0].id : '' });
-        } catch (e) {}
+          const updateBody = { status: 'deducted' };
+          if (existing.length) updateBody.payroll_period_id = existing[0].id;
+          await pbUpdate('item_charges', ic.id, updateBody);
+        } catch (e) { console.warn('IC update failed for', ic.id, ':', e.message); }
       }
     }
 
@@ -5371,10 +5373,16 @@ async function runComputePayroll() {
     progressMsg.textContent = `Done — ${created} created, ${updated} updated, ${skipped} skipped.`;
     addLog(`✓ FINISHED: ${created} new, ${updated} updated, ${skipped} skipped`, 'ok');
     runBtn.disabled = false;
-    runBtn.textContent = 'Done';
+    runBtn.textContent = 'Close';
+    runBtn.onclick = () => { closeModal('computePayrollModal'); loadBbPayroll(); };
+    toast(`✓ Payroll computed for ${created + updated} employees`, 'ok');
     setTimeout(() => {
-      loadBbPayroll();
-    }, 500);
+      // Auto-close after 3 seconds
+      if (document.getElementById('computePayrollModal').classList.contains('open')) {
+        closeModal('computePayrollModal');
+        loadBbPayroll();
+      }
+    }, 3000);
   } catch (e) {
     progressMsg.textContent = 'Failed: ' + e.message;
     addLog('✗ FATAL: ' + e.message, 'err');
@@ -5693,7 +5701,7 @@ async function saveCA() {
   const id = document.getElementById('caId').value;
   const body = {
     employee_id: emp,
-    date: document.getElementById('caDate').value,
+    date: localPbDateOnly(document.getElementById('caDate').value),
     amount: amt,
     deduct_per_cutoff: ded,
     notes: document.getElementById('caNotes').value,
@@ -5780,11 +5788,11 @@ async function saveIC() {
   const emp = document.getElementById('icEmp').value;
   const desc = document.getElementById('icDesc').value.trim();
   const amt = parseFloat(document.getElementById('icAmount').value);
-  if (!emp || !desc || !amt) { alert('Employee + description + amount required'); return; }
+  if (!emp || !desc || !amt) { toast('Employee + description + amount required', 'err'); return; }
   const id = document.getElementById('icId').value;
   const body = {
     employee_id: emp,
-    date: document.getElementById('icDate').value,
+    date: localPbDateOnly(document.getElementById('icDate').value),  // proper UTC datetime
     item_description: desc,
     amount: amt,
     status: document.getElementById('icStatus').value,
@@ -5795,7 +5803,8 @@ async function saveIC() {
     else await pbCreate('item_charges', body);
     closeModal('icModal');
     loadBbIC();
-  } catch (e) { alert('Failed: ' + e.message); }
+    toast('✓ Item charge saved', 'ok');
+  } catch (e) { toast('Failed: ' + e.message, 'err'); console.error(e); }
 }
 
 async function deleteIC() {
