@@ -4154,8 +4154,8 @@ async function doStartLive() {
     const now = new Date();
     const rec = await pbCreate('live_sessions', {
       employee_id: user.id,
-      start_time: now.toISOString().replace('T', ' ').replace('Z', ''),
-      date: now.toISOString().split('T')[0] + ' 00:00:00',
+      start_time: localPbDate(now),
+      date: localPbDateOnly(todayStr()),
       status: 'active'
       // platform set at end (employees may switch platforms mid-session)
     });
@@ -4202,7 +4202,7 @@ async function submitEndLive() {
     const start = new Date(sess.start_time);
     const dur = (now - start) / 3600000;
     await pbUpdate('live_sessions', sess.id, {
-      end_time: now.toISOString().replace('T', ' ').replace('Z', ''),
+      end_time: localPbDate(now),
       duration_hours: parseFloat(dur.toFixed(2)),
       sales_amount: sales,
       platform: platform,
@@ -5838,19 +5838,19 @@ async function saveManualDtr() {
   if (!emp || !date || !timeIn) { toast('Employee + Date + Time In required', 'err'); return; }
   if (!reason) { toast('Reason required for audit', 'err'); return; }
   const id = document.getElementById('mdId').value;
-  const tInISO = `${date} ${timeIn}:00`;
+  // Build proper local-time datetime strings (PB format: "YYYY-MM-DD HH:mm:ss.000")
+  const tInDate = new Date(`${date}T${timeIn}:00`);  // local timezone
   let body = {
     employee_id: emp,
-    date: date + ' 00:00:00',
-    time_in: tInISO,
+    date: localPbDateOnly(date),
+    time_in: localPbDate(tInDate),
     type: document.getElementById('mdType').value,
     status: 'open'
   };
   if (timeOut) {
-    body.time_out = `${date} ${timeOut}:00`;
-    const tIn = new Date(tInISO);
-    const tOut = new Date(body.time_out);
-    body.total_hours = parseFloat(((tOut - tIn) / 3600000).toFixed(2));
+    const tOutDate = new Date(`${date}T${timeOut}:00`);
+    body.time_out = localPbDate(tOutDate);
+    body.total_hours = parseFloat(((tOutDate - tInDate) / 3600000).toFixed(2));
     body.status = 'closed';
   }
   if (document.getElementById('mdSales').value) {
@@ -6164,7 +6164,7 @@ async function markTaskDone(taskId) {
   try {
     await pbUpdate('tms_tasks', taskId, {
       status: 'done',
-      completed_at: new Date().toISOString().substring(0, 10) + ' 00:00:00'
+      completed_at: localPbDateOnly(todayStr())
     });
     // Refresh task list
     kioskState.empTasks = (kioskState.empTasks || []).filter(t => t.id !== taskId);
@@ -6540,8 +6540,8 @@ async function saveCheckin() {
     reviewer_notes: document.getElementById('ciReviewerNotes').value,
     status
   };
-  if (status === 'Submitted' && !id) body.submitted_at = new Date().toISOString().substring(0,10);
-  if (status === 'Reviewed') body.reviewed_at = new Date().toISOString().substring(0,10);
+  if (status === 'Submitted' && !id) body.submitted_at = todayStr();
+  if (status === 'Reviewed') body.reviewed_at = todayStr();
   try {
     if (id) await pbUpdate('tms_weekly_checkins', id, body);
     else await pbCreate('tms_weekly_checkins', body);
@@ -6649,7 +6649,7 @@ async function submitEmpCheckin() {
     win_2: document.getElementById('kCiW2').value,
     win_3: document.getElementById('kCiW3').value,
     status: 'Submitted',
-    submitted_at: new Date().toISOString().substring(0,10)
+    submitted_at: todayStr()
   };
   try {
     if (kioskState.existingCheckinId) {
@@ -6864,10 +6864,10 @@ async function doTimeInWithPhoto() {
     const now = new Date();
     const fd = new FormData();
     fd.append('employee_id', user.id);
-    fd.append('time_in', now.toISOString().replace('T', ' ').replace('Z', ''));
+    fd.append('time_in', localPbDate(now));
     fd.append('type', 'regular');
     fd.append('status', 'open');
-    fd.append('date', now.toISOString().split('T')[0] + ' 00:00:00');
+    fd.append('date', localPbDateOnly(todayStr()));
     if (capturedPhotoBlob) {
       fd.append('time_in_photo', capturedPhotoBlob, `timein_${user.id}_${Date.now()}.jpg`);
     }
@@ -6891,7 +6891,7 @@ async function doTimeOutWithPhoto() {
     const inTime = new Date(kioskState.openDtr.time_in);
     const hours = (now - inTime) / 3600000;
     const fd = new FormData();
-    fd.append('time_out', now.toISOString().replace('T', ' ').replace('Z', ''));
+    fd.append('time_out', localPbDate(now));
     fd.append('total_hours', hours.toFixed(2));
     fd.append('status', 'closed');
     if (capturedPhotoBlob) {
@@ -7541,7 +7541,24 @@ function fmtDate(d) {
   const dt = new Date(d);
   return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
-function todayStr() { return new Date().toISOString().split('T')[0]; }
+function todayStr() {
+  // Local YYYY-MM-DD (not UTC)
+  const d = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+
+/* PB-compatible local datetime string: "YYYY-MM-DD HH:mm:ss.000" — uses LOCAL time */
+function localPbDate(d) {
+  d = d || new Date();
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.000`;
+}
+
+/* Date-only PB format: "YYYY-MM-DD 00:00:00.000" */
+function localPbDateOnly(dateStr) {
+  return (dateStr || todayStr()) + ' 00:00:00.000';
+}
 function uid(prefix) { return prefix + Date.now() + Math.random().toString(36).substr(2, 5); }
 
 /* ===================== NAVIGATION ===================== */
