@@ -2588,7 +2588,7 @@
 
       <!-- CASH FLOW MODAL -->
       <div class="modal-bg" id="cashFlowModal">
-        <div class="modal" style="max-width: 560px;">
+        <div class="modal" style="max-width: 620px;">
           <div class="modal-header">
             <h3 id="cashFlowTitle">New Cash Flow Entry</h3>
             <button class="close-btn" onclick="closeModal('cashFlowModal')">×</button>
@@ -2597,7 +2597,7 @@
             <input type="hidden" id="cfId">
             <div class="form-row">
               <div><label>Date *</label><input type="date" id="cfDate"></div>
-              <div><label>Type *</label><select id="cfType" onchange="updateCfCategoryOptions()">
+              <div><label>Type *</label><select id="cfType" onchange="updateCfCategoryOptions(); updateCfFieldsVisibility();">
                 <option value="inflow">💰 Inflow (Income)</option>
                 <option value="outflow">💸 Outflow (Expense)</option>
               </select></div>
@@ -2606,8 +2606,44 @@
               <div><label>Category *</label><select id="cfCategory"></select></div>
               <div><label>Amount (₱) *</label><input type="number" id="cfAmount" min="0" step="0.01"></div>
             </div>
-            <div class="form-row single">
-              <div><label>Description</label><input type="text" id="cfDescription" placeholder="e.g., Office supplies for May"></div>
+
+            <!-- INFLOW-only fields: Source tracking -->
+            <div id="cfInflowFields" style="background: #ECFDF5; padding: 12px 14px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #10B981;">
+              <div style="font-size: 11px; font-weight: 600; color: #047857; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">💰 Source Tracking (Inflow)</div>
+              <div class="form-row">
+                <div><label>Source *</label><select id="cfSource" onchange="updateCfReceivedByVisibility()">
+                  <option value="">— Select source —</option>
+                  <option value="Walk-in Customer">🚶 Walk-in Customer</option>
+                  <option value="Pickup Rider">🛵 Pickup Rider</option>
+                  <option value="Direct (Sub-admin)">👤 Direct to Sub-admin</option>
+                  <option value="Bank Transfer / GCash">🏦 Bank Transfer / GCash</option>
+                  <option value="Supplier">🏪 Supplier Refund</option>
+                  <option value="Other">📝 Other</option>
+                </select></div>
+                <div id="cfReceivedByWrap"><label>Received By (Employee)</label><select id="cfReceivedBy">
+                  <option value="">— Select employee —</option>
+                </select></div>
+              </div>
+            </div>
+
+            <!-- OUTFLOW-only fields: Approval workflow -->
+            <div id="cfOutflowFields" style="background: #FEF2F2; padding: 12px 14px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #EF4444; display:none;">
+              <div style="font-size: 11px; font-weight: 600; color: #B91C1C; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">💸 Cash Release Approval (Outflow)</div>
+              <div class="form-row">
+                <div><label>Requested By *</label><select id="cfRequestedBy">
+                  <option value="">— Who needs the money —</option>
+                </select></div>
+                <div><label>Approved By *</label><select id="cfApprovedBy">
+                  <option value="">— Who approved release —</option>
+                </select></div>
+              </div>
+              <div class="form-row single" style="margin-top: 6px;">
+                <div><label>Purpose</label><input type="text" id="cfPurpose" placeholder="e.g., Buy office supplies, Pay supplier ABC"></div>
+              </div>
+            </div>
+
+            <div class="form-row single" style="margin-top: 10px;">
+              <div><label>Description</label><input type="text" id="cfDescription" placeholder="Additional details / notes"></div>
             </div>
             <div class="form-row">
               <div><label>Reference No. (optional)</label><input type="text" id="cfRefNo" placeholder="OR/Invoice #"></div>
@@ -2813,24 +2849,48 @@
 
       <!-- CASH ADVANCES VIEW -->
       <section class="view" id="view-bbCA">
+        <!-- Pending Approvals (owner sees this prominently) -->
+        <div class="card" id="caPendingCard" style="margin-bottom: 16px; border-left: 4px solid #F59E0B; display:none;">
+          <div class="card-h">
+            <h3>⏳ Pending Approvals <span id="caPendingBadge" style="background: #F59E0B; color: white; border-radius: 12px; padding: 2px 10px; font-size: 12px; margin-left: 8px;">0</span></h3>
+            <button class="btn btn-secondary btn-sm" onclick="loadBbCA()">⟳ Refresh</button>
+          </div>
+          <p style="font-size: 12px; color: var(--bb-gray); margin-bottom: 12px;" id="caPendingHint">Mga requests galing sa sub-admins. I-review at i-approve/reject.</p>
+          <div class="table-wrap">
+            <table class="bb-table">
+              <thead><tr><th>Employee</th><th>Requested By</th><th>Date</th><th>Amount</th><th>Per Cutoff</th><th>Reason</th><th>Action</th></tr></thead>
+              <tbody id="caPendingBody"></tbody>
+            </table>
+          </div>
+        </div>
+
         <div class="card" style="margin-bottom: 16px;">
           <div class="card-h">
             <h3>Cash Advances</h3>
             <div style="display:flex; gap:8px;">
+              <select id="caStatusFilter" onchange="loadBbCA()" style="padding: 7px 11px; font-size: 12px; border: 1px solid var(--bb-border); border-radius: 6px;">
+                <option value="all">All Status</option>
+                <option value="active">Active</option>
+                <option value="pending_approval">Pending</option>
+                <option value="approved">Approved (not yet released)</option>
+                <option value="rejected">Rejected</option>
+                <option value="fully_paid">Fully Paid</option>
+              </select>
               <button class="btn btn-secondary btn-sm" onclick="exportToCsv('cash_advances')">⬇ CSV</button>
               <button class="btn btn-secondary btn-sm" onclick="loadBbCA()">⟳ Refresh</button>
-              <button class="btn btn-primary btn-sm" onclick="openCAModal()">+ New CA</button>
+              <button class="btn btn-primary btn-sm" onclick="openCAModal()">+ Request CA</button>
             </div>
           </div>
-          <p style="font-size: 12px; color: var(--bb-gray); margin-bottom: 12px;">Auto-deducted per payroll cutoff (deduct_per_cutoff amount). Pag remaining balance = 0, auto-mark fully_paid.</p>
+          <p style="font-size: 12px; color: var(--bb-gray); margin-bottom: 12px;">Sub-admin nag-rerequest → Owner nag-aapprove → auto-deduct per payroll cutoff. Pag remaining balance = 0, auto-mark fully_paid.</p>
           <div class="bb-stats-row">
             <div class="bb-stat-card honey"><div class="label">Active Loans</div><div class="value" id="caActiveCount">—</div></div>
+            <div class="bb-stat-card blue"><div class="label">Pending</div><div class="value" id="caPendingCount">—</div></div>
             <div class="bb-stat-card green"><div class="label">Fully Paid</div><div class="value" id="caPaidCount">—</div></div>
             <div class="bb-stat-card red"><div class="label">Outstanding Balance</div><div class="value" id="caBalance">—</div></div>
           </div>
           <div class="table-wrap">
             <table class="bb-table">
-              <thead><tr><th>Employee</th><th>Date</th><th>Amount</th><th>Per Cutoff</th><th>Balance</th><th>Notes</th><th>Status</th><th>Action</th></tr></thead>
+              <thead><tr><th>Employee</th><th>Date</th><th>Amount</th><th>Per Cutoff</th><th>Balance</th><th>Requested By</th><th>Status</th><th>Action</th></tr></thead>
               <tbody id="bbCABody"></tbody>
             </table>
           </div>
@@ -2969,30 +3029,56 @@
 
       <!-- CASH ADVANCE MODAL -->
       <div class="modal-bg" id="caModal">
-        <div class="modal" style="max-width: 520px;">
+        <div class="modal" style="max-width: 580px;">
           <div class="modal-header">
-            <h3 id="caModalTitle">New Cash Advance</h3>
+            <h3 id="caModalTitle">New Cash Advance Request</h3>
             <button class="close-btn" onclick="closeModal('caModal')">×</button>
           </div>
           <div class="modal-body">
             <input type="hidden" id="caId">
+
+            <div id="caRoleBanner" style="background: var(--bb-honey-light); padding: 10px 14px; border-radius: 6px; font-size: 12px; margin-bottom: 12px; display:none;"></div>
+
             <div class="form-row">
               <div><label>Employee *</label><select id="caEmp"></select></div>
               <div><label>Date *</label><input type="date" id="caDate"></div>
             </div>
             <div class="form-row">
-              <div><label>Total Amount *</label><input type="number" id="caAmount" min="0" step="0.01" oninput="updateCAPreview()"></div>
+              <div><label id="caAmountLabel">Requested Amount *</label><input type="number" id="caAmount" min="0" step="0.01" oninput="updateCAPreview()"></div>
               <div><label>Deduct per Cutoff *</label><input type="number" id="caDeduct" min="0" step="0.01" oninput="updateCAPreview()"></div>
             </div>
             <div id="caPreview" style="background: var(--bb-honey-light); padding: 10px 14px; border-radius: 6px; font-size: 12px; color: var(--bb-honey-dark);">Compute cutoffs and projected payoff.</div>
+
             <div class="form-row single" style="margin-top: 12px;">
-              <div><label>Notes</label><textarea id="caNotes" rows="2"></textarea></div>
+              <div><label>Reason / Notes</label><textarea id="caNotes" rows="2" placeholder="Bakit kailangan ang cash advance?"></textarea></div>
+            </div>
+
+            <!-- OWNER-only approval fields (shown only when owner is editing a pending request) -->
+            <div id="caApprovalFields" style="background: #EFF6FF; padding: 12px 14px; border-radius: 8px; margin-top: 12px; border-left: 4px solid #3B82F6; display:none;">
+              <div style="font-size: 11px; font-weight: 600; color: #1E40AF; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">👑 Owner Approval</div>
+              <div class="form-row">
+                <div><label>Max Approved Amount (₱) *</label><input type="number" id="caMaxApproved" min="0" step="0.01" placeholder="Set lower than requested if needed"></div>
+                <div><label>Approval Status</label><select id="caApprovalStatus">
+                  <option value="pending_approval">⏳ Pending</option>
+                  <option value="approved">✅ Approve</option>
+                  <option value="rejected">❌ Reject</option>
+                </select></div>
+              </div>
+              <div class="form-row single" style="margin-top: 6px;">
+                <div><label>Decision Notes (visible to requester)</label><textarea id="caDecisionNotes" rows="2" placeholder="e.g., Approved less than requested due to..."></textarea></div>
+              </div>
+              <div style="margin-top: 8px; padding: 8px 10px; background: white; border-radius: 6px; font-size: 12px;">
+                <label style="display:inline-flex; align-items:center; gap:6px; margin: 0; text-transform: none; letter-spacing: 0;">
+                  <input type="checkbox" id="caDeductNextCutoff" style="width:auto; margin: 0;">
+                  <strong>Deduct sa next cutoff?</strong> (kung uncheck, manual mo i-deduct sa specific cutoff)
+                </label>
+              </div>
             </div>
           </div>
           <div class="modal-footer">
             <button class="btn btn-danger" id="caDelBtn" onclick="deleteCA()" style="display:none;">Delete</button>
             <button class="btn btn-secondary" onclick="closeModal('caModal')">Cancel</button>
-            <button class="btn btn-primary" onclick="saveCA()">Save CA</button>
+            <button class="btn btn-primary" id="caSaveBtn" onclick="saveCA()">Save Request</button>
           </div>
         </div>
       </div>
@@ -5234,7 +5320,7 @@ async function runComputePayroll() {
       });
       const allDates = [...new Set([...Object.keys(dtrByDate), ...Object.keys(liveByDate)])];
 
-      let totalRegHrs = 0, totalLiveHrs = 0, totalLateMins = 0, totalBreakHrs = 0;
+      let totalRegHrs = 0, totalLiveHrs = 0, totalLateMins = 0, totalBreakHrs = 0, totalOtHrs = 0;
       allDates.forEach(date => {
         const dayDTRs = dtrByDate[date] || [];
         const dayLive = liveByDate[date] || [];
@@ -5253,6 +5339,21 @@ async function runComputePayroll() {
         else if (dtrHrs >= 6) breakHrs = 0.5;
         // Break is deducted from regular hours (employee takes break during regular work, not live)
         regHrs = Math.max(0, regHrs - breakHrs);
+
+        // 8-HOUR DAILY CAP — trim if no OT approved
+        const isOtDay = dayDTRs.some(d => (d.type || '') === 'ot');
+        let otHrs = 0;
+        if (regHrs > 8) {
+          if (isOtDay) {
+            // Approved OT — hours beyond 8 are OT hours (paid at OT rate)
+            otHrs = regHrs - 8;
+            regHrs = 8;
+          } else {
+            // Not approved — trim excess (not paid)
+            regHrs = 8;
+          }
+        }
+        totalOtHrs += otHrs;
 
         // Late deduction — get RAW late minutes from any source (Excel import OR schedule comparison)
         let rawLateMins = dayDTRs.reduce((s, d) => s + (d.late_minutes || 0), 0);
@@ -5294,9 +5395,13 @@ async function runComputePayroll() {
       const lateDeductHrs = totalLateMins / 60;
       const regRate = emp.reg_rate || 62.50;
       const liveRate = emp.live_rate || 83.33;
+      // OT rate = configurable multiplier × reg_rate (default 1.0 = same as regular)
+      const otMultiplier = await getAppConfig('ot_rate_multiplier', 1.0);
+      const otRate = regRate * (otMultiplier || 1.0);
       const regPay = Math.max(0, totalRegHrs - lateDeductHrs) * regRate;
       const livePay = totalLiveHrs * liveRate;
-      const grossPay = regPay + livePay;
+      const otPay = totalOtHrs * otRate;
+      const grossPay = regPay + livePay + otPay;
 
       // Deductions
       const sssEE = dedGroup ? dedGroup.sss_amount : 581.30;
@@ -5329,6 +5434,7 @@ async function runComputePayroll() {
         period_end: end,
         reg_hours: Math.round(totalRegHrs * 100) / 100,
         live_hours: Math.round(totalLiveHrs * 100) / 100,
+        ot_hours: Math.round(totalOtHrs * 100) / 100,
         late_minutes: Math.round(totalLateMins),
         late_deduction: Math.round(lateDeductPeso * 100) / 100,
         break_deduction: Math.round(breakDeductPeso * 100) / 100,
@@ -5446,6 +5552,9 @@ async function viewBbPayslip(periodId) {
 
     const regPay = (p.reg_hours || 0) * regRate;
     const livePay = (p.live_hours || 0) * liveRate;
+    const otMultiplier = await getAppConfig('ot_rate_multiplier', 1.0);
+    const otRate = regRate * (otMultiplier || 1.0);
+    const otPay = (p.ot_hours || 0) * otRate;
     const totalDed = (p.late_deduction || 0) + (p.break_deduction || 0) + (p.sss_ee || 0) + (p.phic_ee || 0) + (p.pagibig_ee || 0) + (p.cash_advance || 0);
 
     const row = (label, val, bold) => `<div style="display:flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--bb-border); font-size: ${bold ? '14px' : '13px'}; ${bold ? 'font-weight: 600;' : ''}">${label}<span>${val}</span></div>`;
@@ -5502,6 +5611,7 @@ async function viewBbPayslip(periodId) {
       <div style="font-size: 11px; font-weight: 600; color: var(--bb-gray); text-transform: uppercase; letter-spacing: 0.5px; margin: 14px 0 4px;">Earnings</div>
       ${row(`Regular (${(p.reg_hours || 0).toFixed(2)}h × ₱${regRate.toFixed(2)})`, '₱' + regPay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }))}
       ${row(`Live Selling (${(p.live_hours || 0).toFixed(2)}h × ₱${liveRate.toFixed(2)})`, '₱' + livePay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }))}
+      ${(p.ot_hours || 0) > 0 ? row(`Overtime (${(p.ot_hours || 0).toFixed(2)}h × ₱${otRate.toFixed(2)}, ${otMultiplier}×)`, '₱' + otPay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })) : ''}
       ${row('Allowance', '₱' + (p.allowance || 0).toLocaleString(undefined, { minimumFractionDigits: 2 }))}
       ${row('<strong>Gross Pay</strong>', '<strong>₱' + (p.gross_pay || 0).toLocaleString(undefined, { minimumFractionDigits: 2 }) + '</strong>', true)}
 
@@ -5711,32 +5821,83 @@ async function loadBbCA() {
     const empMap = {}; emps.forEach(e => empMap[e.id] = e);
     document.getElementById('caEmp').innerHTML = '<option value="">— Select —</option>' + emps.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
 
-    const active = cas.filter(c => c.status === 'active');
-    const paid = cas.filter(c => c.status === 'fully_paid');
+    // Categorize by approval_status (fallback to legacy status field)
+    const getApprovalStatus = c => c.approval_status || (c.status === 'fully_paid' ? 'fully_paid' : c.status === 'active' ? 'active' : 'active');
+    const pending = cas.filter(c => getApprovalStatus(c) === 'pending_approval');
+    const active = cas.filter(c => getApprovalStatus(c) === 'active' || c.status === 'active');
+    const paid = cas.filter(c => getApprovalStatus(c) === 'fully_paid' || c.status === 'fully_paid');
     const totalBalance = active.reduce((s,c) => s + (c.remaining_balance || 0), 0);
+
     document.getElementById('caActiveCount').textContent = active.length;
+    document.getElementById('caPendingCount').textContent = pending.length;
     document.getElementById('caPaidCount').textContent = paid.length;
     document.getElementById('caBalance').textContent = '₱' + totalBalance.toLocaleString();
 
+    // Pending Approvals panel — show only if any pending exist
+    const pendingCard = document.getElementById('caPendingCard');
+    const pendingBadge = document.getElementById('caPendingBadge');
+    const pendingBody = document.getElementById('caPendingBody');
+    const isOwner = !!window.CURRENT_IS_OWNER;
+    if (pending.length > 0) {
+      pendingCard.style.display = '';
+      pendingBadge.textContent = pending.length;
+      document.getElementById('caPendingHint').textContent = isOwner
+        ? 'Mga requests galing sa sub-admins. I-review at i-approve/reject below.'
+        : 'Naka-pending pa ang mga requests. Hihintayin natin ang owner approval.';
+      pendingBody.innerHTML = pending.map(c => {
+        const e = (c.expand && c.expand.employee_id) || empMap[c.employee_id];
+        const actionBtn = isOwner
+          ? `<button class="btn btn-primary btn-sm" onclick="editCA('${c.id}')">Review</button>`
+          : `<button class="btn btn-ghost btn-sm" onclick="editCA('${c.id}')">View</button>`;
+        return `<tr style="background:#FFFBEB;">
+          <td><strong>${e ? e.name : '—'}</strong></td>
+          <td><small>${c.requested_by || '—'}</small></td>
+          <td>${fmtDate(c.date)}</td>
+          <td>₱${(c.amount || 0).toLocaleString()}</td>
+          <td>₱${(c.deduct_per_cutoff || 0).toLocaleString()}</td>
+          <td><small>${c.notes || '—'}</small></td>
+          <td>${actionBtn}</td>
+        </tr>`;
+      }).join('');
+    } else {
+      pendingCard.style.display = 'none';
+    }
+
+    // Apply status filter
+    const statusFilter = document.getElementById('caStatusFilter') ? document.getElementById('caStatusFilter').value : 'all';
+    const filtered = statusFilter === 'all' ? cas : cas.filter(c => getApprovalStatus(c) === statusFilter || c.status === statusFilter);
+
     const body = document.getElementById('bbCABody');
-    if (!cas.length) {
+    if (!filtered.length) {
       body.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;color:#999;">Walang cash advances.</td></tr>';
       return;
     }
-    body.innerHTML = cas.map(c => {
+    body.innerHTML = filtered.map(c => {
       const e = (c.expand && c.expand.employee_id) || empMap[c.employee_id];
-      const paidBtn = c.status === 'active'
+      const approvalStatus = getApprovalStatus(c);
+      const isActive = (approvalStatus === 'active' || c.status === 'active');
+      const paidBtn = isActive
         ? `<button class="btn btn-secondary btn-sm" style="margin-left:4px;" onclick="markCAPaid('${c.id}')" title="Manually mark as fully paid">✓ Paid</button>`
         : '';
+      const badgeClass = approvalStatus === 'fully_paid' ? 'green'
+        : approvalStatus === 'pending_approval' ? 'honey'
+        : approvalStatus === 'rejected' ? 'red'
+        : approvalStatus === 'approved' ? 'blue'
+        : 'honey';
+      const statusLabel = approvalStatus === 'pending_approval' ? '⏳ Pending'
+        : approvalStatus === 'approved' ? '✓ Approved'
+        : approvalStatus === 'rejected' ? '✗ Rejected'
+        : approvalStatus === 'fully_paid' ? '✓ Paid'
+        : '● Active';
       return `<tr>
         <td><strong>${e ? e.name : '—'}</strong></td>
         <td>${fmtDate(c.date)}</td>
-        <td>₱${(c.amount || 0).toLocaleString()}</td>
+        <td>₱${(c.amount || 0).toLocaleString()}${c.max_approved_amount && c.max_approved_amount !== c.amount ? `<br><small style="color:#3B82F6;">approved ₱${c.max_approved_amount.toLocaleString()}</small>` : ''}</td>
         <td>₱${(c.deduct_per_cutoff || 0).toLocaleString()}</td>
         <td><strong>₱${(c.remaining_balance || 0).toLocaleString()}</strong></td>
-        <td><small>${c.notes || '—'}</small></td>
-        <td><span class="bb-badge ${c.status === 'fully_paid' ? 'green' : 'honey'}">${c.status}</span></td>
-        <td><button class="btn btn-ghost btn-sm" onclick="editCA('${c.id}')">Edit</button>${paidBtn}</td>
+        <td><small>${c.requested_by || '—'}</small>${c.approved_by ? `<br><small style="color:var(--bb-gray);">✓ ${c.approved_by}</small>` : ''}</td>
+        <td><span class="bb-badge ${badgeClass}">${statusLabel}</span></td>
+        <td><button class="btn btn-ghost btn-sm" onclick="editCA('${c.id}')">${isOwner && approvalStatus === 'pending_approval' ? 'Review' : 'Edit'}</button>${paidBtn}</td>
       </tr>`;
     }).join('');
   } catch (e) { console.error(e); }
@@ -5752,12 +5913,34 @@ function updateCAPreview() {
 }
 
 function openCAModal() {
-  document.getElementById('caModalTitle').textContent = 'New Cash Advance';
-  ['caId','caAmount','caDeduct','caNotes'].forEach(id => document.getElementById(id).value = '');
+  const isOwner = !!window.CURRENT_IS_OWNER;
+  document.getElementById('caModalTitle').textContent = isOwner ? 'New Cash Advance (auto-approved)' : 'Request Cash Advance';
+  ['caId','caAmount','caDeduct','caNotes','caMaxApproved','caDecisionNotes'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   document.getElementById('caEmp').value = '';
   document.getElementById('caDate').value = todayStr();
   document.getElementById('caPreview').textContent = 'Compute cutoffs and projected payoff.';
   document.getElementById('caDelBtn').style.display = 'none';
+  document.getElementById('caApprovalStatus').value = isOwner ? 'approved' : 'pending_approval';
+  document.getElementById('caDeductNextCutoff').checked = false;
+  document.getElementById('caAmountLabel').textContent = isOwner ? 'Total Amount *' : 'Requested Amount *';
+  document.getElementById('caSaveBtn').textContent = isOwner ? 'Save & Release' : 'Submit Request';
+
+  // Banner
+  const banner = document.getElementById('caRoleBanner');
+  if (isOwner) {
+    banner.style.background = 'var(--bb-honey-light)';
+    banner.style.color = 'var(--bb-honey-dark)';
+    banner.innerHTML = '👑 <strong>Owner mode:</strong> CA na nilagay mo dito ay automatic na approved at active. Sub-admins kasi need ng approval workflow.';
+    banner.style.display = '';
+    document.getElementById('caApprovalFields').style.display = '';
+  } else {
+    banner.style.background = '#EFF6FF';
+    banner.style.color = '#1E40AF';
+    banner.innerHTML = '📝 <strong>Sub-admin request mode:</strong> Hihintayin natin ang owner approval bago ma-release sa employee. Owner ang magde-decide kung magkano lang ang i-aapprove.';
+    banner.style.display = '';
+    document.getElementById('caApprovalFields').style.display = 'none';
+  }
+
   document.getElementById('caModal').classList.add('open');
 }
 
@@ -5765,15 +5948,53 @@ async function editCA(id) {
   try {
     const r = await fetch(PB_API + '/collections/cash_advances/records/' + id);
     const c = await r.json();
-    document.getElementById('caModalTitle').textContent = 'Edit Cash Advance';
+    const isOwner = !!window.CURRENT_IS_OWNER;
+    const approvalStatus = c.approval_status || (c.status === 'fully_paid' ? 'fully_paid' : c.status === 'active' ? 'active' : 'pending_approval');
+    const isPending = approvalStatus === 'pending_approval';
+
+    document.getElementById('caModalTitle').textContent = isPending && isOwner
+      ? '👑 Review Cash Advance Request'
+      : isPending
+      ? '⏳ Pending Cash Advance Request'
+      : 'Edit Cash Advance';
+
     document.getElementById('caId').value = c.id;
     document.getElementById('caEmp').value = c.employee_id;
     document.getElementById('caDate').value = (c.date || '').substring(0, 10);
     document.getElementById('caAmount').value = c.amount || '';
     document.getElementById('caDeduct').value = c.deduct_per_cutoff || '';
     document.getElementById('caNotes').value = c.notes || '';
+    document.getElementById('caMaxApproved').value = c.max_approved_amount || c.amount || '';
+    document.getElementById('caApprovalStatus').value = approvalStatus;
+    document.getElementById('caDecisionNotes').value = c.decision_notes || '';
+    document.getElementById('caDeductNextCutoff').checked = !!c.deduct_next_cutoff;
     updateCAPreview();
-    document.getElementById('caDelBtn').style.display = 'inline-flex';
+
+    // Banner
+    const banner = document.getElementById('caRoleBanner');
+    if (isPending && isOwner) {
+      banner.style.background = '#FEF3C7';
+      banner.style.color = '#92400E';
+      banner.innerHTML = `⏳ <strong>Pending request from:</strong> ${c.requested_by || 'sub-admin'} — i-set ang max approved amount at i-click "Approve" o "Reject"`;
+      banner.style.display = '';
+    } else if (isPending) {
+      banner.style.background = '#EFF6FF';
+      banner.style.color = '#1E40AF';
+      banner.innerHTML = `📝 <strong>Request submitted by ${c.requested_by || 'you'}</strong> — waiting for owner approval. Hindi mo pa pwedeng edit hanggat di pa nag-decide ang owner.`;
+      banner.style.display = '';
+    } else {
+      banner.style.display = 'none';
+    }
+
+    // Show approval fields only for owner
+    document.getElementById('caApprovalFields').style.display = isOwner ? '' : 'none';
+    document.getElementById('caSaveBtn').textContent = isPending && isOwner ? 'Submit Decision' : 'Save Changes';
+
+    // Disable form fields for non-owner viewing pending request
+    const disabled = (isPending && !isOwner);
+    ['caEmp','caDate','caAmount','caDeduct','caNotes'].forEach(fid => { const el = document.getElementById(fid); if (el) el.disabled = disabled; });
+
+    document.getElementById('caDelBtn').style.display = isOwner ? 'inline-flex' : 'none';
     document.getElementById('caModal').classList.add('open');
   } catch (e) { alert('Failed: ' + e.message); }
 }
@@ -5784,20 +6005,75 @@ async function saveCA() {
   const ded = parseFloat(document.getElementById('caDeduct').value);
   if (!emp || !amt || !ded) { alert('Employee + amount + deduct required'); return; }
   const id = document.getElementById('caId').value;
+  const isOwner = !!window.CURRENT_IS_OWNER;
+  const me = (kioskState.selectedUser && kioskState.selectedUser.name) || 'admin';
+  const approvalStatus = document.getElementById('caApprovalStatus').value;
+  const maxApproved = parseFloat(document.getElementById('caMaxApproved').value) || amt;
+  const decisionNotes = document.getElementById('caDecisionNotes').value || '';
+  const deductNextCutoff = document.getElementById('caDeductNextCutoff').checked;
+
+  // Build body
   const body = {
     employee_id: emp,
     date: localPbDateOnly(document.getElementById('caDate').value),
     amount: amt,
     deduct_per_cutoff: ded,
-    notes: document.getElementById('caNotes').value,
-    status: 'active'
+    notes: document.getElementById('caNotes').value
   };
+
   try {
     if (id) {
+      // EDIT mode — only owner can change approval-related fields
+      if (isOwner) {
+        body.approval_status = approvalStatus;
+        body.max_approved_amount = maxApproved;
+        body.decision_notes = decisionNotes;
+        body.deduct_next_cutoff = deductNextCutoff;
+        if (approvalStatus === 'approved' || approvalStatus === 'active') {
+          // Once approved, set status=active and use max_approved as actual amount for balance
+          body.status = 'active';
+          body.amount = maxApproved;  // use approved amount
+          body.remaining_balance = maxApproved;
+          body.approval_date = localPbDateOnly(todayStr());
+          body.approved_by = me;
+        } else if (approvalStatus === 'rejected') {
+          body.status = 'rejected';
+          body.approval_date = localPbDateOnly(todayStr());
+          body.approved_by = me;
+        } else if (approvalStatus === 'pending_approval') {
+          body.status = 'pending';
+        }
+      }
       await pbUpdate('cash_advances', id, body);
+
+      // Show release confirmation when newly approved
+      if (isOwner && approvalStatus === 'approved') {
+        toast(`✓ Approved ₱${maxApproved.toLocaleString()} for release${deductNextCutoff ? ' (auto-deduct next cutoff)' : ''}`, 'ok');
+      } else if (isOwner && approvalStatus === 'rejected') {
+        toast('✗ Request rejected', 'err');
+      } else {
+        toast('✓ Saved', 'ok');
+      }
     } else {
-      body.remaining_balance = amt;
+      // NEW mode
+      body.requested_by = me;
+      if (isOwner) {
+        // Owner direct entry — auto-approve
+        body.approval_status = 'active';
+        body.status = 'active';
+        body.max_approved_amount = maxApproved;
+        body.remaining_balance = amt;
+        body.approved_by = me;
+        body.approval_date = localPbDateOnly(todayStr());
+        body.deduct_next_cutoff = deductNextCutoff;
+      } else {
+        // Sub-admin — submit for approval
+        body.approval_status = 'pending_approval';
+        body.status = 'pending';
+        body.remaining_balance = amt;  // tentative
+      }
       await pbCreate('cash_advances', body);
+      toast(isOwner ? '✓ CA created & active' : '✓ Request submitted for owner approval', 'ok');
     }
     closeModal('caModal');
     loadBbCA();
@@ -6423,34 +6699,94 @@ async function loadBbCashFlow() {
       const receiptHtml = receiptUrl
         ? `<a href="${receiptUrl}" target="_blank" style="color: var(--bb-blue);">📎 View</a>`
         : '<span style="color:#bbb;">—</span>';
+
+      // Build "source" mini-info for inflow OR "approval" mini-info for outflow
+      let sourceInfo = '';
+      if (e.type === 'inflow' && (e.source || e.received_by)) {
+        const parts = [];
+        if (e.source) parts.push(`<span style="font-weight:600;">${e.source}</span>`);
+        if (e.received_by) parts.push(`via ${e.received_by}`);
+        sourceInfo = `<div style="font-size:10px;color:var(--bb-gray);margin-top:2px;">${parts.join(' · ')}</div>`;
+      } else if (e.type === 'outflow' && (e.requested_by || e.approved_by)) {
+        const parts = [];
+        if (e.requested_by) parts.push(`req: ${e.requested_by}`);
+        if (e.approved_by) parts.push(`✓ ${e.approved_by}`);
+        sourceInfo = `<div style="font-size:10px;color:var(--bb-gray);margin-top:2px;">${parts.join(' · ')}</div>`;
+      }
+
+      const desc = (e.purpose || e.description || '—');
       return `<tr>
         <td>${fmtDate(e.date)}</td>
         <td><span class="bb-badge ${e.type === 'inflow' ? 'green' : 'red'}">${e.type === 'inflow' ? '↑ IN' : '↓ OUT'}</span></td>
         <td><small>${e.category}</small></td>
         <td><strong style="color: ${e.type === 'inflow' ? 'var(--bb-green)' : 'var(--bb-red)'};">${e.type === 'inflow' ? '+' : '-'}₱${(e.amount || 0).toLocaleString()}</strong></td>
-        <td><small>${e.description || '—'}</small></td>
+        <td><small>${desc}</small>${sourceInfo}</td>
         <td>${receiptHtml}</td>
         <td><small>${e.recorded_by || '—'}</small></td>
         <td><button class="btn btn-ghost btn-sm" onclick="editCashFlow('${e.id}')">Edit</button></td>
       </tr>`;
     }).join('');
-  } catch (e) { console.error('Cash flow load:', e); document.getElementById('bbCashFlowBody').innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--bb-red);padding:20px;">Failed: ' + e.message + '<br><small>Make sure tms_cash_flow collection exists sa PB (run setup_pb_collections.html)</small></td></tr>'; }
+  } catch (e) { console.error('Cash flow load:', e); document.getElementById('bbCashFlowBody').innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--bb-red);padding:20px;">Failed: ' + e.message + '<br><small>Make sure tms_cash_flow collection exists sa PB (run setup_pb_collections.html). Then click "Add Missing Fields" para sa new source tracking fields.</small></td></tr>'; }
 }
 
-function openCashFlowModal() {
+function updateCfFieldsVisibility() {
+  const type = document.getElementById('cfType').value;
+  document.getElementById('cfInflowFields').style.display = (type === 'inflow') ? '' : 'none';
+  document.getElementById('cfOutflowFields').style.display = (type === 'outflow') ? '' : 'none';
+}
+
+function updateCfReceivedByVisibility() {
+  // Show "Received By" only when source is Pickup Rider or Walk-in Customer
+  const src = document.getElementById('cfSource').value;
+  const wrap = document.getElementById('cfReceivedByWrap');
+  if (src === 'Pickup Rider' || src === 'Walk-in Customer') {
+    wrap.style.display = '';
+  } else if (src === 'Direct (Sub-admin)') {
+    wrap.style.display = 'none';
+    document.getElementById('cfReceivedBy').value = '';
+  } else {
+    wrap.style.display = '';
+  }
+}
+
+async function populateCfEmployeeDropdowns() {
+  try {
+    const [emps, admins] = await Promise.all([
+      pbGetList('employees', { filter: 'is_active=true', sort: 'name', perPage: 500 }),
+      pbGetList('admin_accounts', { filter: 'is_active=true', sort: 'name', perPage: 100 }).catch(() => [])
+    ]);
+    const empOpts = '<option value="">— Select employee —</option>' + emps.map(e => `<option value="${e.name}">${e.name}</option>`).join('');
+    const adminOpts = '<option value="">— Select approver —</option>' + admins.map(a => `<option value="${a.name}">${a.name} (${a.role || 'admin'})</option>`).join('');
+    document.getElementById('cfReceivedBy').innerHTML = empOpts;
+    document.getElementById('cfRequestedBy').innerHTML = empOpts;
+    document.getElementById('cfApprovedBy').innerHTML = adminOpts;
+  } catch (e) { console.error('Populate dropdowns:', e); }
+}
+
+async function openCashFlowModal() {
   document.getElementById('cashFlowTitle').textContent = 'New Cash Flow Entry';
-  ['cfId','cfAmount','cfDescription','cfRefNo'].forEach(id => document.getElementById(id).value = '');
+  ['cfId','cfAmount','cfDescription','cfRefNo','cfSource','cfReceivedBy','cfRequestedBy','cfApprovedBy','cfPurpose'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   document.getElementById('cfDate').value = todayStr();
   document.getElementById('cfType').value = 'inflow';
   updateCfCategoryOptions();
+  updateCfFieldsVisibility();
+  updateCfReceivedByVisibility();
   document.getElementById('cfReceipt').value = '';
   document.getElementById('cfReceiptPreview').innerHTML = '';
   document.getElementById('cfDelBtn').style.display = 'none';
+  await populateCfEmployeeDropdowns();
+  // Default approved_by to current admin
+  const me = (kioskState.selectedUser && kioskState.selectedUser.name) || '';
+  if (me) {
+    const sel = document.getElementById('cfApprovedBy');
+    if (sel) { const opt = Array.from(sel.options).find(o => o.value === me); if (opt) opt.selected = true; }
+  }
   document.getElementById('cashFlowModal').classList.add('open');
 }
 
 async function editCashFlow(id) {
   try {
+    await populateCfEmployeeDropdowns();
     const r = await fetch(PB_API + '/collections/tms_cash_flow/records/' + id);
     const e = await r.json();
     document.getElementById('cashFlowTitle').textContent = 'Edit Cash Flow Entry';
@@ -6458,10 +6794,17 @@ async function editCashFlow(id) {
     document.getElementById('cfDate').value = (e.date || '').substring(0, 10);
     document.getElementById('cfType').value = e.type;
     updateCfCategoryOptions();
+    updateCfFieldsVisibility();
     document.getElementById('cfCategory').value = e.category;
     document.getElementById('cfAmount').value = e.amount;
     document.getElementById('cfDescription').value = e.description || '';
     document.getElementById('cfRefNo').value = e.reference_no || '';
+    document.getElementById('cfSource').value = e.source || '';
+    document.getElementById('cfReceivedBy').value = e.received_by || '';
+    document.getElementById('cfRequestedBy').value = e.requested_by || '';
+    document.getElementById('cfApprovedBy').value = e.approved_by || '';
+    document.getElementById('cfPurpose').value = e.purpose || '';
+    updateCfReceivedByVisibility();
     document.getElementById('cfReceipt').value = '';
     if (e.receipt) {
       const url = `${PB_BASE}/api/files/tms_cash_flow/${e.id}/${e.receipt}`;
@@ -6474,17 +6817,35 @@ async function editCashFlow(id) {
 
 async function saveCashFlow() {
   const id = document.getElementById('cfId').value;
+  const type = document.getElementById('cfType').value;
   const amount = parseFloat(document.getElementById('cfAmount').value);
   if (!amount || amount <= 0) { toast('Amount required', 'err'); return; }
+
+  // Validation for inflow: source required
+  if (type === 'inflow') {
+    if (!document.getElementById('cfSource').value) { toast('Pumili ng Source para sa Inflow', 'err'); return; }
+  }
+  // Validation for outflow: requested_by + approved_by required
+  if (type === 'outflow') {
+    if (!document.getElementById('cfRequestedBy').value) { toast('Sino ang nag-request ng pera?', 'err'); return; }
+    if (!document.getElementById('cfApprovedBy').value) { toast('Sino ang approving officer?', 'err'); return; }
+  }
+
   try {
     const fd = new FormData();
     fd.append('date', localPbDateOnly(document.getElementById('cfDate').value));
-    fd.append('type', document.getElementById('cfType').value);
+    fd.append('type', type);
     fd.append('category', document.getElementById('cfCategory').value);
     fd.append('amount', amount);
     fd.append('description', document.getElementById('cfDescription').value);
     fd.append('reference_no', document.getElementById('cfRefNo').value);
     fd.append('recorded_by', (kioskState.selectedUser && kioskState.selectedUser.name) || 'admin');
+    // New tracking fields
+    fd.append('source', document.getElementById('cfSource').value);
+    fd.append('received_by', document.getElementById('cfReceivedBy').value);
+    fd.append('requested_by', document.getElementById('cfRequestedBy').value);
+    fd.append('approved_by', document.getElementById('cfApprovedBy').value);
+    fd.append('purpose', document.getElementById('cfPurpose').value);
     const receiptFile = document.getElementById('cfReceipt').files[0];
     if (receiptFile) fd.append('receipt', receiptFile);
 
