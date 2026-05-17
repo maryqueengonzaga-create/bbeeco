@@ -5271,11 +5271,18 @@ async function runComputePayroll() {
 
     progressMsg.textContent = 'Fetching DTR logs...';
     progressBar.style.width = '15%';
-    // IMPORTANT: include ALL non-open DTRs (open = active time-in, not yet timed out)
-    // Statuses encountered: "closed" (kiosk auto-timeout), "flagged" (old importer w/ late), "" (manual entry, no status set)
-    // Excluding any non-open status caused records to be skipped → wrong totals
-    const dtrs = await pbGetList('dtr_logs', { filter: `time_in>="${start} 00:00:00" && time_in<="${end} 23:59:59" && status != "open"`, perPage: 500 });
-    addLog(`Loaded ${dtrs.length} DTR records (all completed, excludes only status=open)`);
+    // CRITICAL: NO status filter — match display behavior exactly.
+    // Records w/o time_out have total_hours=0 so they don't affect totals anyway.
+    // Previous filters (status="closed" only, then status != "open") caused MISMATCH between
+    // daily breakdown (no filter) and Earnings (filtered) — daily showed 88h, Earnings showed 64h
+    // because some records had status="" or other non-standard values.
+    const dtrsRaw = await pbGetList('dtr_logs', { filter: `time_in>="${start} 00:00:00" && time_in<="${end} 23:59:59"`, perPage: 500 });
+    // Filter client-side: include records that have time_out (completed work day)
+    const dtrs = dtrsRaw.filter(d => d.time_out);
+    addLog(`Loaded ${dtrsRaw.length} DTR records, ${dtrs.length} completed (with time_out)`);
+    if (dtrsRaw.length !== dtrs.length) {
+      addLog(`Skipped ${dtrsRaw.length - dtrs.length} records with no time_out (still active)`, 'warn');
+    }
 
     progressMsg.textContent = 'Fetching live sessions...';
     progressBar.style.width = '25%';
@@ -5532,14 +5539,17 @@ async function viewBbPayslip(periodId) {
     const regRate = e ? (e.reg_rate || 62.50) : 62.50;
     const liveRate = e ? (e.live_rate || 83.33) : 83.33;
 
-    // Fetch per-day DTR + live for the breakdown
+    // Fetch per-day DTR + live for the breakdown — MUST USE SAME FILTER AS COMPUTE
     const periodStart = p.period_start.substring(0, 10);
     const periodEnd = p.period_end.substring(0, 10);
-    const [dayDtrs, dayLives] = await Promise.all([
-      pbGetList('dtr_logs', { filter: `employee_id="${p.employee_id}" && date>="${periodStart} 00:00:00" && date<="${periodEnd} 23:59:59"`, sort: 'date', perPage: 200 }),
+    const [dayDtrsRaw, dayLives] = await Promise.all([
+      pbGetList('dtr_logs', { filter: `employee_id="${p.employee_id}" && time_in>="${periodStart} 00:00:00" && time_in<="${periodEnd} 23:59:59"`, sort: 'time_in', perPage: 200 }),
       pbGetList('live_sessions', { filter: `employee_id="${p.employee_id}" && date>="${periodStart} 00:00:00" && date<="${periodEnd} 23:59:59"`, sort: 'date', perPage: 200 })
     ]);
-    // Group by date
+    // Match compute: only include records that have time_out (completed work day)
+    const dayDtrs = dayDtrsRaw.filter(d => d.time_out);
+
+    // Group by date — use date field if available, else derive from time_in
     const byDate = {};
     dayDtrs.forEach(d => {
       const k = (d.date || d.time_in || '').substring(0, 10);
