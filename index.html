@@ -5271,10 +5271,11 @@ async function runComputePayroll() {
 
     progressMsg.textContent = 'Fetching DTR logs...';
     progressBar.style.width = '15%';
-    // IMPORTANT: include BOTH "closed" and "flagged" — flagged = closed but with late_minutes>0 (from importer)
-    // Excluding "flagged" caused all late records to be skipped → no late deduction + missing hours
-    const dtrs = await pbGetList('dtr_logs', { filter: `time_in>="${start} 00:00:00" && time_in<="${end} 23:59:59" && (status="closed" || status="flagged")`, perPage: 500 });
-    addLog(`Loaded ${dtrs.length} DTR records (closed + flagged)`);
+    // IMPORTANT: include ALL non-open DTRs (open = active time-in, not yet timed out)
+    // Statuses encountered: "closed" (kiosk auto-timeout), "flagged" (old importer w/ late), "" (manual entry, no status set)
+    // Excluding any non-open status caused records to be skipped → wrong totals
+    const dtrs = await pbGetList('dtr_logs', { filter: `time_in>="${start} 00:00:00" && time_in<="${end} 23:59:59" && status != "open"`, perPage: 500 });
+    addLog(`Loaded ${dtrs.length} DTR records (all completed, excludes only status=open)`);
 
     progressMsg.textContent = 'Fetching live sessions...';
     progressBar.style.width = '25%';
