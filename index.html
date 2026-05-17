@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>BbeeCo Task Management System</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -1647,6 +1648,7 @@
       <div class="nav-item" data-view="bbDed" data-perm="view_payroll"><span class="nav-icon">⊟</span> Deduction Groups</div>
       <div class="nav-item" data-view="bbAdmins" data-perm="manage_admins"><span class="nav-icon">🔑</span> Admin Accounts</div>
       <div class="nav-item" data-view="bbAttSettings" data-perm="owner"><span class="nav-icon">📷</span> Attendance Settings</div>
+      <div class="nav-item" data-view="bbEmailSettings" data-perm="owner"><span class="nav-icon">📧</span> Email & Notifications</div>
       <div class="nav-item" data-view="bbManualDtr" data-perm="edit_dtr"><span class="nav-icon">✍</span> Manual Attendance</div>
       <div class="nav-item" data-view="bbActions" data-perm="view_action_log"><span class="nav-icon">📋</span> Action Log</div>
 
@@ -2330,9 +2332,20 @@
             <p style="font-size: 13px; color: var(--bb-gray); margin-bottom: 14px;">
               Mag-compute ng payroll para sa lahat ng active employees. Reusable — pag may existing payroll record sa same period, mag-uupdate. Auto-deduct ang active cash advances at item charges sa period.
             </p>
+            <!-- Quick date range presets (JIS standard cutoffs) -->
+            <div style="margin-bottom: 14px;">
+              <label style="display:block; font-size: 11px; font-weight: 600; color: var(--bb-gray); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">Quick Presets (BbeeCo semi-monthly cutoffs)</label>
+              <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="setCutoffPreset('this_1_15')">📅 1-15 This Month</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="setCutoffPreset('this_16_end')">📅 16-End This Month</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="setCutoffPreset('last_1_15')">⏮ 1-15 Last Month</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="setCutoffPreset('last_16_end')">⏮ 16-End Last Month</button>
+              </div>
+              <div id="cpPresetHint" style="font-size: 11px; color: var(--bb-gray); margin-top: 6px; font-style: italic;"></div>
+            </div>
             <div class="form-row">
-              <div><label>Period Start *</label><input type="date" id="cpStart" required></div>
-              <div><label>Period End *</label><input type="date" id="cpEnd" required></div>
+              <div><label>Period Start * (custom OK)</label><input type="date" id="cpStart" required></div>
+              <div><label>Period End * (custom OK)</label><input type="date" id="cpEnd" required></div>
             </div>
             <div style="background: var(--bb-honey-light); padding: 12px 14px; border-radius: 8px; margin-top: 12px; font-size: 12px; color: var(--bb-honey-dark);">
               <strong>Heads up:</strong> Mag-trigger ito ng deduct sa cash advances (deduct_per_cutoff amount) at item charges sa period. Hindi reversible — gawin lang once per period.
@@ -3303,6 +3316,94 @@
               <tbody id="bbAttOverridesBody"></tbody>
             </table>
           </div>
+        </div>
+      </section>
+
+      <!-- EMAIL & NOTIFICATIONS SETTINGS VIEW -->
+      <section class="view" id="view-bbEmailSettings">
+        <div class="card" style="margin-bottom: 16px;">
+          <div class="card-h">
+            <h3>📧 Email & Notifications (EmailJS)</h3>
+            <button class="btn btn-primary btn-sm" onclick="saveEmailSettings()">💾 Save Settings</button>
+          </div>
+          <p style="font-size: 13px; color: var(--bb-gray); margin-bottom: 16px;">
+            JIS-standard email automation gamit ang EmailJS — free tier (200/mo), client-side, walang server changes. Configure once at lahat ng emails (payslip, alerts, emergency tasks) ay automated na.
+          </p>
+
+          <div style="background: #EFF6FF; border-left: 4px solid #3B82F6; padding: 12px 14px; border-radius: 6px; margin-bottom: 16px; font-size: 12px; line-height: 1.6;">
+            <strong>Setup (one-time, ~5 mins):</strong>
+            <ol style="margin: 6px 0 0 20px;">
+              <li>Pumunta sa <a href="https://www.emailjs.com/" target="_blank" style="color: var(--bb-blue);">emailjs.com</a> at mag-signup (free)</li>
+              <li>Add Email Service (Gmail recommended) → kopyahin ang <strong>Service ID</strong></li>
+              <li>Create Email Template (paste sample template below) → kopyahin ang <strong>Template ID</strong></li>
+              <li>Account → API Keys → kopyahin ang <strong>Public Key</strong></li>
+              <li>Paste all 3 below + i-save</li>
+            </ol>
+          </div>
+
+          <div class="form-row">
+            <div><label>EmailJS Service ID</label><input type="text" id="emjsServiceId" placeholder="service_xxxxxxx" style="font-family: monospace;"></div>
+            <div><label>EmailJS Template ID</label><input type="text" id="emjsTemplateId" placeholder="template_xxxxxxx" style="font-family: monospace;"></div>
+          </div>
+          <div class="form-row">
+            <div><label>EmailJS Public Key</label><input type="text" id="emjsPublicKey" placeholder="user_xxxxxxxxxxxxx" style="font-family: monospace;"></div>
+            <div><label>Admin Notification Email(s) — comma-separated</label><input type="text" id="emjsAdminEmails" placeholder="owner@bbeeco.com, hr@bbeeco.com"></div>
+          </div>
+
+          <div style="margin-top: 14px;">
+            <button class="btn btn-secondary btn-sm" onclick="testEmailJS()">🧪 Send Test Email</button>
+            <span id="emjsTestStatus" style="margin-left: 10px; font-size: 12px;"></span>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom: 16px;">
+          <div class="card-h"><h3>🔔 Notification Toggles</h3></div>
+          <div class="setting-row">
+            <div>
+              <div class="setting-title">📤 Payslip per Cutoff (each employee)</div>
+              <div class="setting-desc">Pag nag-release ka ng payroll, automatic email ang payslip sa bawat employee</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="notifPayslip" checked><span class="slider"></span></label>
+          </div>
+          <div class="setting-row">
+            <div>
+              <div class="setting-title">⏰ Late/Absence Alerts (to admin)</div>
+              <div class="setting-desc">Pag may employee na late >30 mins, email admins. (In-app dashboard banner also shows.)</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="notifLate" checked><span class="slider"></span></label>
+          </div>
+          <div class="setting-row">
+            <div>
+              <div class="setting-title">🚨 Emergency Task Alerts (assignee + admin)</div>
+              <div class="setting-desc">Pag may task na High + Urgent (Q1 sa matrix), email yung assignee + admin</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="notifEmergency" checked><span class="slider"></span></label>
+          </div>
+          <div class="setting-row">
+            <div>
+              <div class="setting-title">📅 Cutoff Reminder (to admin)</div>
+              <div class="setting-desc">Day before cutoff (May 14 + last day), email admin to run payroll compute</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="notifCutoff" checked><span class="slider"></span></label>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom: 16px;">
+          <div class="card-h"><h3>📝 EmailJS Template (sample)</h3></div>
+          <p style="font-size: 12px; color: var(--bb-gray); margin-bottom: 10px;">Kopyahin ang template na ito sa EmailJS dashboard (Email Templates → Create new). Para magamit nya yung variables natin.</p>
+          <textarea readonly style="width: 100%; min-height: 220px; font-family: monospace; font-size: 11px; padding: 12px; border: 1px solid var(--bb-border); border-radius: 6px; background: #F9FAFB;">Subject: {{subject}}
+
+To: {{to_email}}
+
+Hi {{to_name}},
+
+{{message_body}}
+
+---
+{{footer}}
+
+(Sent via BbeeCo automated notification system)</textarea>
+          <p style="font-size: 11px; color: var(--bb-gray); margin-top: 8px;"><strong>Required variables in EmailJS template:</strong> to_email, to_name, subject, message_body, footer</p>
         </div>
       </section>
 
@@ -4594,8 +4695,85 @@ async function enterManagerMode() {
 
 /* ===================== ADMIN PERMISSIONS + SESSION ===================== */
 const ADMIN_SESSION_DURATION = 4 * 60 * 60 * 1000; // 4 hours
+const SESSION_STORAGE_KEY = 'bbeeco_admin_session_v1';
 let adminSessionTimer = null;
 let adminSessionStart = null;
+
+/* JIS-standard session persistence — survives page refresh, expires after timeout, audit-logged */
+function saveAdminSession(admin, startTs) {
+  try {
+    const data = {
+      v: 1,
+      id: admin.id,
+      name: admin.name,
+      role: admin.role || 'admin',
+      // Store the basic perm flags so we can rebuild perms without a PB round-trip
+      perms: {
+        view_dtr: !!admin.perm_view_dtr,
+        edit_emp: !!admin.perm_edit_emp,
+        resolve_incidents: !!admin.perm_resolve_incidents,
+        view_payroll: !!admin.perm_view_payroll,
+        view_sales: !!admin.perm_view_sales,
+        lock_emp: !!admin.perm_lock_emp
+      },
+      sessionStart: startTs || Date.now(),
+      expiresAt: (startTs || Date.now()) + ADMIN_SESSION_DURATION
+    };
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(data));
+  } catch (e) { console.warn('Session save failed:', e); }
+}
+
+function clearAdminSession() {
+  try { localStorage.removeItem(SESSION_STORAGE_KEY); } catch (e) {}
+}
+
+function readSavedSession() {
+  try {
+    const raw = localStorage.getItem(SESSION_STORAGE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (!data || data.v !== 1) return null;
+    // Check expiry
+    if (Date.now() >= data.expiresAt) { clearAdminSession(); return null; }
+    return data;
+  } catch (e) { return null; }
+}
+
+/* Called on page load — if valid saved session, auto-restore admin mode */
+async function attemptSessionRestore() {
+  const saved = readSavedSession();
+  if (!saved) return false;
+  // Verify admin still exists & is_active in PB before restoring
+  try {
+    const r = await fetch(PB_API + '/collections/admin_accounts/records/' + saved.id);
+    if (!r.ok) { clearAdminSession(); return false; }
+    const admin = await r.json();
+    if (!admin.is_active) { clearAdminSession(); return false; }
+    // Reconstruct kioskState-like fields used downstream
+    kioskState.selectedUserType = 'admin';
+    kioskState.selectedUser = admin;
+    window.CURRENT_USER = { type: 'admin', user: admin };
+    // Show main app, hide kiosk
+    document.getElementById('kioskScreen').style.display = 'none';
+    document.getElementById('empModeScreen').style.display = 'none';
+    document.getElementById('mainApp').style.display = 'grid';
+    document.body.style.overflow = '';
+    await applyAdminPermissions(admin);
+    // Resume session timer with PRESERVED start (not reset)
+    adminSessionStart = saved.sessionStart;
+    startAdminSession(true);
+    // Re-load app data
+    const empsLoaded = await loadEmployeesFromPB();
+    await loadTmsTasksFromPB();
+    if (empsLoaded) {
+      populateEmpSelects();
+      renderAll();
+    }
+    const minsLeft = Math.floor((saved.expiresAt - Date.now()) / 60000);
+    toast(`✓ Session restored: ${admin.name} — ${minsLeft} mins remaining`, 'ok');
+    return true;
+  } catch (e) { console.warn('Session restore failed:', e); clearAdminSession(); return false; }
+}
 
 async function applyAdminPermissions(admin) {
   // Show admin badge
@@ -4678,8 +4856,10 @@ function hasPerm(key) {
   return !!(window.CURRENT_PERMS && window.CURRENT_PERMS[key]);
 }
 
-function startAdminSession() {
-  adminSessionStart = Date.now();
+function startAdminSession(resume = false) {
+  if (!resume) adminSessionStart = Date.now();
+  // Persist session to localStorage (survives refresh)
+  if (kioskState.selectedUser) saveAdminSession(kioskState.selectedUser, adminSessionStart);
   const timerEl = document.getElementById('sessionTimer');
   timerEl.style.display = '';
   if (adminSessionTimer) clearInterval(adminSessionTimer);
@@ -4689,6 +4869,7 @@ function startAdminSession() {
     if (remaining === 0) {
       clearInterval(adminSessionTimer);
       adminSessionTimer = null;
+      clearAdminSession();
       alert('Session expired (4 hours). Logging out for security.');
       kioskLogout();
       return;
@@ -4707,6 +4888,7 @@ function stopAdminSession() {
   document.getElementById('sessionTimer').style.display = 'none';
   document.getElementById('adminBadge').style.display = 'none';
   window.CURRENT_PERMS = null;
+  clearAdminSession();
 }
 
 /* ===================== PHOTO VIEWER ===================== */
@@ -5238,6 +5420,37 @@ function openComputePayrollModal() {
   document.getElementById('cpProgressLog').innerHTML = '';
   document.getElementById('cpRunBtn').disabled = false;
   document.getElementById('computePayrollModal').classList.add('open');
+}
+
+// Quick preset for payroll cutoff dates (BbeeCo semi-monthly: 1-15 & 16-end)
+function setCutoffPreset(preset) {
+  const today = new Date();
+  const y = today.getFullYear();
+  const m = today.getMonth();  // 0-indexed
+  const pad = n => String(n).padStart(2, '0');
+  const ymd = (yy, mm, dd) => `${yy}-${pad(mm+1)}-${pad(dd)}`;
+  const lastDay = (yy, mm) => new Date(yy, mm+1, 0).getDate();
+  let s, e, lbl;
+  if (preset === 'this_1_15') {
+    s = ymd(y, m, 1); e = ymd(y, m, 15);
+    lbl = `${new Date(s).toLocaleDateString('en-US',{month:'short',day:'numeric'})} – ${new Date(e).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}`;
+  } else if (preset === 'this_16_end') {
+    s = ymd(y, m, 16); e = ymd(y, m, lastDay(y, m));
+    lbl = `${new Date(s).toLocaleDateString('en-US',{month:'short',day:'numeric'})} – ${new Date(e).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}`;
+  } else if (preset === 'last_1_15') {
+    const lm = m === 0 ? 11 : m - 1;
+    const ly = m === 0 ? y - 1 : y;
+    s = ymd(ly, lm, 1); e = ymd(ly, lm, 15);
+    lbl = `${new Date(s).toLocaleDateString('en-US',{month:'short',day:'numeric'})} – ${new Date(e).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}`;
+  } else if (preset === 'last_16_end') {
+    const lm = m === 0 ? 11 : m - 1;
+    const ly = m === 0 ? y - 1 : y;
+    s = ymd(ly, lm, 16); e = ymd(ly, lm, lastDay(ly, lm));
+    lbl = `${new Date(s).toLocaleDateString('en-US',{month:'short',day:'numeric'})} – ${new Date(e).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}`;
+  } else { return; }
+  document.getElementById('cpStart').value = s;
+  document.getElementById('cpEnd').value = e;
+  document.getElementById('cpPresetHint').textContent = `✓ Set to: ${lbl} (pwede mo pa rin baguhin manually)`;
 }
 
 async function runComputePayroll() {
@@ -7948,7 +8161,91 @@ async function markCAPaid(caId) {
   } catch (e) { alert('Failed: ' + e.message); }
 }
 
-/* ===================== EMAIL PAYSLIP (mailto fallback) ===================== */
+/* ===================== EMAIL & NOTIFICATIONS (EmailJS) ===================== */
+// Settings are saved sa app_config: emjs_service_id, emjs_template_id, emjs_public_key, emjs_admin_emails
+// Notif toggles: notif_payslip, notif_late, notif_emergency, notif_cutoff
+
+let _emjsInitialized = false;
+async function emjsInit() {
+  const pk = await getAppConfig('emjs_public_key', '');
+  if (!pk) return false;
+  if (_emjsInitialized) return true;
+  try {
+    if (window.emailjs) {
+      window.emailjs.init({ publicKey: pk });
+      _emjsInitialized = true;
+      return true;
+    }
+  } catch (e) { console.warn('EmailJS init failed:', e); }
+  return false;
+}
+
+async function emjsSend(to_email, to_name, subject, message_body, footer = '') {
+  const ready = await emjsInit();
+  if (!ready) {
+    console.log('[EmailJS] Not configured — falling back to mailto for:', to_email);
+    return { ok: false, reason: 'not_configured', fallback: true };
+  }
+  const svc = await getAppConfig('emjs_service_id', '');
+  const tpl = await getAppConfig('emjs_template_id', '');
+  if (!svc || !tpl) return { ok: false, reason: 'missing_ids' };
+  try {
+    const res = await window.emailjs.send(svc, tpl, {
+      to_email, to_name, subject, message_body,
+      footer: footer || 'BbeeCo Management — Automated notification'
+    });
+    console.log('[EmailJS] Sent:', to_email, res.status);
+    return { ok: true, status: res.status };
+  } catch (e) {
+    console.error('[EmailJS] Send failed:', e);
+    return { ok: false, reason: 'send_failed', error: e.text || e.message };
+  }
+}
+
+async function loadEmailSettings() {
+  document.getElementById('emjsServiceId').value = await getAppConfig('emjs_service_id', '');
+  document.getElementById('emjsTemplateId').value = await getAppConfig('emjs_template_id', '');
+  document.getElementById('emjsPublicKey').value = await getAppConfig('emjs_public_key', '');
+  document.getElementById('emjsAdminEmails').value = await getAppConfig('emjs_admin_emails', '');
+  document.getElementById('notifPayslip').checked = await getAppConfig('notif_payslip', true);
+  document.getElementById('notifLate').checked = await getAppConfig('notif_late', true);
+  document.getElementById('notifEmergency').checked = await getAppConfig('notif_emergency', true);
+  document.getElementById('notifCutoff').checked = await getAppConfig('notif_cutoff', true);
+}
+
+async function saveEmailSettings() {
+  try {
+    await setAppConfig('emjs_service_id', document.getElementById('emjsServiceId').value.trim());
+    await setAppConfig('emjs_template_id', document.getElementById('emjsTemplateId').value.trim());
+    await setAppConfig('emjs_public_key', document.getElementById('emjsPublicKey').value.trim());
+    await setAppConfig('emjs_admin_emails', document.getElementById('emjsAdminEmails').value.trim());
+    await setAppConfig('notif_payslip', document.getElementById('notifPayslip').checked);
+    await setAppConfig('notif_late', document.getElementById('notifLate').checked);
+    await setAppConfig('notif_emergency', document.getElementById('notifEmergency').checked);
+    await setAppConfig('notif_cutoff', document.getElementById('notifCutoff').checked);
+    _emjsInitialized = false;  // re-init with new public key
+    toast('✓ Email settings saved', 'ok');
+  } catch (e) { toast('Failed: ' + e.message, 'err'); }
+}
+
+async function testEmailJS() {
+  const statusEl = document.getElementById('emjsTestStatus');
+  statusEl.textContent = '⏳ Sending test...';
+  const adminEmails = (document.getElementById('emjsAdminEmails').value || '').split(',').map(s => s.trim()).filter(Boolean);
+  if (!adminEmails.length) { statusEl.textContent = '✗ Add Admin Email muna'; return; }
+  // Save first so the test uses fresh values
+  await saveEmailSettings();
+  const result = await emjsSend(adminEmails[0], 'BbeeCo Admin', 'BbeeCo — EmailJS Test', 'Hi Admin!\n\nThis is a test from your BbeeCo system. If you received this, EmailJS is working correctly. ✓\n\nMatic naka-setup na ang payslip + alert + emergency task emails.', 'Test sent on ' + new Date().toLocaleString());
+  if (result.ok) {
+    statusEl.textContent = '✓ Sent! Check ' + adminEmails[0];
+    statusEl.style.color = 'var(--bb-green)';
+  } else {
+    statusEl.textContent = '✗ Failed: ' + (result.error || result.reason);
+    statusEl.style.color = 'var(--bb-red)';
+  }
+}
+
+/* ===================== EMAIL PAYSLIP (EmailJS + mailto fallback) ===================== */
 async function emailPayslip(periodId, email, name) {
   if (!email) { alert('Walang email address sa employee. Mag-add muna sa HR.'); return; }
   try {
@@ -7956,29 +8253,72 @@ async function emailPayslip(periodId, email, name) {
     const p = await r.json();
     const e = p.expand && p.expand.employee_id;
     const subject = `BbeeCo Payslip — ${fmtDate(p.period_start)} to ${fmtDate(p.period_end)}`;
-    const body = `Hi ${name},\n\nNarito ang payslip mo para sa cutoff ${fmtDate(p.period_start)} → ${fmtDate(p.period_end)}.\n\n` +
+    const body = `Cutoff: ${fmtDate(p.period_start)} → ${fmtDate(p.period_end)}\n\n` +
       `EARNINGS\n` +
       `Regular (${(p.reg_hours||0).toFixed(2)}h × ₱${(e?e.reg_rate:62.50).toFixed(2)})  ₱${((p.reg_hours||0)*(e?e.reg_rate:62.50)).toFixed(2)}\n` +
       `Live (${(p.live_hours||0).toFixed(2)}h × ₱${(e?e.live_rate:83.33).toFixed(2)})  ₱${((p.live_hours||0)*(e?e.live_rate:83.33)).toFixed(2)}\n` +
+      ((p.ot_hours||0) > 0 ? `Overtime (${(p.ot_hours||0).toFixed(2)}h)  ₱${((p.ot_hours||0)*(e?e.reg_rate:62.50)).toFixed(2)}\n` : '') +
       `Allowance  ₱${(p.allowance||0).toFixed(2)}\n` +
       `Gross Pay  ₱${(p.gross_pay||0).toFixed(2)}\n\n` +
       `DEDUCTIONS\n` +
       `Late (${p.late_minutes||0} mins)  -₱${(p.late_deduction||0).toFixed(2)}\n` +
-      `Break  -₱${(p.break_deduction||0).toFixed(2)}\n` +
       `SSS  -₱${(p.sss_ee||0).toFixed(2)}\n` +
       `PhilHealth  -₱${(p.phic_ee||0).toFixed(2)}\n` +
       `Pag-IBIG  -₱${(p.pagibig_ee||0).toFixed(2)}\n` +
       `Cash Advance  -₱${(p.cash_advance||0).toFixed(2)}\n\n` +
       `NET PAY: ₱${(p.net_pay||0).toFixed(2)}\n\n` +
-      `Salamat sa pagsisikap!\n\nBbeeCo Management`;
+      `Salamat sa pagsisikap!`;
+    // Try EmailJS first
+    const sendResult = await emjsSend(email, name, subject, body, 'BbeeCo Payroll — questions? Reply to this email.');
+    if (sendResult.ok) {
+      await pbUpdate('payroll_periods', periodId, { email_sent: true }).catch(()=>{});
+      toast('✓ Email sent via EmailJS to ' + email, 'ok');
+      setTimeout(() => loadBbPayroll(), 500);
+      return;
+    }
+    // Fallback to mailto
     const mailtoUrl = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     window.location.href = mailtoUrl;
-    // Mark email_sent
-    try {
-      await pbUpdate('payroll_periods', periodId, { email_sent: true });
-    } catch (e) {}
+    await pbUpdate('payroll_periods', periodId, { email_sent: true }).catch(()=>{});
     setTimeout(() => loadBbPayroll(), 500);
   } catch (e) { alert('Failed: ' + e.message); }
+}
+
+/* Helper: notify admins for emergency task (High + Urgent) */
+async function notifyEmergencyTask(task, assigneeEmp) {
+  const enabled = await getAppConfig('notif_emergency', true);
+  if (!enabled) return;
+  const subject = `🚨 URGENT TASK: ${task.title}`;
+  const body = `An emergency task has been assigned and requires immediate attention.\n\n` +
+    `Title: ${task.title}\n` +
+    `Priority: ${task.priority} · Urgency: ${task.urgency}\n` +
+    `Category: ${task.category}\n` +
+    `Due: ${task.due_date ? fmtDate(task.due_date) : 'ASAP'}\n` +
+    (task.description ? `\nDescription:\n${task.description}\n` : '') +
+    `\nPlease take action immediately.`;
+  // Email assignee
+  if (assigneeEmp && assigneeEmp.email) {
+    await emjsSend(assigneeEmp.email, assigneeEmp.name, subject, body, 'BbeeCo Emergency Task System');
+  }
+  // Email admins
+  const adminEmailsStr = await getAppConfig('emjs_admin_emails', '');
+  const admins = adminEmailsStr.split(',').map(s => s.trim()).filter(Boolean);
+  for (const adminEmail of admins) {
+    await emjsSend(adminEmail, 'Admin', `[CC] ${subject}`, body, 'BbeeCo Admin notification');
+  }
+}
+
+/* Helper: notify admins for late employees */
+async function notifyLateEmployee(emp, lateMins) {
+  const enabled = await getAppConfig('notif_late', true);
+  if (!enabled) return;
+  const adminEmailsStr = await getAppConfig('emjs_admin_emails', '');
+  const admins = adminEmailsStr.split(',').map(s => s.trim()).filter(Boolean);
+  const subject = `⏰ Late Alert: ${emp.name} (${lateMins} mins)`;
+  const body = `${emp.name} has clocked in ${lateMins} minutes late today.\n\nPlease review attendance records.`;
+  for (const adminEmail of admins) {
+    await emjsSend(adminEmail, 'Admin', subject, body, 'BbeeCo Attendance Alert');
+  }
 }
 
 /* ===================== KIOSK CAMERA CAPTURE ===================== */
@@ -9102,6 +9442,11 @@ async function saveTask() {
       if (notifyEmail || notifySMS) {
         sendTaskNotification(local, notifyEmail, notifySMS);
       }
+      // AUTO emergency-task email if High priority + Urgent (Q1 matrix)
+      if (local.priority === 'High' && local.urgency === 'Urgent') {
+        const emp = (DB.employees || []).find(e => e.id === local.assignTo) || (PB_CACHE && PB_CACHE.employees || []).find(e => e.id === local.assignTo);
+        notifyEmergencyTask(local, emp).catch(e => console.warn('Emergency notif failed:', e));
+      }
     }
 
     // Always refresh matrix if it exists in DOM (so newly-added tasks show up)
@@ -10005,6 +10350,7 @@ async function renderViewSpecific(view) {
   else if (view === 'bbAdmins') loadBbAdmins();
   else if (view === 'bbSalesAuth') loadBbSalesAuth();
   else if (view === 'bbAttSettings') loadBbAttSettings();
+  else if (view === 'bbEmailSettings') loadEmailSettings();
   else if (view === 'bbManualDtr') loadBbManualDtr();
   else if (view === 'bbActions') loadBbActions();
   else {
@@ -10025,7 +10371,7 @@ async function renderViewSpecific(view) {
   // Note: viewport meta with user-scalable=no handles double-tap zoom natively
 })();
 
-function init() {
+async function init() {
   document.getElementById('dateBadge').textContent = new Date().toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
   // Clean up old v1 storage from previous version
   if (localStorage.getItem('bbeeco_tms_v1') && !localStorage.getItem('bbeeco_tms_v2')) {
@@ -10036,6 +10382,10 @@ function init() {
   ['employees','tasks','audits','pdca','kaizens','roles','slots','handovers'].forEach(k => { if (!DB[k]) DB[k] = []; });
   if (!loaded || !DB.employees.length || !DB.roles.length) loadSampleData();
   else renderAll();
+
+  // JIS-standard session persistence: try restore admin session BEFORE showing kiosk
+  const restored = await attemptSessionRestore();
+  if (restored) return;  // already in admin mode
 
   // KIOSK FIRST — hide main app, show kiosk landing
   document.getElementById('mainApp').style.display = 'none';
