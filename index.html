@@ -1634,10 +1634,10 @@
       <div class="nav-item" data-view="bbHr" data-perm="view_dtr"><span class="nav-icon">👥</span> HR &amp; Employees</div>
       <div class="nav-item" data-view="bbCheckins" data-perm="any"><span class="nav-icon">📝</span> Weekly Check-Ins</div>
       <div class="nav-item" data-view="bbSales" data-perm="view_sales"><span class="nav-icon">💰</span> Sales &amp; Live</div>
-      <div class="nav-item" data-view="bbSalesEntries" data-perm="view_sales"><span class="nav-icon">🛒</span> Non-Live Sales</div>
-      <div class="nav-item" data-view="bbTaskReview" data-perm="any"><span class="nav-icon">✓</span> Task Review</div>
-      <div class="nav-item" data-view="bbTaskSummary" data-perm="any"><span class="nav-icon">📊</span> Task Summary</div>
-      <div class="nav-item" data-view="bbCashFlow" data-perm="view_payroll"><span class="nav-icon">💸</span> Cash Flow</div>
+      <div class="nav-item" data-view="bbSalesEntries" data-perm="view_sales"><span class="nav-icon">🛒</span> Sales Entries</div>
+      <div class="nav-item" data-view="bbTaskReview" data-perm="view_task_review"><span class="nav-icon">✓</span> Task Review</div>
+      <div class="nav-item" data-view="bbTaskSummary" data-perm="view_task_summary"><span class="nav-icon">📊</span> Task Summary</div>
+      <div class="nav-item" data-view="bbCashFlow" data-perm="view_cash_flow"><span class="nav-icon">💸</span> Cash Flow</div>
       <div class="nav-item" data-view="bbPayroll" data-perm="view_payroll"><span class="nav-icon">₱</span> Payroll</div>
 
       <div class="nav-section">BbeeCo Settings</div>
@@ -1829,27 +1829,43 @@
       <!-- PRIORITY MATRIX VIEW -->
       <section class="view" id="view-matrix">
         <div class="card" style="margin-bottom: 20px;">
-          <div class="card-h"><h3>Eisenhower-JIS Priority Matrix</h3></div>
+          <div class="card-h">
+            <h3>Eisenhower Priority Matrix</h3>
+            <button class="btn btn-primary btn-sm" data-extra-perm="create_tasks" onclick="openTaskModal()">+ New Task</button>
+          </div>
           <p style="font-size: 13px; color: #666;">Top priority focus = <strong>Q2 (Important, Not Urgent)</strong>. Q4 = candidates for elimination. Goal: Move tasks from Q1/Q3 → Q2 via planning. <em>Less priority, alisin.</em></p>
+          <p style="font-size: 12px; color: var(--bb-honey-dark); margin-top: 8px; padding: 8px 12px; background: var(--bb-honey-light); border-radius: 6px;">💡 Click "+ Add" sa bawat quadrant para mag-create ng task na auto-assigned sa quadrant na yan. O click "+ New Task" sa taas para sa custom.</p>
         </div>
         <div class="matrix">
           <div class="quadrant q1">
-            <div class="q-header"><span class="q-tag">Q1</span> DO NOW <span style="font-size: 10px; color: #999;">Urgent + Important</span></div>
+            <div class="q-header" style="display:flex; align-items:center; justify-content:space-between;">
+              <div><span class="q-tag">Q1</span> DO NOW <span style="font-size: 10px; color: #999;">Urgent + Important</span></div>
+              <button class="btn btn-primary btn-sm" data-extra-perm="create_tasks" onclick="openQuadrantTask('High','Urgent')" style="padding:3px 9px; font-size:11px;">+ Add</button>
+            </div>
             <div class="q-desc">Crisis, deadlines, problems. Handle immediately.</div>
             <div id="qBox1"></div>
           </div>
           <div class="quadrant q2">
-            <div class="q-header"><span class="q-tag">Q2</span> SCHEDULE <span style="font-size: 10px; color: #999;">Important, Not Urgent</span></div>
-            <div class="q-desc"><strong>TOP PRIORITY ZONE</strong> — planning, prevention, improvement (Kaizen).</div>
+            <div class="q-header" style="display:flex; align-items:center; justify-content:space-between;">
+              <div><span class="q-tag">Q2</span> SCHEDULE <span style="font-size: 10px; color: #999;">Important, Not Urgent</span></div>
+              <button class="btn btn-primary btn-sm" data-extra-perm="create_tasks" onclick="openQuadrantTask('High','Not Urgent')" style="padding:3px 9px; font-size:11px;">+ Add</button>
+            </div>
+            <div class="q-desc"><strong>TOP PRIORITY ZONE</strong> — planning, prevention, continuous improvement.</div>
             <div id="qBox2"></div>
           </div>
           <div class="quadrant q3">
-            <div class="q-header"><span class="q-tag">Q3</span> DELEGATE <span style="font-size: 10px; color: #999;">Urgent, Not Important</span></div>
+            <div class="q-header" style="display:flex; align-items:center; justify-content:space-between;">
+              <div><span class="q-tag">Q3</span> DELEGATE <span style="font-size: 10px; color: #999;">Urgent, Not Important</span></div>
+              <button class="btn btn-primary btn-sm" data-extra-perm="create_tasks" onclick="openQuadrantTask('Low','Urgent')" style="padding:3px 9px; font-size:11px;">+ Add</button>
+            </div>
             <div class="q-desc">Interruptions, some meetings. Delegate or reduce.</div>
             <div id="qBox3"></div>
           </div>
           <div class="quadrant q4">
-            <div class="q-header"><span class="q-tag">Q4</span> ELIMINATE <span style="font-size: 10px; color: #999;">Not Urgent, Not Important</span></div>
+            <div class="q-header" style="display:flex; align-items:center; justify-content:space-between;">
+              <div><span class="q-tag">Q4</span> ELIMINATE <span style="font-size: 10px; color: #999;">Not Urgent, Not Important</span></div>
+              <button class="btn btn-primary btn-sm" data-extra-perm="create_tasks" onclick="openQuadrantTask('Low','Not Urgent')" style="padding:3px 9px; font-size:11px;">+ Add</button>
+            </div>
             <div class="q-desc">Time wasters. <em>Alisin para mag-focus sa Q2.</em></div>
             <div id="qBox4"></div>
           </div>
@@ -2348,11 +2364,11 @@
         </div>
       </div>
 
-      <!-- NON-LIVE SALES ENTRIES VIEW -->
+      <!-- UNIFIED SALES ENTRIES VIEW (Live + Non-Live) -->
       <section class="view" id="view-bbSalesEntries">
         <div class="card" style="margin-bottom: 16px;">
           <div class="card-h">
-            <h3>Non-Live Sales Entries</h3>
+            <h3>Sales Entries (All Platforms)</h3>
             <div style="display: flex; gap: 8px;">
               <select id="seFilter" onchange="loadBbSalesEntries()" style="padding: 7px 11px; font-size: 12px; border: 1px solid var(--bb-border); border-radius: 6px;">
                 <option value="today">Today</option>
@@ -2366,7 +2382,7 @@
             </div>
           </div>
           <p style="font-size: 12px; color: var(--bb-gray); margin-bottom: 12px;">
-            Para sa walk-in, FB Post, Shopee, at iba pang sales na hindi galing sa live streaming. Pwedeng i-log ng employee (via kiosk "Log Non-Live Sale" action) o i-assign ng admin sa employee dito.
+            Sales entries para sa <strong>lahat ng platforms</strong> — Live Streaming (FB Live / TikTok) at Non-Live (Walk-in, FB Post, Shopee, etc.). Sub-admin with "Log Sales Entries" perm ang pwedeng mag-add.
           </p>
           <div class="bb-stats-row">
             <div class="bb-stat-card honey"><div class="label">Total Sales (Period)</div><div class="value" id="seTotalSales">—</div></div>
@@ -2413,14 +2429,20 @@
             </div>
             <div class="form-row">
               <div><label>Platform *</label><select id="sePlatform">
-                <option value="Walk-in">Walk-in</option>
-                <option value="FB Post">FB Post</option>
-                <option value="Shopee">Shopee</option>
-                <option value="Lazada">Lazada</option>
-                <option value="TikTok Shop">TikTok Shop</option>
-                <option value="Bazaar">Bazaar</option>
-                <option value="Referral">Referral</option>
-                <option value="Others">Others</option>
+                <optgroup label="Live Streaming">
+                  <option value="FB Live">FB Live</option>
+                  <option value="TikTok">TikTok</option>
+                </optgroup>
+                <optgroup label="Non-Live Sales">
+                  <option value="Walk-in">Walk-in</option>
+                  <option value="FB Post">FB Post</option>
+                  <option value="Shopee">Shopee</option>
+                  <option value="Lazada">Lazada</option>
+                  <option value="TikTok Shop">TikTok Shop</option>
+                  <option value="Bazaar">Bazaar</option>
+                  <option value="Referral">Referral</option>
+                  <option value="Others">Others</option>
+                </optgroup>
               </select></div>
               <div><label>Amount (₱) *</label><input type="number" id="seAmount" min="0" step="0.01"></div>
             </div>
@@ -3077,13 +3099,13 @@
             </div>
             <div id="aaPermsBox" style="background: var(--bb-gray-light); padding: 14px 16px; border-radius: 8px; margin-top: 8px; max-height: 380px; overflow-y: auto;">
               <div style="font-size: 11px; font-weight: 600; color: var(--bb-gray); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">Basic Permissions (subadmin only — owner has all)</div>
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px; margin-bottom: 12px;">
-                <label style="display:flex; align-items:center; gap:8px;"><input type="checkbox" id="aaPermDtr"> View DTR</label>
-                <label style="display:flex; align-items:center; gap:8px;"><input type="checkbox" id="aaPermEdit"> Edit Employees</label>
-                <label style="display:flex; align-items:center; gap:8px;"><input type="checkbox" id="aaPermInc"> Resolve Incidents</label>
-                <label style="display:flex; align-items:center; gap:8px;"><input type="checkbox" id="aaPermPay"> View Payroll</label>
-                <label style="display:flex; align-items:center; gap:8px;"><input type="checkbox" id="aaPermSales"> View Sales</label>
-                <label style="display:flex; align-items:center; gap:8px;"><input type="checkbox" id="aaPermLock"> Lock Employees</label>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 13px; margin-bottom: 12px;">
+                <div style="display:flex; align-items:center; justify-content: space-between; padding: 8px 10px; background: white; border: 1px solid var(--bb-border); border-radius: 6px;"><span>View DTR</span><label class="switch"><input type="checkbox" id="aaPermDtr"><span class="slider"></span></label></div>
+                <div style="display:flex; align-items:center; justify-content: space-between; padding: 8px 10px; background: white; border: 1px solid var(--bb-border); border-radius: 6px;"><span>Edit Employees</span><label class="switch"><input type="checkbox" id="aaPermEdit"><span class="slider"></span></label></div>
+                <div style="display:flex; align-items:center; justify-content: space-between; padding: 8px 10px; background: white; border: 1px solid var(--bb-border); border-radius: 6px;"><span>Resolve Incidents</span><label class="switch"><input type="checkbox" id="aaPermInc"><span class="slider"></span></label></div>
+                <div style="display:flex; align-items:center; justify-content: space-between; padding: 8px 10px; background: white; border: 1px solid var(--bb-border); border-radius: 6px;"><span>View Payroll</span><label class="switch"><input type="checkbox" id="aaPermPay"><span class="slider"></span></label></div>
+                <div style="display:flex; align-items:center; justify-content: space-between; padding: 8px 10px; background: white; border: 1px solid var(--bb-border); border-radius: 6px;"><span>View Sales</span><label class="switch"><input type="checkbox" id="aaPermSales"><span class="slider"></span></label></div>
+                <div style="display:flex; align-items:center; justify-content: space-between; padding: 8px 10px; background: white; border: 1px solid var(--bb-border); border-radius: 6px;"><span>Lock Employees</span><label class="switch"><input type="checkbox" id="aaPermLock"><span class="slider"></span></label></div>
               </div>
               <div style="font-size: 11px; font-weight: 600; color: var(--bb-honey-dark); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; border-top: 1px solid var(--bb-border); padding-top: 12px;">Granular Feature Permissions</div>
               <div id="aaExtraPermsGrid" style="display: grid; grid-template-columns: 1fr; gap: 6px; font-size: 12px;"></div>
@@ -6044,13 +6066,16 @@ function toggleAaPerms() {
 function renderAaExtraPermsGrid(currentPerms) {
   const grid = document.getElementById('aaExtraPermsGrid');
   grid.innerHTML = EXTRA_PERMS_LIST.map(p => `
-    <label style="display: flex; align-items: flex-start; gap: 8px; padding: 6px 8px; background: white; border-radius: 6px; cursor: pointer;">
-      <input type="checkbox" data-perm="${p.key}" ${currentPerms[p.key] ? 'checked' : ''} style="margin-top: 2px;">
-      <span style="flex: 1;">
-        <strong>${p.label}</strong>
-        <div style="font-size: 11px; color: var(--bb-gray);">${p.desc}</div>
-      </span>
-    </label>
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; background: white; border-radius: 8px; border: 1px solid var(--bb-border); margin-bottom: 6px;">
+      <div style="flex: 1; min-width: 0;">
+        <div style="font-weight: 600; font-size: 13px; color: var(--bb-black);">${p.label}</div>
+        <div style="font-size: 11px; color: var(--bb-gray); margin-top: 2px;">${p.desc}</div>
+      </div>
+      <label class="switch" style="flex-shrink: 0;">
+        <input type="checkbox" data-perm="${p.key}" ${currentPerms[p.key] ? 'checked' : ''}>
+        <span class="slider"></span>
+      </label>
+    </div>
   `).join('');
 }
 
@@ -6754,14 +6779,17 @@ async function getEmployeeAttendanceMethod(empId) {
 /* ===================== EXTRA ADMIN PERMS (granular) ===================== */
 const EXTRA_PERMS_LIST = [
   { key: 'create_schedules', label: 'Create/Edit Schedules', desc: 'Sub-admin can set weekly schedules' },
-  { key: 'create_tasks', label: 'Create Tasks', desc: 'Can add new tasks via Task Manager' },
+  { key: 'create_tasks', label: 'Create Tasks', desc: 'Can add new tasks via Task Manager / Priority Matrix' },
   { key: 'assign_tasks', label: 'Assign Tasks to Anyone', desc: 'Can assign tasks to any employee (not just own team)' },
-  { key: 'log_sales', label: 'Log Sales Entries', desc: 'Can record non-live sales (walk-in, FB Post, etc.)' },
+  { key: 'view_task_review', label: 'Review/Rate Tasks', desc: 'Can rate completed tasks (1-5 stars)' },
+  { key: 'view_task_summary', label: 'View Task Summary', desc: 'Can see weekly per-employee task performance' },
+  { key: 'log_sales', label: 'Log Sales Entries', desc: 'Can record sales (live + non-live)' },
+  { key: 'view_cash_flow', label: 'Cash Flow Access', desc: 'Can view + manage inflow/outflow tracker' },
   { key: 'remind_employees', label: 'Send Reminders', desc: 'Can send email/SMS reminders to employees' },
   { key: 'edit_dtr', label: 'Edit DTR Records', desc: 'Correct time-in/out entries (forgot to time out, etc.)' },
   { key: 'run_payroll', label: 'Compute Payroll', desc: 'Can compute new payroll cutoffs' },
   { key: 'release_payroll', label: 'Release Payroll', desc: 'Can mark payroll as released (final)' },
-  { key: 'approve_kaizen', label: 'Approve Kaizen', desc: 'Can approve/reject kaizen suggestions' },
+  { key: 'approve_kaizen', label: 'Approve Improvements', desc: 'Can approve/reject improvement suggestions' },
   { key: 'review_checkins', label: 'Review Weekly Check-Ins', desc: 'Can read/respond to employee reflections' },
   { key: 'manage_admins', label: 'Manage Other Admins', desc: 'Can add/edit/delete other admin accounts (owner-level)' },
   { key: 'do_5s_audit', label: 'Conduct 5S Audits', desc: 'Can perform workplace 5S audits' },
@@ -8346,7 +8374,7 @@ document.querySelectorAll('.nav-item').forEach(item => {
       bbDash: ['BbeeCo Dashboard', 'Real-time alerts, on-duty count, today\'s DTR with photos'],
       bbHr: ['HR & Employees', 'Employee management, today\'s DTR, incident reports'],
       bbSales: ['Sales & Live Selling', 'Live sessions: FB Live + TikTok streaming (with duration)'],
-      bbSalesEntries: ['Non-Live Sales', 'Walk-in, FB Post, Shopee, etc. — one-time sales events'],
+      bbSalesEntries: ['Sales Entries', 'All sales — Live Streaming (FB Live, TikTok) + Non-Live (Walk-in, FB Post, Shopee, etc.)'],
       bbTaskReview: ['Task Review', 'Rate completed tasks (quality 1-5) — feeds employee KPI'],
       bbTaskSummary: ['Task Summary', 'Weekly per-employee task performance breakdown'],
       bbCashFlow: ['Cash Flow', 'Inflow / Outflow tracker with receipt photos'],
@@ -8462,6 +8490,23 @@ function renderTasks() {
         <td><button class="btn btn-ghost btn-sm" onclick="editTask('${t.id}')">Edit</button></td>
       </tr>`;
   }).join('');
+}
+
+/* Open task modal with priority + urgency pre-set (for quadrant-based add) */
+function openQuadrantTask(priority, urgency) {
+  openTaskModal();
+  // Pre-set priority + urgency in the modal (auto-expands advanced)
+  setTimeout(() => {
+    document.getElementById('tPri').value = priority;
+    document.getElementById('tUrg').value = urgency;
+    // Expand advanced so user sees the pre-filled values
+    const sec = document.getElementById('tAdvancedSection');
+    const btn = document.getElementById('tToggleAdv');
+    if (sec && sec.style.display === 'none') {
+      sec.style.display = 'block';
+      if (btn) btn.textContent = '⚙ Hide Advanced Options';
+    }
+  }, 150);
 }
 
 function openTaskModal() {
