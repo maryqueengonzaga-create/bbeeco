@@ -5315,16 +5315,18 @@ async function runComputePayroll() {
       const empIC = itemCharges.filter(ic => ic.employee_id === emp.id);
       const dedGroup = emp.expand && emp.expand.deduction_group_id ? emp.expand.deduction_group_id : null;
 
-      // Group by date
+      // Group by date — USE d.date field (set to PH calendar date) to avoid UTC offset bugs
+      // Manila time-ins before 8 AM = previous UTC day, which would group to wrong day if using time_in
       const dtrByDate = {};
       empDTRs.forEach(d => {
-        const date = d.time_in ? d.time_in.substring(0, 10) : '';
+        // Prefer the 'date' field (PH calendar date set during import/save), fallback to time_in
+        const date = (d.date || d.time_in || '').substring(0, 10);
         if (!dtrByDate[date]) dtrByDate[date] = [];
         dtrByDate[date].push(d);
       });
       const liveByDate = {};
       empLive.forEach(l => {
-        const date = l.start_time ? l.start_time.substring(0, 10) : '';
+        const date = (l.date || l.start_time || '').substring(0, 10);
         if (!liveByDate[date]) liveByDate[date] = [];
         liveByDate[date].push(l);
       });
@@ -5401,26 +5403,26 @@ async function runComputePayroll() {
         totalBreakHrs += breakHrs;
       });
 
-      // Pay
+      // Pay — JIS standard: regPay = paid hours × rate (NO subtraction of late from hours; late is separate peso deduction)
+      // Break is ALREADY excluded from totalRegHrs (per-day break subtracted), so NO break peso deduction either
       const lateDeductHrs = totalLateMins / 60;
       const regRate = emp.reg_rate || 62.50;
       const liveRate = emp.live_rate || 83.33;
-      // OT rate = configurable multiplier × reg_rate (default 1.0 = same as regular)
       const otMultiplier = await getAppConfig('ot_rate_multiplier', 1.0);
       const otRate = regRate * (otMultiplier || 1.0);
-      const regPay = Math.max(0, totalRegHrs - lateDeductHrs) * regRate;
+      const regPay = totalRegHrs * regRate;  // NO late subtraction (handled separately below)
       const livePay = totalLiveHrs * liveRate;
       const otPay = totalOtHrs * otRate;
       const grossPay = regPay + livePay + otPay;
 
       // Deductions
       const sssEE = dedGroup ? dedGroup.sss_amount : 581.30;
-      const phicEE = dedGroup ? (dedGroup.phic_percent || 200) : 200;  // PhilHealth = fixed peso amount
+      const phicEE = dedGroup ? (dedGroup.phic_percent || 200) : 200;
       const pagibigEE = dedGroup ? dedGroup.pagibig_amount : 100;
       const caDeduct = empCA.reduce((s, c) => s + (c.deduct_per_cutoff || 0), 0);
       const icDeduct = empIC.reduce((s, ic) => s + (ic.amount || 0), 0);
-      const lateDeductPeso = lateDeductHrs * regRate;
-      const breakDeductPeso = totalBreakHrs * regRate;
+      const lateDeductPeso = lateDeductHrs * regRate;  // peso deduction for late minutes (after tier)
+      const breakDeductPeso = 0;  // DEPRECATED — break is already removed from regHrs; keep field for backward compat with old records
 
       // Allowance: distinct weeks within period
       const weekSet = {};
@@ -5433,8 +5435,8 @@ async function runComputePayroll() {
       const cutoffAllow = emp.cutoff_allowance || 0;
       const totalAllowance = weeklyAllow + cutoffAllow;
 
-      // Net
-      const netPay = grossPay - lateDeductPeso - breakDeductPeso - sssEE - phicEE - pagibigEE - caDeduct - icDeduct + totalAllowance;
+      // Net = gross - late - stat deds - CA - IC + allowance  (no break peso deduction)
+      const netPay = grossPay - lateDeductPeso - sssEE - phicEE - pagibigEE - caDeduct - icDeduct + totalAllowance;
 
       // Find existing record
       const existing = await pbGetList('payroll_periods', { filter: `employee_id="${emp.id}" && period_start>="${start} 00:00:00" && period_end<="${end} 23:59:59"`, perPage: 1 });
@@ -5568,7 +5570,8 @@ async function viewBbPayslip(periodId) {
     const otMultiplier = await getAppConfig('ot_rate_multiplier', 1.0);
     const otRate = regRate * (otMultiplier || 1.0);
     const otPay = (p.ot_hours || 0) * otRate;
-    const totalDed = (p.late_deduction || 0) + (p.break_deduction || 0) + (p.sss_ee || 0) + (p.phic_ee || 0) + (p.pagibig_ee || 0) + (p.cash_advance || 0);
+    // break_deduction excluded — it's already removed from reg_hours (no double-deduction per JIS)
+    const totalDed = (p.late_deduction || 0) + (p.sss_ee || 0) + (p.phic_ee || 0) + (p.pagibig_ee || 0) + (p.cash_advance || 0);
 
     const row = (label, val, bold) => `<div style="display:flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--bb-border); font-size: ${bold ? '14px' : '13px'}; ${bold ? 'font-weight: 600;' : ''}">${label}<span>${val}</span></div>`;
 
@@ -5712,12 +5715,12 @@ async function viewBbPayslip(periodId) {
 
       <div style="font-size: 11px; font-weight: 600; color: var(--bb-gray); text-transform: uppercase; letter-spacing: 0.5px; margin: 14px 0 4px;">Deductions</div>
       ${row(`Late (${p.late_minutes || 0} mins)`, '-₱' + (p.late_deduction || 0).toLocaleString(undefined, { minimumFractionDigits: 2 }))}
-      ${row('Break', '-₱' + (p.break_deduction || 0).toLocaleString(undefined, { minimumFractionDigits: 2 }))}
       ${row('SSS', '-₱' + (p.sss_ee || 0).toLocaleString(undefined, { minimumFractionDigits: 2 }))}
       ${row('PhilHealth', '-₱' + (p.phic_ee || 0).toLocaleString(undefined, { minimumFractionDigits: 2 }))}
       ${row('Pag-IBIG', '-₱' + (p.pagibig_ee || 0).toLocaleString(undefined, { minimumFractionDigits: 2 }))}
       ${row('Cash Advance', '-₱' + (p.cash_advance || 0).toLocaleString(undefined, { minimumFractionDigits: 2 }))}
       ${row('<strong>Total Deductions</strong>', '<strong>-₱' + totalDed.toLocaleString(undefined, { minimumFractionDigits: 2 }) + '</strong>', true)}
+      <div style="font-size: 10px; color: var(--bb-gray); margin-top: 4px; font-style: italic;">Note: Break hours (1h/day for ≥8h shifts) ay nakatanggal na sa Regular hours sa taas — hindi na bawasin ulit dito (JIS standard, no double-deduction).</div>
 
       <div style="background: var(--bb-green-light); padding: 14px 16px; border-radius: 10px; margin-top: 14px;">
         <div style="display:flex; justify-content: space-between; align-items: center;">
