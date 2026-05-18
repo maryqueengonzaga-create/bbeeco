@@ -1674,48 +1674,48 @@
       </div>
     </div>
     <nav class="nav">
-      <div class="nav-section">Main</div>
-      <div class="nav-item active" data-view="dashboard"><span class="nav-icon">▦</span> Dashboard</div>
-      <div class="nav-item" data-view="tasks"><span class="nav-icon">◉</span> Task Manager</div>
-      <div class="nav-item" data-view="matrix"><span class="nav-icon">◫</span> Priority Matrix</div>
-      <div class="nav-item" data-view="employees"><span class="nav-icon">●</span> Employees</div>
+      <div class="nav-section" data-section-perm="view_dashboard view_tasks view_matrix view_employees">Main</div>
+      <div class="nav-item active" data-view="dashboard" data-perm="view_dashboard"><span class="nav-icon">▦</span> Dashboard</div>
+      <div class="nav-item" data-view="tasks" data-perm="view_tasks"><span class="nav-icon">◉</span> Task Manager</div>
+      <div class="nav-item" data-view="matrix" data-perm="view_matrix"><span class="nav-icon">◫</span> Priority Matrix</div>
+      <div class="nav-item" data-view="employees" data-perm="view_employees"><span class="nav-icon">●</span> Employees</div>
 
-      <div class="nav-section">Operations</div>
-      <div class="nav-item" data-view="roles"><span class="nav-icon">⊞</span> Roles &amp; SOPs</div>
-      <div class="nav-item" data-view="roster"><span class="nav-icon">⏱</span> Shift Roster</div>
-      <div class="nav-item" data-view="handover"><span class="nav-icon">⇄</span> Handover Log</div>
+      <div class="nav-section" data-section-perm="view_roles view_roster view_handover">Operations</div>
+      <div class="nav-item" data-view="roles" data-perm="view_roles"><span class="nav-icon">⊞</span> Roles &amp; SOPs</div>
+      <div class="nav-item" data-view="roster" data-perm="view_roster"><span class="nav-icon">⏱</span> Shift Roster</div>
+      <div class="nav-item" data-view="handover" data-perm="view_handover"><span class="nav-icon">⇄</span> Handover Log</div>
 
-      <div class="nav-section">Attendance (PocketBase)</div>
-      <div class="nav-item" data-view="attendance"><span class="nav-icon">⏰</span> Live DTR</div>
-      <div class="nav-item" data-view="kiosk"><span class="nav-icon">▣</span> Time-In Kiosk</div>
+      <div class="nav-section" data-section-perm="view_live_dtr view_kiosk_admin">Attendance (PocketBase)</div>
+      <div class="nav-item" data-view="attendance" data-perm="view_live_dtr"><span class="nav-icon">⏰</span> Live DTR</div>
+      <div class="nav-item" data-view="kiosk" data-perm="view_kiosk_admin"><span class="nav-icon">▣</span> Time-In Kiosk</div>
 
-      <div class="nav-section">BbeeCo Admin</div>
-      <div class="nav-item" data-view="bbDash" data-perm="any"><span class="nav-icon">⌂</span> BbeeCo Dashboard</div>
+      <div class="nav-section" data-section-perm="view_bb_dashboard view_dtr review_checkins view_sales log_sales view_task_review view_task_summary view_cash_flow view_payroll">BbeeCo Admin</div>
+      <div class="nav-item" data-view="bbDash" data-perm="view_bb_dashboard"><span class="nav-icon">⌂</span> BbeeCo Dashboard</div>
       <div class="nav-item" data-view="bbHr" data-perm="view_dtr"><span class="nav-icon">👥</span> HR &amp; Employees</div>
-      <div class="nav-item" data-view="bbCheckins" data-perm="any"><span class="nav-icon">📝</span> Weekly Check-Ins</div>
+      <div class="nav-item" data-view="bbCheckins" data-perm="review_checkins"><span class="nav-icon">📝</span> Weekly Check-Ins</div>
       <div class="nav-item" data-view="bbSales" data-perm="view_sales"><span class="nav-icon">💰</span> Sales &amp; Live</div>
-      <div class="nav-item" data-view="bbSalesEntries" data-perm="view_sales"><span class="nav-icon">🛒</span> Sales Entries</div>
+      <div class="nav-item" data-view="bbSalesEntries" data-perm="log_sales"><span class="nav-icon">🛒</span> Sales Entries</div>
       <div class="nav-item" data-view="bbTaskReview" data-perm="view_task_review"><span class="nav-icon">✓</span> Task Review</div>
       <div class="nav-item" data-view="bbTaskSummary" data-perm="view_task_summary"><span class="nav-icon">📊</span> Task Summary</div>
       <div class="nav-item" data-view="bbCashFlow" data-perm="view_cash_flow"><span class="nav-icon">💸</span> Cash Flow</div>
       <div class="nav-item" data-view="bbPayroll" data-perm="view_payroll"><span class="nav-icon">₱</span> Payroll</div>
 
-      <div class="nav-section">BbeeCo Settings</div>
+      <div class="nav-section" data-section-perm="create_schedules request_cash_advance view_payroll manage_item_charges view_deductions manage_admins owner edit_dtr view_action_log">BbeeCo Settings</div>
       <div class="nav-item" data-view="bbSched" data-perm="create_schedules"><span class="nav-icon">📅</span> Schedules</div>
-      <div class="nav-item" data-view="bbCA" data-perm="view_payroll"><span class="nav-icon">💵</span> Cash Advances</div>
-      <div class="nav-item" data-view="bbIC" data-perm="view_payroll"><span class="nav-icon">🧾</span> Item Charges</div>
-      <div class="nav-item" data-view="bbDed" data-perm="view_payroll"><span class="nav-icon">⊟</span> Deduction Groups</div>
+      <div class="nav-item" data-view="bbCA" data-perm="request_cash_advance"><span class="nav-icon">💵</span> Cash Advances</div>
+      <div class="nav-item" data-view="bbIC" data-perm="manage_item_charges"><span class="nav-icon">🧾</span> Item Charges</div>
+      <div class="nav-item" data-view="bbDed" data-perm="view_deductions"><span class="nav-icon">⊟</span> Deduction Groups</div>
       <div class="nav-item" data-view="bbAdmins" data-perm="manage_admins"><span class="nav-icon">🔑</span> Admin Accounts</div>
       <div class="nav-item" data-view="bbAttSettings" data-perm="owner"><span class="nav-icon">📷</span> Attendance Settings</div>
       <div class="nav-item" data-view="bbEmailSettings" data-perm="owner"><span class="nav-icon">📧</span> Email & Notifications</div>
       <div class="nav-item" data-view="bbManualDtr" data-perm="edit_dtr"><span class="nav-icon">✍</span> Manual Attendance</div>
       <div class="nav-item" data-view="bbActions" data-perm="view_action_log"><span class="nav-icon">📋</span> Action Log</div>
 
-      <div class="nav-section">JIS Modules</div>
-      <div class="nav-item" data-view="fives"><span class="nav-icon">5</span> 5S Audit</div>
-      <div class="nav-item" data-view="pdca"><span class="nav-icon">◍</span> PDCA Tracker</div>
-      <div class="nav-item" data-view="kaizen"><span class="nav-icon">★</span> Kaizen Log</div>
-      <div class="nav-item" data-view="reports"><span class="nav-icon">▤</span> KPI Reports</div>
+      <div class="nav-section" data-section-perm="view_5s view_pdca view_kaizen view_reports">JIS Modules</div>
+      <div class="nav-item" data-view="fives" data-perm="view_5s"><span class="nav-icon">5</span> 5S Audit</div>
+      <div class="nav-item" data-view="pdca" data-perm="view_pdca"><span class="nav-icon">◍</span> PDCA Tracker</div>
+      <div class="nav-item" data-view="kaizen" data-perm="view_kaizen"><span class="nav-icon">★</span> Kaizen Log</div>
+      <div class="nav-item" data-view="reports" data-perm="view_reports"><span class="nav-icon">▤</span> KPI Reports</div>
 
       <div class="nav-section">Settings</div>
       <div class="nav-item" data-view="help"><span class="nav-icon">?</span> Guide</div>
@@ -4880,17 +4880,18 @@ async function applyAdminPermissions(admin) {
     EXTRA_PERMS_LIST.forEach(p => extraPerms[p.key] = true);
   }
 
-  // Combined permission map (basic + granular + special)
+  // Combined permission map — basic (PB schema) OR'd WITH granular extras (app_config)
+  // OR semantics: enabling either source grants access. Owner always has all.
   const perms = {
-    // Basic (PB admin_accounts schema)
-    view_dtr: isOwner || admin.perm_view_dtr,
-    edit_emp: isOwner || admin.perm_edit_emp,
-    resolve_incidents: isOwner || admin.perm_resolve_incidents,
-    view_payroll: isOwner || admin.perm_view_payroll,
-    view_sales: isOwner || admin.perm_view_sales,
-    lock_emp: isOwner || admin.perm_lock_emp,
-    // Granular extras (from EXTRA_PERMS_LIST)
+    // Granular extras first (so basic can OR-augment)
     ...extraPerms,
+    // Basic (PB admin_accounts schema) — OR with extras
+    view_dtr: isOwner || admin.perm_view_dtr || !!extraPerms.view_dtr,
+    edit_emp: isOwner || admin.perm_edit_emp || !!extraPerms.edit_emp,
+    resolve_incidents: isOwner || admin.perm_resolve_incidents || !!extraPerms.resolve_incidents,
+    view_payroll: isOwner || admin.perm_view_payroll || !!extraPerms.view_payroll,
+    view_sales: isOwner || admin.perm_view_sales || !!extraPerms.view_sales,
+    lock_emp: isOwner || admin.perm_lock_emp || !!extraPerms.lock_emp,
     // Special
     owner: isOwner,
     any: true
@@ -4902,6 +4903,13 @@ async function applyAdminPermissions(admin) {
   document.querySelectorAll('.nav-item[data-perm]').forEach(item => {
     const need = item.dataset.perm;
     item.style.display = perms[need] ? '' : 'none';
+  });
+
+  // Hide section HEADERS too if NONE of their items are visible (cleaner UX)
+  document.querySelectorAll('.nav-section[data-section-perm]').forEach(section => {
+    const needs = (section.dataset.sectionPerm || '').split(/\s+/).filter(Boolean);
+    const anyVisible = needs.some(p => perms[p]);
+    section.style.display = anyVisible ? '' : 'none';
   });
 
   // Hide/disable elements with data-extra-perm
@@ -4933,6 +4941,11 @@ function reapplyPerms() {
   document.querySelectorAll('.nav-item[data-perm]').forEach(item => {
     const need = item.dataset.perm;
     item.style.display = window.CURRENT_PERMS[need] ? '' : 'none';
+  });
+  document.querySelectorAll('.nav-section[data-section-perm]').forEach(section => {
+    const needs = (section.dataset.sectionPerm || '').split(/\s+/).filter(Boolean);
+    const anyVisible = needs.some(p => window.CURRENT_PERMS[p]);
+    section.style.display = anyVisible ? '' : 'none';
   });
   document.querySelectorAll('[data-extra-perm]').forEach(el => {
     const need = el.dataset.extraPerm;
@@ -6741,18 +6754,39 @@ function toggleAaPerms() {
 
 function renderAaExtraPermsGrid(currentPerms) {
   const grid = document.getElementById('aaExtraPermsGrid');
-  grid.innerHTML = EXTRA_PERMS_LIST.map(p => `
-    <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; background: white; border-radius: 8px; border: 1px solid var(--bb-border); margin-bottom: 6px;">
-      <div style="flex: 1; min-width: 0;">
-        <div style="font-weight: 600; font-size: 13px; color: var(--bb-black);">${p.label}</div>
-        <div style="font-size: 11px; color: var(--bb-gray); margin-top: 2px;">${p.desc}</div>
+  // Group by area for clarity
+  const groups = {};
+  EXTRA_PERMS_LIST.forEach(p => {
+    const g = p.group || 'Other';
+    if (!groups[g]) groups[g] = [];
+    groups[g].push(p);
+  });
+  let html = `<div style="background:#FEF3C7;border-left:3px solid #F59E0B;padding:10px 14px;border-radius:6px;margin-bottom:12px;font-size:12px;line-height:1.5;">
+    <strong>JIS Standard:</strong> Sub-admins start with <strong>NO access</strong>. I-toggle ON lang yung mga features na talagang kailangan nila. Untoggled tabs ay HINDI lalabas sa sidebar nila.
+    <br><br>
+    <button class="btn btn-secondary btn-sm" onclick="aaSelectAllPerms(true)" style="margin-right:6px;">✓ Toggle All ON</button>
+    <button class="btn btn-secondary btn-sm" onclick="aaSelectAllPerms(false)">✗ Toggle All OFF (reset)</button>
+  </div>`;
+  Object.keys(groups).forEach(groupName => {
+    html += `<div style="font-size:10px;font-weight:700;color:var(--bb-honey-dark);text-transform:uppercase;letter-spacing:0.6px;margin:14px 0 6px;padding:4px 8px;background:var(--bb-honey-light);border-radius:4px;">${groupName}</div>`;
+    html += groups[groupName].map(p => `
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; background: white; border-radius: 8px; border: 1px solid var(--bb-border); margin-bottom: 6px;">
+        <div style="flex: 1; min-width: 0;">
+          <div style="font-weight: 600; font-size: 13px; color: var(--bb-black);">${p.label}</div>
+          <div style="font-size: 11px; color: var(--bb-gray); margin-top: 2px;">${p.desc}</div>
+        </div>
+        <label class="switch" style="flex-shrink: 0;">
+          <input type="checkbox" data-perm="${p.key}" ${currentPerms[p.key] ? 'checked' : ''}>
+          <span class="slider"></span>
+        </label>
       </div>
-      <label class="switch" style="flex-shrink: 0;">
-        <input type="checkbox" data-perm="${p.key}" ${currentPerms[p.key] ? 'checked' : ''}>
-        <span class="slider"></span>
-      </label>
-    </div>
-  `).join('');
+    `).join('');
+  });
+  grid.innerHTML = html;
+}
+
+function aaSelectAllPerms(on) {
+  document.querySelectorAll('#aaExtraPermsGrid input[type="checkbox"][data-perm]').forEach(cb => { cb.checked = on; });
 }
 
 function openAdminAcctModal() {
@@ -7538,24 +7572,53 @@ async function getEmployeeAttendanceMethod(empId) {
 }
 
 /* ===================== EXTRA ADMIN PERMS (granular) ===================== */
+// JIS-standard granular permissions — sub-admins START WITH NOTHING, only enabled features show.
+// Grouped by area for clarity in Admin Accounts UI.
 const EXTRA_PERMS_LIST = [
-  { key: 'create_schedules', label: 'Create/Edit Schedules', desc: 'Sub-admin can set weekly schedules' },
-  { key: 'create_tasks', label: 'Create Tasks', desc: 'Can add new tasks via Task Manager / Priority Matrix' },
-  { key: 'assign_tasks', label: 'Assign Tasks to Anyone', desc: 'Can assign tasks to any employee (not just own team)' },
-  { key: 'view_task_review', label: 'Review/Rate Tasks', desc: 'Can rate completed tasks (1-5 stars)' },
-  { key: 'view_task_summary', label: 'View Task Summary', desc: 'Can see weekly per-employee task performance' },
-  { key: 'log_sales', label: 'Log Sales Entries', desc: 'Can record sales (live + non-live)' },
-  { key: 'view_cash_flow', label: 'Cash Flow Access', desc: 'Can view + manage inflow/outflow tracker' },
-  { key: 'remind_employees', label: 'Send Reminders', desc: 'Can send email/SMS reminders to employees' },
-  { key: 'edit_dtr', label: 'Edit DTR Records', desc: 'Correct time-in/out entries (forgot to time out, etc.)' },
-  { key: 'run_payroll', label: 'Compute Payroll', desc: 'Can compute new payroll cutoffs' },
-  { key: 'release_payroll', label: 'Release Payroll', desc: 'Can mark payroll as released (final)' },
-  { key: 'approve_kaizen', label: 'Approve Improvements', desc: 'Can approve/reject improvement suggestions' },
-  { key: 'review_checkins', label: 'Review Weekly Check-Ins', desc: 'Can read/respond to employee reflections' },
-  { key: 'manage_admins', label: 'Manage Other Admins', desc: 'Can add/edit/delete other admin accounts (owner-level)' },
-  { key: 'do_5s_audit', label: 'Conduct 5S Audits', desc: 'Can perform workplace 5S audits' },
-  { key: 'create_pdca', label: 'Create PDCA Projects', desc: 'Can launch improvement projects' },
-  { key: 'view_action_log', label: 'View Audit Trail', desc: 'Can read action log (audit history)' }
+  // === Main views ===
+  { key: 'view_dashboard', label: 'View Main Dashboard', desc: 'Overview ng task & employee stats', group: 'Main' },
+  { key: 'view_bb_dashboard', label: 'View BbeeCo Dashboard', desc: 'Today\'s DTR + live + sales overview', group: 'Main' },
+  { key: 'view_tasks', label: 'View Task Manager', desc: 'See task list', group: 'Tasks' },
+  { key: 'view_matrix', label: 'View Priority Matrix', desc: 'Eisenhower-style task grid', group: 'Tasks' },
+  { key: 'create_tasks', label: 'Create Tasks', desc: 'Add new tasks via Task Manager / Matrix', group: 'Tasks' },
+  { key: 'assign_tasks', label: 'Assign Tasks to Anyone', desc: 'Not just own team', group: 'Tasks' },
+  { key: 'view_task_review', label: 'Review/Rate Tasks', desc: 'Rate completed tasks 1-5 stars', group: 'Tasks' },
+  { key: 'view_task_summary', label: 'View Task Summary', desc: 'Weekly per-employee task performance', group: 'Tasks' },
+  // === HR / Employees ===
+  { key: 'view_employees', label: 'View Employees (basic)', desc: 'Can see employee list', group: 'HR' },
+  { key: 'view_live_dtr', label: 'View Live DTR', desc: 'Real-time time-in/out tracker', group: 'HR' },
+  { key: 'view_kiosk_admin', label: 'View Kiosk Admin', desc: 'Browser-based kiosk management', group: 'HR' },
+  { key: 'edit_dtr', label: 'Edit DTR Records', desc: 'Correct time-in/out entries (forgot to time out, etc.)', group: 'HR' },
+  { key: 'review_checkins', label: 'Review Weekly Check-Ins', desc: 'Read/respond to employee reflections', group: 'HR' },
+  // === Operations ===
+  { key: 'view_roles', label: 'View Roles & SOPs', desc: 'Browse roles list', group: 'Operations' },
+  { key: 'view_roster', label: 'View Shift Roster', desc: 'Hourly roster grid', group: 'Operations' },
+  { key: 'view_handover', label: 'View Handover Log', desc: 'Shift handover records', group: 'Operations' },
+  { key: 'create_schedules', label: 'Create/Edit Schedules', desc: 'Set weekly schedules', group: 'Operations' },
+  // === Sales ===
+  { key: 'view_sales', label: 'View Sales & Live', desc: 'See sales analytics', group: 'Sales' },
+  { key: 'log_sales', label: 'Log Sales Entries', desc: 'Record sales (live + non-live)', group: 'Sales' },
+  // === Cash Flow / Cash Advances / Item Charges ===
+  { key: 'view_cash_flow', label: 'Cash Flow Access', desc: 'View + manage inflow/outflow tracker', group: 'Finance' },
+  { key: 'request_cash_advance', label: 'Request Cash Advance', desc: 'Can submit CA request to owner for approval (cannot approve own)', group: 'Finance' },
+  { key: 'manage_item_charges', label: 'Manage Item Charges', desc: 'Add/edit item charges (broken items, uniform replacement) for specific employees', group: 'Finance' },
+  // === Payroll ===
+  { key: 'view_payroll', label: 'View Payroll', desc: 'See payroll periods + payslips', group: 'Payroll' },
+  { key: 'run_payroll', label: 'Compute Payroll', desc: 'Run new payroll cutoffs', group: 'Payroll' },
+  { key: 'release_payroll', label: 'Release Payroll', desc: 'Mark payroll as released (final)', group: 'Payroll' },
+  { key: 'view_deductions', label: 'View Deduction Groups', desc: 'Manage SSS/PhilHealth/Pag-IBIG groups', group: 'Payroll' },
+  // === JIS Modules ===
+  { key: 'view_5s', label: 'View 5S Audit', desc: 'See 5S audit history', group: 'JIS' },
+  { key: 'do_5s_audit', label: 'Conduct 5S Audits', desc: 'Perform workplace 5S audits', group: 'JIS' },
+  { key: 'view_pdca', label: 'View PDCA Tracker', desc: 'See PDCA project list', group: 'JIS' },
+  { key: 'create_pdca', label: 'Create PDCA Projects', desc: 'Launch improvement projects', group: 'JIS' },
+  { key: 'view_kaizen', label: 'View Kaizen Log', desc: 'See improvement suggestions', group: 'JIS' },
+  { key: 'approve_kaizen', label: 'Approve Improvements', desc: 'Approve/reject kaizen suggestions', group: 'JIS' },
+  { key: 'view_reports', label: 'View KPI Reports', desc: 'See KPI charts and reports', group: 'JIS' },
+  // === Misc ===
+  { key: 'remind_employees', label: 'Send Reminders', desc: 'Send email/SMS reminders to employees', group: 'Misc' },
+  { key: 'manage_admins', label: 'Manage Other Admins', desc: 'Add/edit/delete other admin accounts (owner-level)', group: 'Admin' },
+  { key: 'view_action_log', label: 'View Audit Trail', desc: 'Read action log (audit history)', group: 'Admin' }
 ];
 
 async function getAdminExtraPerms(adminId) {
