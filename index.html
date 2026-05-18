@@ -107,7 +107,15 @@
   .brand-text small { font-size: 10px; color: var(--bb-gray); letter-spacing: 0.5px; }
 
   .nav { padding: 8px 12px; }
-  .nav-section { padding: 14px 12px 6px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--bb-gray); font-weight: 600; }
+  .nav-section { padding: 14px 12px 6px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--bb-gray); font-weight: 600; cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: space-between; transition: background 0.15s; }
+  .nav-section:hover { background: var(--bb-honey-light); }
+  .nav-section::after { content: '▾'; font-size: 11px; transition: transform 0.2s; }
+  .nav-section.collapsed::after { transform: rotate(-90deg); }
+  /* Hide nav-items within collapsed section */
+  .nav-section.collapsed ~ .nav-item:not(.nav-section ~ .nav-section ~ .nav-item) { display: none !important; }
+  .sidebar-search { padding: 8px 12px; }
+  .sidebar-search input { width: 100%; padding: 8px 10px; border: 1px solid var(--bb-border); border-radius: 6px; font-size: 12px; box-sizing: border-box; }
+  .sidebar-search input:focus { outline: 2px solid var(--bb-honey); border-color: var(--bb-honey); }
   .nav-item {
     padding: 9px 12px;
     cursor: pointer;
@@ -1672,6 +1680,9 @@
         <h1>BbeeCo TMS</h1>
         <small>JIS Q 9001 STANDARD</small>
       </div>
+    </div>
+    <div class="sidebar-search">
+      <input type="text" id="sidebarSearch" placeholder="🔍 Search menu..." oninput="filterSidebar(this.value)">
     </div>
     <nav class="nav">
       <div class="nav-section" data-section-perm="view_dashboard view_tasks view_matrix view_employees">Main</div>
@@ -5345,34 +5356,64 @@ async function saveNewIncident() {
   const desc = document.getElementById('incNewDesc').value.trim();
   if (!empId) { alert('Pumili ng employee'); return; }
   if (!desc) { alert('Description required'); return; }
-  try {
-    // Compute strike_number: count of existing pending/resolved incidents for this employee + 1
-    let strikeNumber = 1;
-    try {
-      const prior = await pbGetList('incident_reports', { filter: `employee_id="${empId}"`, perPage: 100 });
-      strikeNumber = prior.length + 1;
-    } catch (e) { /* fall back to 1 */ }
 
-    const ld = new Date(); ld.setDate(ld.getDate() + days);
-    await pbCreate('incident_reports', {
-      employee_id: empId,
-      type,
-      // Legacy required fields (existing PB schema)
-      reason: desc,
-      strike_number: strikeNumber,
-      // New discipline-system fields
-      description: desc,
-      offense_level: level,
-      triggered_by: 'admin_manual',
-      lockout_after: ld.toISOString(),
-      status: 'pending',
-      employee_acknowledged: false,
-      date: new Date().toISOString()
-    });
+  // Compute strike_number: count of existing incidents for this employee + 1
+  let strikeNumber = 1;
+  try {
+    const prior = await pbGetList('incident_reports', { filter: `employee_id="${empId}"`, perPage: 100 });
+    strikeNumber = prior.length + 1;
+  } catch (e) { /* fall back to 1 */ }
+
+  const ld = new Date(); ld.setDate(ld.getDate() + days);
+  const lockoutISO = ld.toISOString();
+
+  // Try full body first (includes new discipline fields). If PB rejects unknown fields,
+  // fall back to minimal body that works with the legacy schema.
+  const fullBody = {
+    employee_id: empId,
+    type,
+    reason: desc,                  // legacy required
+    strike_number: strikeNumber,   // legacy required
+    description: desc,             // new
+    offense_level: level,          // new
+    triggered_by: 'admin_manual',  // new
+    lockout_after: lockoutISO,     // new
+    status: 'pending',
+    employee_acknowledged: false,  // new
+    date: new Date().toISOString()
+  };
+
+  try {
+    await pbCreate('incident_reports', fullBody);
     closeModal('incidentCreateModal');
     loadBbIncidents();
     toast('✓ Manual incident created (strike #' + strikeNumber + ')', 'ok');
-  } catch (e) { alert('Failed: ' + e.message); }
+  } catch (e) {
+    // Detect if it's a schema-missing-fields issue and retry with minimal body
+    const errStr = (e.message || '').toLowerCase();
+    if (errStr.includes('400') && (errStr.includes('schema') || errStr.includes('unknown') || errStr.includes('field') || errStr.includes('offense_level') || errStr.includes('triggered_by'))) {
+      try {
+        // Fallback — only legacy fields
+        const minimalBody = {
+          employee_id: empId,
+          type,
+          reason: desc,
+          strike_number: strikeNumber,
+          status: 'pending',
+          date: new Date().toISOString()
+        };
+        await pbCreate('incident_reports', minimalBody);
+        closeModal('incidentCreateModal');
+        loadBbIncidents();
+        toast('✓ Incident saved (legacy mode — run schema upgrade to enable lockout workflow)', 'warn');
+        return;
+      } catch (e2) {
+        alert('Failed (fallback): ' + e2.message + '\n\n→ Open setup_pb_collections.html and click "Add Missing Fields to Existing" to enable full discipline workflow.');
+        return;
+      }
+    }
+    alert('Failed: ' + e.message + '\n\nIf this mentions unknown fields, run setup_pb_collections.html → "Add Missing Fields" para sa incident_reports.');
+  }
 }
 
 // Render discipline alert banner on dashboard
@@ -5664,6 +5705,12 @@ async function applyAdminPermissions(admin) {
   console.log('[BbeeCo] Granted permissions:', grantedKeys);
   // Show toast with role + perm count
   toast(`Logged in as ${admin.name} (${admin.role}) — ${grantedKeys.length - 1} permissions granted`, 'ok');
+
+  // Setup collapsible sidebar sections (only once)
+  if (!window._sidebarCollapseInit) {
+    setupSidebarCollapse();
+    window._sidebarCollapseInit = true;
+  }
 }
 
 /* Re-apply perms (safety — call after navigation or content render) */
@@ -8161,6 +8208,30 @@ async function saveManualDtr() {
     let saved;
     if (id) saved = await pbUpdate('dtr_logs', id, body);
     else saved = await pbCreate('dtr_logs', body);
+
+    // ALSO create a matching live_session if type='live_sell' and time_out is set
+    // This ensures payroll compute (which reads from live_sessions) sees the live hours
+    const dtrType = document.getElementById('mdType').value;
+    if (!id && dtrType === 'live_sell' && timeOut) {
+      const tOutDate = new Date(`${date}T${timeOut}:00`);
+      const dur = parseFloat(((tOutDate - tInDate) / 3600000).toFixed(2));
+      try {
+        await pbCreate('live_sessions', {
+          employee_id: emp,
+          start_time: localPbDate(tInDate),
+          end_time: localPbDate(tOutDate),
+          duration_hours: dur,
+          status: 'done',
+          date: localPbDateOnly(date),
+          platform: 'FB Live',  // default — admin can edit later
+          sales_amount: document.getElementById('mdSales').value ? parseFloat(document.getElementById('mdSales').value) : 0
+        });
+      } catch (liveErr) {
+        console.warn('Failed to also create live_session:', liveErr.message);
+        toast('⚠ DTR saved pero live_session creation failed: ' + liveErr.message, 'warn');
+      }
+    }
+
     // Log to action_log (non-blocking)
     try {
       if (kioskState.selectedUser) {
@@ -8175,7 +8246,7 @@ async function saveManualDtr() {
     } catch (logErr) { console.warn('audit log failed:', logErr.message); }
     closeModal('manualDtrModal');
     loadBbManualDtr();
-    toast('✓ DTR entry saved (logged sa audit)', 'ok');
+    toast(dtrType === 'live_sell' && timeOut ? '✓ DTR + Live session saved' : '✓ DTR entry saved (logged sa audit)', 'ok');
   } catch (e) { toast('Failed: ' + e.message, 'err'); }
 }
 
@@ -11378,6 +11449,86 @@ async function renderViewSpecific(view) {
   document.addEventListener('gesturechange', function(e) { e.preventDefault(); });
   // Note: viewport meta with user-scalable=no handles double-tap zoom natively
 })();
+
+/* Sidebar collapse + search (JIS-clean navigation) */
+const NAV_COLLAPSED_KEY = 'bbeeco_nav_collapsed_v1';
+function setupSidebarCollapse() {
+  // Load saved collapsed state
+  let collapsed = [];
+  try { collapsed = JSON.parse(localStorage.getItem(NAV_COLLAPSED_KEY) || '[]'); } catch (e) {}
+
+  document.querySelectorAll('.nav-section').forEach((section, i) => {
+    const label = section.textContent.trim();
+    if (collapsed.includes(label)) section.classList.add('collapsed');
+
+    // Click handler — toggle collapse
+    section.addEventListener('click', (e) => {
+      e.stopPropagation();
+      section.classList.toggle('collapsed');
+      // Save state
+      const next = [];
+      document.querySelectorAll('.nav-section.collapsed').forEach(s => next.push(s.textContent.trim()));
+      try { localStorage.setItem(NAV_COLLAPSED_KEY, JSON.stringify(next)); } catch (e) {}
+      // Hide/show items between this section and next
+      toggleSectionItems(section);
+    });
+    // Initialize state for items
+    toggleSectionItems(section);
+  });
+}
+
+function toggleSectionItems(section) {
+  const collapsed = section.classList.contains('collapsed');
+  let el = section.nextElementSibling;
+  while (el && !el.classList.contains('nav-section')) {
+    if (collapsed) el.style.display = 'none';
+    else {
+      // Restore visibility based on perm (don't show items user has no access to)
+      const need = el.dataset.perm;
+      if (need && window.CURRENT_PERMS && !window.CURRENT_PERMS[need]) {
+        el.style.display = 'none';
+      } else {
+        el.style.display = '';
+      }
+    }
+    el = el.nextElementSibling;
+  }
+}
+
+function filterSidebar(q) {
+  q = (q || '').toLowerCase().trim();
+  if (!q) {
+    // Restore normal section/perm visibility
+    document.querySelectorAll('.nav-item').forEach(item => {
+      const need = item.dataset.perm;
+      if (need && window.CURRENT_PERMS && !window.CURRENT_PERMS[need]) {
+        item.style.display = 'none';
+      } else {
+        item.style.display = '';
+      }
+    });
+    document.querySelectorAll('.nav-section').forEach(s => { s.style.display = ''; });
+    // Re-apply collapse states
+    document.querySelectorAll('.nav-section.collapsed').forEach(toggleSectionItems);
+    return;
+  }
+  // Filter: show items whose text matches; hide sections whose all items are hidden
+  document.querySelectorAll('.nav-item').forEach(item => {
+    const text = item.textContent.toLowerCase();
+    item.style.display = text.includes(q) ? '' : 'none';
+  });
+  // Show all section headers + items during search (override collapse)
+  document.querySelectorAll('.nav-section').forEach(section => {
+    // Check if any item below this section is visible
+    let el = section.nextElementSibling;
+    let anyVisible = false;
+    while (el && !el.classList.contains('nav-section')) {
+      if (el.style.display !== 'none') anyVisible = true;
+      el = el.nextElementSibling;
+    }
+    section.style.display = anyVisible ? '' : 'none';
+  });
+}
 
 async function init() {
   document.getElementById('dateBadge').textContent = new Date().toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
