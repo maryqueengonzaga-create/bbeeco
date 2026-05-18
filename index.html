@@ -4241,7 +4241,7 @@ async function loadKioskUsers(silent = false) {
     const [emps, admins, openDtrs, activeLives, pendingTasks] = await Promise.all([
       pbGetList('employees', { filter: 'is_active=true', sort: 'name', perPage: 500 }),
       pbGetList('admin_accounts', { filter: 'is_active=true', sort: 'name', perPage: 100 }),
-      pbGetList('dtr_logs', { filter: `time_out=null && date>="${dayStart}"`, sort: '-time_in', perPage: 500 }),
+      pbGetList('dtr_logs', { filter: `status="open" && date>="${dayStart}"`, sort: '-time_in', perPage: 500 }),
       pbGetList('live_sessions', { filter: `status="active"`, sort: '-start_time', perPage: 500 }),
       pbGetList('tms_tasks', { filter: 'status!="done"', perPage: 500 }).catch(() => [])
     ]);
@@ -4498,7 +4498,7 @@ async function proceedToActions() {
     const today = todayStr();
     const dayStart = today + ' 00:00:00';
     const [openDtrs, activeLives] = await Promise.all([
-      pbGetList('dtr_logs', { filter: `employee_id="${user.id}" && time_out=null && date>="${dayStart}"`, sort: '-time_in' }),
+      pbGetList('dtr_logs', { filter: `employee_id="${user.id}" && status="open" && date>="${dayStart}"`, sort: '-time_in' }),
       pbGetList('live_sessions', { filter: `employee_id="${user.id}" && status="active"`, sort: '-start_time' })
     ]);
     kioskState.openDtr = openDtrs[0] || null;
@@ -4671,7 +4671,11 @@ async function doStartLive() {
     showResult(false, 'Time-In Required', 'Mag-Time In ka muna bago mag-Start Live. Live time is part of your duty hours.');
     return;
   }
-  // Direct start — walang platform picker. Platform pipiliin sa End Live.
+  // JIS rule: only one active live at a time per employee
+  if (kioskState.activeLiveSession) {
+    showResult(false, 'Live Already Active', 'May active live session ka na. End mo muna bago mag-start ng bago.');
+    return;
+  }
   try {
     const now = new Date();
     const rec = await pbCreate('live_sessions', {
@@ -4679,8 +4683,12 @@ async function doStartLive() {
       start_time: localPbDate(now),
       date: localPbDateOnly(todayStr()),
       status: 'active'
-      // platform set at end (employees may switch platforms mid-session)
     });
+    // Update local cache so action screen + landing reflect immediately
+    kioskState.activeLiveSession = rec;
+    if (!kioskState.allActiveLives) kioskState.allActiveLives = {};
+    kioskState.allActiveLives[user.id] = rec;
+    loadKioskUsers(true).catch(()=>{});
     showResult(true, 'Live Session Started', `Good luck sa live selling, ${user.name}! Pwede kang mag-switch ng platform anytime. Tap End Live pag tapos na.`);
   } catch (e) {
     showResult(false, 'Failed to Start Live', e.message);
@@ -4730,6 +4738,11 @@ async function submitEndLive() {
       platform: platform,
       status: 'done'
     });
+    // Update local cache so badges reflect immediately
+    const user = kioskState.selectedUser;
+    kioskState.activeLiveSession = null;
+    if (kioskState.allActiveLives && user && kioskState.allActiveLives[user.id]) delete kioskState.allActiveLives[user.id];
+    loadKioskUsers(true).catch(()=>{});
     showResult(true, 'Live Session Ended', `Platform: ${platform}\nSales: ₱${sales.toLocaleString()}\nDuration: ${formatDuration(Math.floor(dur*60))}\nMagaling!`);
   } catch (e) {
     showResult(false, 'Failed to End Live', e.message);
@@ -4980,7 +4993,7 @@ async function loadBbDashboard() {
     const today = todayStr();
     const dayStart = today + ' 00:00:00';
     const [openDtrs, todayDtrs, activeLives, todayLives, incidents] = await Promise.all([
-      pbGetList('dtr_logs', { filter: `time_out=null && date>="${dayStart}"`, sort: '-time_in', expand: 'employee_id', perPage: 100 }),
+      pbGetList('dtr_logs', { filter: `status="open" && date>="${dayStart}"`, sort: '-time_in', expand: 'employee_id', perPage: 100 }),
       pbGetList('dtr_logs', { filter: `date>="${dayStart}"`, sort: '-time_in', expand: 'employee_id', perPage: 200 }),
       pbGetList('live_sessions', { filter: 'status="active"', sort: '-start_time', expand: 'employee_id', perPage: 100 }),
       pbGetList('live_sessions', { filter: `date>="${dayStart}"`, sort: '-start_time', expand: 'employee_id', perPage: 200 }),
@@ -9211,11 +9224,12 @@ function localPbDate(d) {
   return d.toISOString();  // e.g. "2026-05-15T01:00:00.000Z" — UTC
 }
 
-/* Date-only PB format — converts local date string to UTC midnight ISO */
+/* Date-only PB format — store as UTC midnight of the local calendar date.
+   IMPORTANT: do NOT convert local midnight → UTC (that would shift to previous day in PH timezone).
+   We want "2026-05-18" → "2026-05-18T00:00:00.000Z" so PB date-range queries match by calendar day. */
 function localPbDateOnly(dateStr) {
   if (!dateStr) dateStr = todayStr();
-  // Parse as local midnight, convert to UTC string
-  return new Date(dateStr + 'T00:00:00').toISOString();
+  return dateStr + 'T00:00:00.000Z';
 }
 function uid(prefix) { return prefix + Date.now() + Math.random().toString(36).substr(2, 5); }
 
@@ -10119,14 +10133,65 @@ function renderQualityCharts() {
 function renderRoles() {
   const grid = document.getElementById('roleGrid');
   if (!DB.roles.length) { grid.innerHTML = '<div class="card empty-state">Walang roles. Mag-add ng una para ma-standardize ang work.</div>'; return; }
-  grid.innerHTML = DB.roles.map(r => `
-    <div class="role-card" onclick="editRole('${r.id}')">
-      <h4>${r.name}</h4>
-      <div class="role-dept">${r.dept} ${r.hours ? '• ' + r.hours : ''}</div>
-      <div class="role-sop">${(r.sop || 'Walang SOP pa — mag-add para JIS-compliant.').substring(0, 220).replace(/\n/g, '<br>')}${(r.sop||'').length > 220 ? '...' : ''}</div>
-      ${r.kpi ? `<div class="role-kpi">▸ KPI: ${r.kpi}</div>` : ''}
-    </div>
-  `).join('');
+  grid.innerHTML = `<div style="grid-column: 1 / -1; font-size: 11px; color: var(--bb-gray); margin-bottom: 4px; font-style: italic;">↕ Drag to reorder — affects Shift Roster column order</div>` +
+    DB.roles.map((r, i) => `
+      <div class="role-card" draggable="true"
+        ondragstart="roleDragStart(event, '${r.id}')"
+        ondragover="roleDragOver(event)"
+        ondragleave="roleDragLeave(event)"
+        ondrop="roleDrop(event, '${r.id}')"
+        ondragend="roleDragEnd(event)"
+        onclick="if(!event.defaultPrevented)editRole('${r.id}')"
+        data-role-id="${r.id}"
+        style="cursor: grab; position: relative;">
+        <div style="position: absolute; top: 8px; right: 10px; color: var(--bb-gray); font-size: 11px; opacity: 0.6;" title="Drag to reorder">⋮⋮</div>
+        <h4>${r.name}</h4>
+        <div class="role-dept">${r.dept} ${r.hours ? '• ' + r.hours : ''}</div>
+        <div class="role-sop">${(r.sop || 'Walang SOP pa — mag-add para JIS-compliant.').substring(0, 220).replace(/\n/g, '<br>')}${(r.sop||'').length > 220 ? '...' : ''}</div>
+        ${r.kpi ? `<div class="role-kpi">▸ KPI: ${r.kpi}</div>` : ''}
+      </div>
+    `).join('');
+}
+
+/* Drag and drop handlers for role reordering */
+let _draggedRoleId = null;
+function roleDragStart(e, roleId) {
+  _draggedRoleId = roleId;
+  e.dataTransfer.effectAllowed = 'move';
+  e.currentTarget.style.opacity = '0.4';
+}
+function roleDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  e.currentTarget.style.outline = '2px dashed var(--bb-honey)';
+}
+function roleDragLeave(e) {
+  e.currentTarget.style.outline = '';
+}
+function roleDrop(e, targetRoleId) {
+  e.preventDefault();
+  e.stopPropagation();
+  e.currentTarget.style.outline = '';
+  if (!_draggedRoleId || _draggedRoleId === targetRoleId) return;
+  // Reorder DB.roles array
+  const fromIdx = DB.roles.findIndex(r => r.id === _draggedRoleId);
+  const toIdx = DB.roles.findIndex(r => r.id === targetRoleId);
+  if (fromIdx < 0 || toIdx < 0) return;
+  const [moved] = DB.roles.splice(fromIdx, 1);
+  DB.roles.splice(toIdx, 0, moved);
+  saveDB();
+  renderRoles();
+  // Refresh roster too (column order follows roles array)
+  try { renderRoster(); } catch (e) {}
+  toast('✓ Role order updated — Shift Roster columns reordered', 'ok');
+}
+function roleDragEnd(e) {
+  e.currentTarget.style.opacity = '';
+  document.querySelectorAll('.role-card').forEach(c => c.style.outline = '');
+  _draggedRoleId = null;
+  // Prevent accidental click after drag
+  e.preventDefault && e.preventDefault();
+  setTimeout(() => {}, 50);
 }
 
 function openRoleModal() {
