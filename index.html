@@ -6234,11 +6234,19 @@ async function loadBbCA() {
     const empMap = {}; emps.forEach(e => empMap[e.id] = e);
     document.getElementById('caEmp').innerHTML = '<option value="">— Select —</option>' + emps.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
 
-    // Categorize by approval_status (fallback to legacy status field)
-    const getApprovalStatus = c => c.approval_status || (c.status === 'fully_paid' ? 'fully_paid' : c.status === 'active' ? 'active' : 'active');
+    // Categorize by approval_status (fallback to legacy status field for old records)
+    // Note: pending records use status='fully_paid' as sentinel, so we MUST check approval_status first
+    const getApprovalStatus = c => {
+      if (c.approval_status) return c.approval_status;
+      // Legacy fallback (records created before approval workflow)
+      if (c.status === 'fully_paid') return 'fully_paid';
+      if (c.status === 'active') return 'active';
+      return 'active';
+    };
     const pending = cas.filter(c => getApprovalStatus(c) === 'pending_approval');
-    const active = cas.filter(c => getApprovalStatus(c) === 'active' || c.status === 'active');
-    const paid = cas.filter(c => getApprovalStatus(c) === 'fully_paid' || c.status === 'fully_paid');
+    const rejected = cas.filter(c => getApprovalStatus(c) === 'rejected');
+    const active = cas.filter(c => getApprovalStatus(c) === 'active');
+    const paid = cas.filter(c => getApprovalStatus(c) === 'fully_paid');
     const totalBalance = active.reduce((s,c) => s + (c.remaining_balance || 0), 0);
 
     document.getElementById('caActiveCount').textContent = active.length;
@@ -6450,11 +6458,13 @@ async function saveCA() {
           body.approval_date = localPbDateOnly(todayStr());
           body.approved_by = me;
         } else if (approvalStatus === 'rejected') {
-          body.status = 'rejected';
+          // Use 'fully_paid' as sentinel for non-active records (won't be picked by payroll)
+          body.status = 'fully_paid';
           body.approval_date = localPbDateOnly(todayStr());
           body.approved_by = me;
         } else if (approvalStatus === 'pending_approval') {
-          body.status = 'pending';
+          // Sentinel: payroll engine ignores anything other than 'active', so 'fully_paid' is safe
+          body.status = 'fully_paid';
         }
       }
       await pbUpdate('cash_advances', id, body);
@@ -6480,10 +6490,11 @@ async function saveCA() {
         body.approval_date = localPbDateOnly(todayStr());
         body.deduct_next_cutoff = deductNextCutoff;
       } else {
-        // Sub-admin — submit for approval
+        // Sub-admin — submit for approval. Use 'fully_paid' as sentinel for legacy status field
+        // (payroll engine only picks status="active", so this is safe + doesn't pollute filter)
         body.approval_status = 'pending_approval';
-        body.status = 'pending';
-        body.remaining_balance = amt;  // tentative
+        body.status = 'fully_paid';  // sentinel — approval_status is source of truth
+        body.remaining_balance = amt;  // tentative — owner sets actual max in approval
       }
       await pbCreate('cash_advances', body);
       toast(isOwner ? '✓ CA created & active' : '✓ Request submitted for owner approval', 'ok');
@@ -7274,12 +7285,17 @@ async function saveCashFlow() {
     fd.append('description', document.getElementById('cfDescription').value);
     fd.append('reference_no', document.getElementById('cfRefNo').value);
     fd.append('recorded_by', (kioskState.selectedUser && kioskState.selectedUser.name) || 'admin');
-    // New tracking fields
-    fd.append('source', document.getElementById('cfSource').value);
-    fd.append('received_by', document.getElementById('cfReceivedBy').value);
-    fd.append('requested_by', document.getElementById('cfRequestedBy').value);
-    fd.append('approved_by', document.getElementById('cfApprovedBy').value);
-    fd.append('purpose', document.getElementById('cfPurpose').value);
+    // New tracking fields — only append if non-empty (PB select fields reject empty strings + tolerates missing optional fields)
+    const cfSource = document.getElementById('cfSource').value;
+    const cfReceivedBy = document.getElementById('cfReceivedBy').value;
+    const cfRequestedBy = document.getElementById('cfRequestedBy').value;
+    const cfApprovedBy = document.getElementById('cfApprovedBy').value;
+    const cfPurpose = document.getElementById('cfPurpose').value;
+    if (cfSource) fd.append('source', cfSource);
+    if (cfReceivedBy) fd.append('received_by', cfReceivedBy);
+    if (cfRequestedBy) fd.append('requested_by', cfRequestedBy);
+    if (cfApprovedBy) fd.append('approved_by', cfApprovedBy);
+    if (cfPurpose) fd.append('purpose', cfPurpose);
     const receiptFile = document.getElementById('cfReceipt').files[0];
     if (receiptFile) fd.append('receipt', receiptFile);
 
@@ -8117,8 +8133,8 @@ async function saveCheckin() {
     reviewer_notes: document.getElementById('ciReviewerNotes').value,
     status
   };
-  if (status === 'Submitted' && !id) body.submitted_at = todayStr();
-  if (status === 'Reviewed') body.reviewed_at = todayStr();
+  if (status === 'Submitted' && !id) body.submitted_at = localPbDateOnly(todayStr());
+  if (status === 'Reviewed') body.reviewed_at = localPbDateOnly(todayStr());
   try {
     if (id) await pbUpdate('tms_weekly_checkins', id, body);
     else await pbCreate('tms_weekly_checkins', body);
