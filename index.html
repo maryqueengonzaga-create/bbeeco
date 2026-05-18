@@ -5145,11 +5145,13 @@ async function notifyNewIncident(emp, incidentType, details) {
 // Check employee's open incidents on time-in attempt → returns action: 'allow' | 'warn' | 'lockout'
 async function checkEmployeeIncidents(empId) {
   try {
+    console.log('[Discipline] Checking incidents for empId:', empId);
     const incs = await pbGetList('incident_reports', {
       filter: `employee_id="${empId}" && status="pending"`,
-      sort: 'date',
+      sort: '-created',
       perPage: 50
     });
+    console.log('[Discipline] Found', incs.length, 'pending incidents for this employee:', incs);
     if (!incs.length) return { action: 'allow', incidents: [] };
     const now = Date.now();
     // Check if any incident is past lockout deadline
@@ -5158,11 +5160,13 @@ async function checkEmployeeIncidents(empId) {
       return new Date(i.lockout_after).getTime() < now;
     });
     if (expired.length > 0) {
+      console.log('[Discipline] LOCKOUT —', expired.length, 'expired incidents');
       return { action: 'lockout', incidents: incs, expired };
     }
+    console.log('[Discipline] WARN — show popup');
     return { action: 'warn', incidents: incs };
   } catch (e) {
-    console.warn('[Discipline] Check failed:', e.message);
+    console.warn('[Discipline] Check failed (fail-open):', e.message);
     return { action: 'allow', incidents: [], error: e.message };  // fail-open to not block legit users
   }
 }
@@ -5184,14 +5188,20 @@ async function acknowledgeIncident(incidentId, reflection) {
 async function loadBbIncidents() {
   try {
     // Auto-detect first (so new triggers show up)
-    await detectAndCreateIncidents().catch(()=>{});
+    await detectAndCreateIncidents().catch(err => console.warn('[Incidents] auto-detect skipped:', err));
 
     const filter = (document.getElementById('incFilter') && document.getElementById('incFilter').value) || 'open';
     const monthAgoISO = new Date(Date.now() - 30*86400000).toISOString();
     const [incidents, emps] = await Promise.all([
-      pbGetList('incident_reports', { sort: '-date', expand: 'employee_id', perPage: 500 }),
+      pbGetList('incident_reports', { sort: '-created', expand: 'employee_id', perPage: 500 }),
       pbGetList('employees', { filter: 'is_active=true', sort: 'name', perPage: 500 })
     ]);
+
+    console.log('[Incidents] Loaded', incidents.length, 'records:', incidents);
+
+    // Build empMap as fallback in case expand is empty
+    const empMap = {};
+    emps.forEach(e => { empMap[e.id] = e; });
 
     // Populate employee dropdown for manual incident
     const empSel = document.getElementById('incNewEmp');
@@ -5217,50 +5227,71 @@ async function loadBbIncidents() {
     else if (filter === 'resolved') filtered = incidents.filter(i => i.status === 'resolved');
     else filtered = incidents;
 
+    console.log('[Incidents] Filter:', filter, '→', filtered.length, 'rows to render');
+
     const body = document.getElementById('bbIncidentsBody');
+    if (!body) { console.error('[Incidents] bbIncidentsBody element not found!'); return; }
     if (!filtered.length) {
       body.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;color:#999;">Walang incidents sa filter na ito.</td></tr>';
       return;
     }
-    body.innerHTML = filtered.map(i => {
-      const e = i.expand && i.expand.employee_id;
-      const name = e ? e.name : '—';
-      const typeLabel = ({
-        late_habitual: 'Habitual Tardiness',
-        absence_unexcused: 'Unexcused Absence',
-        awol: 'AWOL Notice',
-        manual: 'Manual Entry'
-      })[i.type] || (i.type || '—');
-      const levelBadge = `<span style="background:${i.offense_level >= 3 ? '#FEE2E2' : i.offense_level === 2 ? '#FEF3C7' : '#DBEAFE'};color:${i.offense_level >= 3 ? '#B91C1C' : i.offense_level === 2 ? '#92400E' : '#1E40AF'};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">L${i.offense_level || 1}</span>`;
-      let statusBadge;
-      if (i.status === 'resolved') statusBadge = '<span class="bb-badge green">✓ Resolved</span>';
-      else if (isLocked(i)) statusBadge = '<span class="bb-badge red">🔒 LOCKED</span>';
-      else statusBadge = '<span class="bb-badge honey">⏳ Open</span>';
-      const deadlineStr = i.lockout_after
-        ? (() => {
-            const d = new Date(i.lockout_after);
-            const diff = d.getTime() - now;
-            if (diff < 0) return `<span style="color:#B91C1C;">Past ${Math.ceil(-diff/86400000)}d</span>`;
-            return `<span style="color:#92400E;">${Math.ceil(diff/86400000)}d left</span>`;
-          })()
-        : '—';
-      const ackBadge = i.employee_acknowledged
-        ? '<span style="color:#047857;font-size:11px;">✓ Acknowledged</span>'
-        : '<span style="color:#9CA3AF;font-size:11px;">Pending</span>';
-      return `<tr>
-        <td><small>${fmtDate(i.date || i.created)}</small></td>
-        <td><strong>${name}</strong></td>
-        <td><small>${typeLabel}</small></td>
-        <td>${levelBadge}</td>
-        <td>${statusBadge}</td>
-        <td><small>${deadlineStr}</small></td>
-        <td>${ackBadge}</td>
-        <td><button class="btn btn-ghost btn-sm" onclick="openIncidentDetail('${i.id}')">${i.status === 'resolved' ? 'View' : 'Review'}</button></td>
-      </tr>`;
-    }).join('');
+
+    // Safe rendering — escape user content + handle missing fields
+    const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const rows = [];
+    for (const i of filtered) {
+      try {
+        const empExpand = i.expand && i.expand.employee_id;
+        const emp = empExpand || empMap[i.employee_id];
+        const name = emp ? emp.name : ('Employee ID ' + (i.employee_id || '—'));
+        const typeMap = {
+          late_habitual: 'Habitual Tardiness',
+          absence_unexcused: 'Unexcused Absence',
+          awol: 'AWOL Notice',
+          manual: 'Manual Entry'
+        };
+        const typeLabel = typeMap[i.type] || (i.type || 'Incident');
+        const lvl = parseInt(i.offense_level) || 1;
+        const lvlColors = lvl >= 3 ? { bg: '#FEE2E2', fg: '#B91C1C' } : lvl === 2 ? { bg: '#FEF3C7', fg: '#92400E' } : { bg: '#DBEAFE', fg: '#1E40AF' };
+        const levelBadge = `<span style="background:${lvlColors.bg};color:${lvlColors.fg};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">L${lvl}</span>`;
+        let statusBadge;
+        if (i.status === 'resolved') statusBadge = '<span class="bb-badge green">✓ Resolved</span>';
+        else if (isLocked(i)) statusBadge = '<span class="bb-badge red">🔒 LOCKED</span>';
+        else statusBadge = '<span class="bb-badge honey">⏳ Open</span>';
+        let deadlineStr = '—';
+        if (i.lockout_after) {
+          const d = new Date(i.lockout_after);
+          const diff = d.getTime() - now;
+          deadlineStr = diff < 0
+            ? `<span style="color:#B91C1C;">Past ${Math.ceil(-diff/86400000)}d</span>`
+            : `<span style="color:#92400E;">${Math.ceil(diff/86400000)}d left</span>`;
+        }
+        const ackBadge = i.employee_acknowledged
+          ? '<span style="color:#047857;font-size:11px;">✓ Acknowledged</span>'
+          : '<span style="color:#9CA3AF;font-size:11px;">Pending</span>';
+        // Show description/reason inline so admin can see WHY at a glance
+        const detail = esc(i.description || i.reason || '—');
+        rows.push(`<tr>
+          <td><small>${esc(fmtDate(i.date || i.created))}</small></td>
+          <td><strong>${esc(name)}</strong><div style="font-size:11px;color:#6B7280;margin-top:2px;max-width:340px;">${detail}</div></td>
+          <td><small>${esc(typeLabel)}</small></td>
+          <td>${levelBadge}</td>
+          <td>${statusBadge}</td>
+          <td><small>${deadlineStr}</small></td>
+          <td>${ackBadge}</td>
+          <td><button class="btn btn-ghost btn-sm" onclick="openIncidentDetail('${esc(i.id)}')">${i.status === 'resolved' ? 'View' : 'Review'}</button></td>
+        </tr>`);
+      } catch (rowErr) {
+        console.error('[Incidents] Row render error for', i.id, ':', rowErr);
+        rows.push(`<tr><td colspan="8" style="color:#B91C1C;padding:10px;"><strong>Row error for incident ${i.id}:</strong> ${rowErr.message}</td></tr>`);
+      }
+    }
+    body.innerHTML = rows.join('');
+    console.log('[Incidents] Rendered', rows.length, 'rows successfully');
   } catch (e) {
     console.error('Incidents load:', e);
-    document.getElementById('bbIncidentsBody').innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--bb-red);padding:20px;">Failed: ' + e.message + '<br><small>Make sure incident_reports has new fields. Run setup_pb_collections.html → "Add Missing Fields" if not yet.</small></td></tr>';
+    const body = document.getElementById('bbIncidentsBody');
+    if (body) body.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--bb-red);padding:20px;">Failed: ' + e.message + '<br><small>Make sure incident_reports has new fields. Run setup_pb_collections.html → "Add Missing Fields" if not yet.</small></td></tr>';
   }
 }
 
