@@ -1700,7 +1700,7 @@
       <div class="nav-item" data-view="bbCashFlow" data-perm="view_cash_flow"><span class="nav-icon">💸</span> Cash Flow</div>
       <div class="nav-item" data-view="bbPayroll" data-perm="view_payroll"><span class="nav-icon">₱</span> Payroll</div>
 
-      <div class="nav-section" data-section-perm="create_schedules request_cash_advance view_payroll manage_item_charges view_deductions manage_admins owner edit_dtr view_action_log">BbeeCo Settings</div>
+      <div class="nav-section" data-section-perm="create_schedules request_cash_advance view_payroll manage_item_charges view_deductions manage_admins owner edit_dtr view_action_log resolve_incidents">BbeeCo Settings</div>
       <div class="nav-item" data-view="bbSched" data-perm="create_schedules"><span class="nav-icon">📅</span> Schedules</div>
       <div class="nav-item" data-view="bbCA" data-perm="request_cash_advance"><span class="nav-icon">💵</span> Cash Advances</div>
       <div class="nav-item" data-view="bbIC" data-perm="manage_item_charges"><span class="nav-icon">🧾</span> Item Charges</div>
@@ -1709,6 +1709,7 @@
       <div class="nav-item" data-view="bbAttSettings" data-perm="owner"><span class="nav-icon">📷</span> Attendance Settings</div>
       <div class="nav-item" data-view="bbEmailSettings" data-perm="owner"><span class="nav-icon">📧</span> Email & Notifications</div>
       <div class="nav-item" data-view="bbManualDtr" data-perm="edit_dtr"><span class="nav-icon">✍</span> Manual Attendance</div>
+      <div class="nav-item" data-view="bbIncidents" data-perm="resolve_incidents"><span class="nav-icon">⚠</span> Incident Reports</div>
       <div class="nav-item" data-view="bbActions" data-perm="view_action_log"><span class="nav-icon">📋</span> Action Log</div>
 
       <div class="nav-section" data-section-perm="view_5s view_pdca view_kaizen view_reports">JIS Modules</div>
@@ -3466,6 +3467,122 @@ Hi {{to_name}},
         </div>
       </section>
 
+      <!-- INCIDENT REPORTS VIEW (Progressive Discipline) -->
+      <section class="view" id="view-bbIncidents">
+        <div class="card" style="margin-bottom: 16px;">
+          <div class="card-h">
+            <h3>⚠ Incident Reports & Discipline</h3>
+            <div style="display:flex; gap:8px;">
+              <select id="incFilter" onchange="loadBbIncidents()" style="padding: 7px 11px; font-size: 12px; border: 1px solid var(--bb-border); border-radius: 6px;">
+                <option value="open">⏳ Open (pending)</option>
+                <option value="locked">🔒 Locked (past deadline)</option>
+                <option value="resolved">✓ Resolved</option>
+                <option value="all">All</option>
+              </select>
+              <button class="btn btn-secondary btn-sm" onclick="exportToCsv('incident_reports')">⬇ CSV</button>
+              <button class="btn btn-secondary btn-sm" onclick="loadBbIncidents()">⟳ Refresh</button>
+              <button class="btn btn-primary btn-sm" onclick="openIncidentModal()">+ Manual Incident</button>
+            </div>
+          </div>
+          <p style="font-size: 12px; color: var(--bb-gray); margin-bottom: 12px;">
+            Progressive discipline per BBEECO_ATTENDANCE_POLICY.md §3.3. Auto-triggered by system + manual entry by admin.
+            Employees get warning popup on time-in; after 2 days unresolved, time-in is locked until cleared.
+          </p>
+          <div class="bb-stats-row">
+            <div class="bb-stat-card honey"><div class="label">Open Warnings</div><div class="value" id="incStatOpen">—</div></div>
+            <div class="bb-stat-card red"><div class="label">🔒 Locked</div><div class="value" id="incStatLocked">—</div></div>
+            <div class="bb-stat-card blue"><div class="label">Acknowledged</div><div class="value" id="incStatAck">—</div></div>
+            <div class="bb-stat-card green"><div class="label">Resolved (this month)</div><div class="value" id="incStatResolved">—</div></div>
+          </div>
+          <div class="table-wrap">
+            <table class="bb-table">
+              <thead><tr><th>Date</th><th>Employee</th><th>Type</th><th>Level</th><th>Status</th><th>Deadline</th><th>Acknowledged</th><th>Action</th></tr></thead>
+              <tbody id="bbIncidentsBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- INCIDENT DETAIL / CLEAR MODAL -->
+      <div class="modal-bg" id="incidentDetailModal">
+        <div class="modal" style="max-width: 620px;">
+          <div class="modal-header">
+            <h3 id="incidentDetailTitle">Incident Report</h3>
+            <button class="close-btn" onclick="closeModal('incidentDetailModal')">×</button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" id="incDetailId">
+            <div id="incDetailInfo"></div>
+
+            <div style="background: var(--bb-gray-light); padding: 12px 14px; border-radius: 8px; margin-top: 14px;">
+              <label>📝 Employee Hansei Reflection (filled by employee at kiosk if any)</label>
+              <div id="incDetailReflection" style="background: white; padding: 10px 12px; border-radius: 6px; min-height: 40px; font-size: 13px; color: #374151; border: 1px solid var(--bb-border);">—</div>
+            </div>
+
+            <div style="background: var(--bb-honey-light); padding: 12px 14px; border-radius: 8px; margin-top: 14px;">
+              <label>🤝 Admin Resolution Notes (Hansei meeting summary)</label>
+              <textarea id="incDetailResolution" rows="4" placeholder="Met with employee on [date]. Discussed: ___. Agreed action plan: ___. Verbal/written/final warning issued." style="width: 100%; padding: 10px; border: 1px solid var(--bb-border); border-radius: 6px; font-size: 13px; box-sizing: border-box;"></textarea>
+            </div>
+
+            <div class="form-row" style="margin-top: 12px;">
+              <div><label>Offense Level</label><select id="incDetailLevel">
+                <option value="1">Level 1 — Verbal counseling</option>
+                <option value="2">Level 2 — Written warning (first)</option>
+                <option value="3">Level 3 — Final warning + suspension</option>
+                <option value="4">Level 4 — Termination (Art. 297)</option>
+              </select></div>
+              <div><label>Action</label><select id="incDetailAction">
+                <option value="resolved">✓ Clear (employee acknowledged + meeting done)</option>
+                <option value="escalated">⬆ Escalate to next level</option>
+                <option value="pending">⏳ Keep pending (more time needed)</option>
+              </select></div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-danger" onclick="deleteIncident()" id="incDetailDeleteBtn" style="display:none;">Delete</button>
+            <button class="btn btn-secondary" onclick="closeModal('incidentDetailModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="saveIncidentResolution()">Save & Apply</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MANUAL INCIDENT CREATE MODAL -->
+      <div class="modal-bg" id="incidentCreateModal">
+        <div class="modal" style="max-width: 540px;">
+          <div class="modal-header">
+            <h3>Create Manual Incident</h3>
+            <button class="close-btn" onclick="closeModal('incidentCreateModal')">×</button>
+          </div>
+          <div class="modal-body">
+            <div class="form-row">
+              <div><label>Employee *</label><select id="incNewEmp"></select></div>
+              <div><label>Type</label><select id="incNewType">
+                <option value="late_habitual">Habitual Tardiness</option>
+                <option value="absence_unexcused">Unexcused Absence</option>
+                <option value="awol">AWOL Notice</option>
+                <option value="manual">Other (manual)</option>
+              </select></div>
+            </div>
+            <div class="form-row">
+              <div><label>Offense Level</label><select id="incNewLevel">
+                <option value="1">1 — Verbal</option>
+                <option value="2">2 — Written</option>
+                <option value="3">3 — Final + Suspension</option>
+                <option value="4">4 — Termination</option>
+              </select></div>
+              <div><label>Lockout After (days)</label><input type="number" id="incNewLockoutDays" min="0" max="30" value="2"></div>
+            </div>
+            <div class="form-row single">
+              <div><label>Description</label><textarea id="incNewDesc" rows="3" placeholder="What happened? Date(s), specifics, evidence..."></textarea></div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('incidentCreateModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="saveNewIncident()">Create</button>
+          </div>
+        </div>
+      </div>
+
       <!-- MANUAL ATTENDANCE VIEW -->
       <section class="view" id="view-bbManualDtr">
         <div class="card" style="margin-bottom: 16px;">
@@ -3614,6 +3731,59 @@ Hi {{to_name}},
         <button class="close" onclick="document.getElementById('photoModal').classList.remove('open')">×</button>
         <img id="photoModalImg" src="" alt="">
         <div class="label" id="photoModalLabel"></div>
+      </div>
+
+      <!-- INCIDENT WARNING MODAL (Tier 1 — JIS Discipline) -->
+      <div class="modal-bg" id="incidentWarnModal">
+        <div class="modal" style="max-width: 540px; border-top: 6px solid #F59E0B;">
+          <div class="modal-header" style="background: #FEF3C7;">
+            <h3 style="color: #92400E;">⚠ Notification — Action Required</h3>
+          </div>
+          <div class="modal-body">
+            <p style="font-size: 13px; color: #92400E; font-weight: 600; margin-bottom: 10px;">You have unresolved incident(s):</p>
+            <ul id="incidentWarnList" style="margin: 0 0 14px 0; padding-left: 18px; background: white; border: 1px solid #FDE68A; border-radius: 8px; padding: 14px 14px 14px 32px;"></ul>
+            <div style="background: #EFF6FF; border-left: 4px solid #3B82F6; padding: 12px 14px; border-radius: 6px; font-size: 12px; line-height: 1.6;">
+              <strong>JIS Hansei (Reflection) — Required Action:</strong><br>
+              You must speak with Owner/Admin within 2 days OR write your reflection now.
+              After 2 days unresolved, time-in will be LOCKED until cleared.
+            </div>
+            <div style="margin-top: 14px;">
+              <label style="font-size: 11px; font-weight: 600; color: #6B7280; text-transform: uppercase; letter-spacing: 0.5px;">Hansei Reflection (optional but recommended)</label>
+              <textarea id="incidentWarnReflection" rows="4" placeholder="Anong nangyari? What will you do differently para hindi maulit? (Min 20 chars)" style="width: 100%; padding: 10px; border: 1px solid #E5E7EB; border-radius: 6px; font-size: 13px; box-sizing: border-box; margin-top: 6px;"></textarea>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="acknowledgeAdminVisit()">I will see Admin today</button>
+            <button class="btn btn-primary" onclick="submitIncidentReflection()" style="background: #F59E0B;">Submit Reflection & Time-In</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- INCIDENT LOCKOUT MODAL (Tier 2 — strict) -->
+      <div class="modal-bg" id="incidentLockoutModal">
+        <div class="modal" style="max-width: 520px; border-top: 6px solid #EF4444;">
+          <div class="modal-header" style="background: #FEF2F2;">
+            <h3 style="color: #B91C1C;">🔒 LOCKED — Cannot Time-In</h3>
+          </div>
+          <div class="modal-body">
+            <p style="font-size: 14px; color: #B91C1C; font-weight: 600; margin-bottom: 10px;">Past the 2-day clearance deadline.</p>
+            <ul id="incidentLockoutList" style="margin: 0 0 14px 0; padding-left: 18px; background: white; border: 1px solid #FECACA; border-radius: 8px; padding: 14px 14px 14px 32px;"></ul>
+            <div style="background: #FEF2F2; border-left: 4px solid #EF4444; padding: 14px 16px; border-radius: 6px; font-size: 13px; line-height: 1.6;">
+              <strong>JIS Standard Procedure:</strong><br>
+              You MUST personally speak with Owner or HR Admin to:
+              <ol style="margin: 6px 0 0 16px;">
+                <li>Discuss the incident (Hansei meeting)</li>
+                <li>Sign acknowledgment</li>
+                <li>Receive clearance to resume time-in</li>
+              </ol>
+              <br>
+              <em>Time-in will remain blocked until incident is officially cleared by Admin.</em>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-danger" onclick="closeModal('incidentLockoutModal'); kioskLogout();">Acknowledge & Logout</button>
+          </div>
+        </div>
       </div>
 
       <!-- HELP / GUIDE VIEW -->
@@ -4650,8 +4820,81 @@ async function pbUpdate(collection, id, body) {
   return r.json();
 }
 
-function doTimeIn() {
-  // Try camera flow first; fallback inside startCameraFlow if no camera
+async function doTimeIn() {
+  // POKA-YOKE: Check open incidents BEFORE allowing time-in (BbeeCo Discipline Policy §3.3)
+  const user = kioskState.selectedUser;
+  if (user && user.id) {
+    const check = await checkEmployeeIncidents(user.id);
+    if (check.action === 'lockout') {
+      showIncidentLockout(check.incidents, check.expired);
+      return;
+    }
+    if (check.action === 'warn') {
+      showIncidentWarning(check.incidents);
+      return;
+    }
+  }
+  // Clean record — proceed normally
+  startCameraFlow('timein');
+}
+
+// Show warning modal for unresolved incidents (Tier 1)
+function showIncidentWarning(incidents) {
+  const list = incidents.map(i => {
+    const lockDate = i.lockout_after ? new Date(i.lockout_after) : null;
+    const daysLeft = lockDate ? Math.max(0, Math.ceil((lockDate - Date.now()) / 86400000)) : '?';
+    return `<li style="padding: 6px 0;">
+      <strong>${i.type === 'late_habitual' ? 'Habitual Tardiness' : i.type === 'absence_unexcused' ? 'Unexcused Absence' : i.type === 'awol' ? 'AWOL Notice' : (i.type || 'Incident')}</strong>
+      <div style="font-size: 12px; color: #555; margin: 2px 0;">${i.description || ''}</div>
+      <div style="font-size: 11px; color: #B91C1C;">⏳ ${daysLeft} day(s) to clear with Admin (then locked out)</div>
+    </li>`;
+  }).join('');
+  document.getElementById('incidentWarnList').innerHTML = list;
+  // Store first incident id for acknowledgment flow
+  document.getElementById('incidentWarnModal').dataset.incidentId = incidents[0].id;
+  document.getElementById('incidentWarnReflection').value = '';
+  document.getElementById('incidentWarnModal').classList.add('open');
+}
+
+// Show lockout screen for expired incidents (Tier 2)
+function showIncidentLockout(allIncidents, expiredIncidents) {
+  const list = expiredIncidents.map(i => `<li style="padding: 6px 0;">
+    <strong>${i.type === 'late_habitual' ? 'Habitual Tardiness' : i.type === 'absence_unexcused' ? 'Unexcused Absence' : i.type === 'awol' ? 'AWOL' : 'Incident'}</strong>
+    <div style="font-size: 12px; color: #555; margin: 2px 0;">${i.description || ''}</div>
+    <div style="font-size: 11px; color: #B91C1C; font-weight: 600;">🔒 LOCKED — past ${DISCIPLINE_LOCKOUT_DAYS}-day deadline</div>
+  </li>`).join('');
+  document.getElementById('incidentLockoutList').innerHTML = list;
+  document.getElementById('incidentLockoutModal').classList.add('open');
+}
+
+// Employee chose "I will see admin today" — allow time-in but log intent
+async function acknowledgeAdminVisit() {
+  const incId = document.getElementById('incidentWarnModal').dataset.incidentId;
+  if (incId) {
+    try {
+      await pbUpdate('incident_reports', incId, { employee_acknowledged: true });
+    } catch (e) { console.warn('[Discipline] Ack failed:', e.message); }
+  }
+  closeModal('incidentWarnModal');
+  // Proceed with time-in
+  startCameraFlow('timein');
+}
+
+// Employee wrote Hansei reflection — save + allow time-in
+async function submitIncidentReflection() {
+  const incId = document.getElementById('incidentWarnModal').dataset.incidentId;
+  const reflection = document.getElementById('incidentWarnReflection').value.trim();
+  if (reflection.length < 20) {
+    alert('Please write at least 20 characters explaining what happened and what you will do differently (Hansei reflection).');
+    return;
+  }
+  const result = await acknowledgeIncident(incId, reflection);
+  if (!result.ok) {
+    alert('Failed to save reflection: ' + result.error);
+    return;
+  }
+  closeModal('incidentWarnModal');
+  toast('✓ Reflection saved. Please still see Admin for full clearance.', 'ok');
   startCameraFlow('timein');
 }
 
@@ -4780,6 +5023,403 @@ async function enterManagerMode() {
   } else {
     toast('⚠ Could not load employees from PocketBase. Check connection/CORS.', 'err');
   }
+}
+
+/* ===================== PROGRESSIVE DISCIPLINE SYSTEM (JIS + DOLE compliant) =====================
+   Triggers + workflow per BBEECO_ATTENDANCE_POLICY.md §3-§5:
+   - Tier 1: open incident, warn employee on next time-in
+   - Tier 2: 2+ days unresolved → strict lockout (cannot time-in)
+   - Admin clears via Hansei meeting + resolution_notes
+   ============================================================================================= */
+const DISCIPLINE_LOCKOUT_DAYS = 2;
+
+// Auto-detect habitual tardiness in current cutoff period
+async function detectAndCreateIncidents() {
+  try {
+    // Get all active employees + their DTRs in current cutoff
+    const today = new Date();
+    const day = today.getDate();
+    // BbeeCo semi-monthly cutoffs: 1-15 and 16-end
+    const cutoffStart = day <= 15
+      ? new Date(today.getFullYear(), today.getMonth(), 1)
+      : new Date(today.getFullYear(), today.getMonth(), 16);
+    const cutoffEnd = day <= 15
+      ? new Date(today.getFullYear(), today.getMonth(), 15)
+      : new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    const startStr = cutoffStart.toISOString().substring(0, 10);
+    const endStr = cutoffEnd.toISOString().substring(0, 10);
+
+    const [emps, dtrs, existingIncs] = await Promise.all([
+      pbGetList('employees', { filter: 'is_active=true', perPage: 500 }),
+      pbGetList('dtr_logs', { filter: `time_in>="${startStr} 00:00:00" && time_in<="${endStr} 23:59:59" && late_minutes>0`, perPage: 1000 }),
+      pbGetList('incident_reports', { filter: `triggered_by="system_auto" && date>="${startStr} 00:00:00"`, perPage: 500 })
+    ]);
+
+    // Count lates per employee in cutoff
+    const latesByEmp = {};
+    dtrs.forEach(d => {
+      if ((d.late_minutes || 0) > 5) {  // 0-5 is grace period
+        if (!latesByEmp[d.employee_id]) latesByEmp[d.employee_id] = 0;
+        latesByEmp[d.employee_id]++;
+      }
+    });
+
+    // Existing system-auto incidents this cutoff (avoid duplicate creation)
+    const existingKeys = new Set(existingIncs.map(i => i.incident_key));
+
+    let createdCount = 0;
+    for (const empId of Object.keys(latesByEmp)) {
+      const lateCount = latesByEmp[empId];
+      if (lateCount >= 3) {
+        // Habitual tardiness threshold reached
+        const incKey = `habitual_late_${empId}_${startStr}`;
+        if (existingKeys.has(incKey)) continue;  // already created for this cutoff
+        const emp = emps.find(e => e.id === empId);
+        if (!emp) continue;
+        // Compute lockout_after = today + 2 days
+        const lockoutDate = new Date();
+        lockoutDate.setDate(lockoutDate.getDate() + DISCIPLINE_LOCKOUT_DAYS);
+        const lockoutStr = lockoutDate.toISOString().substring(0, 10) + 'T23:59:59.000Z';
+        try {
+          await pbCreate('incident_reports', {
+            employee_id: empId,
+            type: 'late_habitual',
+            description: `Habitual tardiness: ${lateCount} lates in cutoff ${startStr} to ${endStr} (BbeeCo Attendance Policy §3.3)`,
+            offense_level: 1,
+            triggered_by: 'system_auto',
+            lockout_after: lockoutStr,
+            status: 'pending',
+            employee_acknowledged: false,
+            incident_key: incKey,
+            date: new Date().toISOString().substring(0, 10) + 'T00:00:00.000Z'
+          });
+          createdCount++;
+          console.log('[Discipline] Auto-created incident for', emp.name, '(', lateCount, 'lates)');
+          // Send email alert if EmailJS configured
+          notifyNewIncident(emp, 'Habitual Tardiness', `${lateCount} lates in current cutoff`).catch(()=>{});
+        } catch (e) {
+          console.warn('[Discipline] Failed to create incident:', e.message);
+        }
+      }
+    }
+    return { created: createdCount };
+  } catch (e) {
+    console.warn('[Discipline] Detection failed:', e.message);
+    return { error: e.message };
+  }
+}
+
+// Send notification email to admins when new incident created
+async function notifyNewIncident(emp, incidentType, details) {
+  const adminEmailsStr = await getAppConfig('emjs_admin_emails', '');
+  const admins = adminEmailsStr.split(',').map(s => s.trim()).filter(Boolean);
+  if (!admins.length) return;
+  const subject = `⚠ Incident: ${incidentType} — ${emp.name}`;
+  const body = `BbeeCo Discipline System Alert:\n\nEmployee: ${emp.name}\nType: ${incidentType}\nDetails: ${details}\n\nPlease review in BbeeCo Admin → Incident Reports.\n\nEmployee has 2 days to acknowledge or will be auto-locked from time-in.`;
+  for (const adminEmail of admins) {
+    await emjsSend(adminEmail, 'Admin', subject, body, 'BbeeCo Discipline System');
+  }
+}
+
+// Check employee's open incidents on time-in attempt → returns action: 'allow' | 'warn' | 'lockout'
+async function checkEmployeeIncidents(empId) {
+  try {
+    const incs = await pbGetList('incident_reports', {
+      filter: `employee_id="${empId}" && status="pending"`,
+      sort: 'date',
+      perPage: 50
+    });
+    if (!incs.length) return { action: 'allow', incidents: [] };
+    const now = Date.now();
+    // Check if any incident is past lockout deadline
+    const expired = incs.filter(i => {
+      if (!i.lockout_after) return false;
+      return new Date(i.lockout_after).getTime() < now;
+    });
+    if (expired.length > 0) {
+      return { action: 'lockout', incidents: incs, expired };
+    }
+    return { action: 'warn', incidents: incs };
+  } catch (e) {
+    console.warn('[Discipline] Check failed:', e.message);
+    return { action: 'allow', incidents: [], error: e.message };  // fail-open to not block legit users
+  }
+}
+
+// Employee acknowledges incident with Hansei reflection
+async function acknowledgeIncident(incidentId, reflection) {
+  try {
+    await pbUpdate('incident_reports', incidentId, {
+      employee_acknowledged: true,
+      employee_reflection: reflection || '',
+      // Don't auto-resolve — admin still needs to clear
+      status: 'pending'
+    });
+    return { ok: true };
+  } catch (e) { return { ok: false, error: e.message }; }
+}
+
+// Load + render Incident Reports admin view
+async function loadBbIncidents() {
+  try {
+    // Auto-detect first (so new triggers show up)
+    await detectAndCreateIncidents().catch(()=>{});
+
+    const filter = (document.getElementById('incFilter') && document.getElementById('incFilter').value) || 'open';
+    const monthAgoISO = new Date(Date.now() - 30*86400000).toISOString();
+    const [incidents, emps] = await Promise.all([
+      pbGetList('incident_reports', { sort: '-date', expand: 'employee_id', perPage: 500 }),
+      pbGetList('employees', { filter: 'is_active=true', sort: 'name', perPage: 500 })
+    ]);
+
+    // Populate employee dropdown for manual incident
+    const empSel = document.getElementById('incNewEmp');
+    if (empSel) empSel.innerHTML = '<option value="">— Select —</option>' + emps.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+
+    const now = Date.now();
+    const isLocked = i => i.status === 'pending' && i.lockout_after && new Date(i.lockout_after).getTime() < now;
+    const isOpenActive = i => i.status === 'pending' && !isLocked(i);
+
+    const openIncs = incidents.filter(isOpenActive);
+    const lockedIncs = incidents.filter(isLocked);
+    const acked = incidents.filter(i => i.status === 'pending' && i.employee_acknowledged);
+    const resolvedThisMonth = incidents.filter(i => i.status === 'resolved' && i.resolved_at && i.resolved_at >= monthAgoISO);
+
+    document.getElementById('incStatOpen').textContent = openIncs.length;
+    document.getElementById('incStatLocked').textContent = lockedIncs.length;
+    document.getElementById('incStatAck').textContent = acked.length;
+    document.getElementById('incStatResolved').textContent = resolvedThisMonth.length;
+
+    let filtered;
+    if (filter === 'open') filtered = openIncs;
+    else if (filter === 'locked') filtered = lockedIncs;
+    else if (filter === 'resolved') filtered = incidents.filter(i => i.status === 'resolved');
+    else filtered = incidents;
+
+    const body = document.getElementById('bbIncidentsBody');
+    if (!filtered.length) {
+      body.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;color:#999;">Walang incidents sa filter na ito.</td></tr>';
+      return;
+    }
+    body.innerHTML = filtered.map(i => {
+      const e = i.expand && i.expand.employee_id;
+      const name = e ? e.name : '—';
+      const typeLabel = ({
+        late_habitual: 'Habitual Tardiness',
+        absence_unexcused: 'Unexcused Absence',
+        awol: 'AWOL Notice',
+        manual: 'Manual Entry'
+      })[i.type] || (i.type || '—');
+      const levelBadge = `<span style="background:${i.offense_level >= 3 ? '#FEE2E2' : i.offense_level === 2 ? '#FEF3C7' : '#DBEAFE'};color:${i.offense_level >= 3 ? '#B91C1C' : i.offense_level === 2 ? '#92400E' : '#1E40AF'};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">L${i.offense_level || 1}</span>`;
+      let statusBadge;
+      if (i.status === 'resolved') statusBadge = '<span class="bb-badge green">✓ Resolved</span>';
+      else if (isLocked(i)) statusBadge = '<span class="bb-badge red">🔒 LOCKED</span>';
+      else statusBadge = '<span class="bb-badge honey">⏳ Open</span>';
+      const deadlineStr = i.lockout_after
+        ? (() => {
+            const d = new Date(i.lockout_after);
+            const diff = d.getTime() - now;
+            if (diff < 0) return `<span style="color:#B91C1C;">Past ${Math.ceil(-diff/86400000)}d</span>`;
+            return `<span style="color:#92400E;">${Math.ceil(diff/86400000)}d left</span>`;
+          })()
+        : '—';
+      const ackBadge = i.employee_acknowledged
+        ? '<span style="color:#047857;font-size:11px;">✓ Acknowledged</span>'
+        : '<span style="color:#9CA3AF;font-size:11px;">Pending</span>';
+      return `<tr>
+        <td><small>${fmtDate(i.date || i.created)}</small></td>
+        <td><strong>${name}</strong></td>
+        <td><small>${typeLabel}</small></td>
+        <td>${levelBadge}</td>
+        <td>${statusBadge}</td>
+        <td><small>${deadlineStr}</small></td>
+        <td>${ackBadge}</td>
+        <td><button class="btn btn-ghost btn-sm" onclick="openIncidentDetail('${i.id}')">${i.status === 'resolved' ? 'View' : 'Review'}</button></td>
+      </tr>`;
+    }).join('');
+  } catch (e) {
+    console.error('Incidents load:', e);
+    document.getElementById('bbIncidentsBody').innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--bb-red);padding:20px;">Failed: ' + e.message + '<br><small>Make sure incident_reports has new fields. Run setup_pb_collections.html → "Add Missing Fields" if not yet.</small></td></tr>';
+  }
+}
+
+async function openIncidentDetail(id) {
+  try {
+    const r = await fetch(PB_API + '/collections/incident_reports/records/' + id + '?expand=employee_id');
+    const i = await r.json();
+    const e = i.expand && i.expand.employee_id;
+    const typeLabel = ({
+      late_habitual: 'Habitual Tardiness',
+      absence_unexcused: 'Unexcused Absence',
+      awol: 'AWOL Notice',
+      manual: 'Manual'
+    })[i.type] || (i.type || '—');
+    document.getElementById('incDetailId').value = i.id;
+    document.getElementById('incDetailTitle').textContent = 'Incident — ' + (e ? e.name : '—');
+    document.getElementById('incDetailInfo').innerHTML = `
+      <div style="background: var(--bb-honey-light); padding: 12px 14px; border-radius: 8px; margin-bottom: 10px;">
+        <div style="font-weight:700; font-size:14px;">${e ? e.name : '—'}</div>
+        <div style="font-size:11px; color:var(--bb-gray); margin-top:4px;">
+          Type: <strong>${typeLabel}</strong> · Triggered: ${i.triggered_by === 'system_auto' ? '🤖 Auto-detected' : '👤 Manual entry'}
+          · Date: ${fmtDate(i.date || i.created)} · Status: ${i.status}
+        </div>
+        <div style="font-size:12px; color: #374151; margin-top: 8px;">${i.description || ''}</div>
+      </div>`;
+    document.getElementById('incDetailReflection').textContent = i.employee_reflection || '— (employee has not written reflection yet)';
+    document.getElementById('incDetailResolution').value = i.resolution_notes || '';
+    document.getElementById('incDetailLevel').value = i.offense_level || 1;
+    document.getElementById('incDetailAction').value = i.status === 'resolved' ? 'resolved' : 'pending';
+    document.getElementById('incDetailDeleteBtn').style.display = window.CURRENT_IS_OWNER ? 'inline-flex' : 'none';
+    document.getElementById('incidentDetailModal').classList.add('open');
+  } catch (e) { alert('Failed: ' + e.message); }
+}
+
+async function saveIncidentResolution() {
+  const id = document.getElementById('incDetailId').value;
+  const action = document.getElementById('incDetailAction').value;
+  const notes = document.getElementById('incDetailResolution').value;
+  const level = parseInt(document.getElementById('incDetailLevel').value) || 1;
+  try {
+    const me = (kioskState.selectedUser && kioskState.selectedUser.name) || 'admin';
+    const body = {
+      resolution_notes: notes,
+      offense_level: level
+    };
+    if (action === 'resolved') {
+      body.status = 'resolved';
+      body.resolved_by = me;
+      body.resolved_at = new Date().toISOString();
+    } else if (action === 'escalated') {
+      body.offense_level = Math.min(4, level + 1);
+      body.status = 'pending';
+      // Reset lockout to give another 2 days at higher level
+      const ld = new Date(); ld.setDate(ld.getDate() + DISCIPLINE_LOCKOUT_DAYS);
+      body.lockout_after = ld.toISOString();
+      body.resolution_notes = (notes ? notes + '\n\n' : '') + `[Escalated to Level ${body.offense_level} on ${new Date().toLocaleDateString()}]`;
+    } else {
+      body.status = 'pending';
+    }
+    await pbUpdate('incident_reports', id, body);
+    closeModal('incidentDetailModal');
+    loadBbIncidents();
+    toast(`✓ Incident ${action === 'resolved' ? 'cleared — employee can time-in' : action === 'escalated' ? 'escalated' : 'saved'}`, 'ok');
+  } catch (e) { alert('Failed: ' + e.message); }
+}
+
+async function deleteIncident() {
+  const id = document.getElementById('incDetailId').value;
+  if (!confirm('Delete this incident? Hindi reversible. Use only kapag mali ang auto-detect.')) return;
+  try {
+    await fetch(PB_API + '/collections/incident_reports/records/' + id, { method: 'DELETE' });
+    closeModal('incidentDetailModal');
+    loadBbIncidents();
+    toast('✓ Deleted', 'ok');
+  } catch (e) { alert('Failed: ' + e.message); }
+}
+
+function openIncidentModal() {
+  document.getElementById('incNewEmp').value = '';
+  document.getElementById('incNewType').value = 'manual';
+  document.getElementById('incNewLevel').value = '1';
+  document.getElementById('incNewLockoutDays').value = '2';
+  document.getElementById('incNewDesc').value = '';
+  document.getElementById('incidentCreateModal').classList.add('open');
+}
+
+async function saveNewIncident() {
+  const empId = document.getElementById('incNewEmp').value;
+  const type = document.getElementById('incNewType').value;
+  const level = parseInt(document.getElementById('incNewLevel').value) || 1;
+  const days = parseInt(document.getElementById('incNewLockoutDays').value) || 2;
+  const desc = document.getElementById('incNewDesc').value.trim();
+  if (!empId) { alert('Pumili ng employee'); return; }
+  if (!desc) { alert('Description required'); return; }
+  try {
+    const ld = new Date(); ld.setDate(ld.getDate() + days);
+    await pbCreate('incident_reports', {
+      employee_id: empId,
+      type,
+      description: desc,
+      offense_level: level,
+      triggered_by: 'admin_manual',
+      lockout_after: ld.toISOString(),
+      status: 'pending',
+      employee_acknowledged: false,
+      date: new Date().toISOString()
+    });
+    closeModal('incidentCreateModal');
+    loadBbIncidents();
+    toast('✓ Manual incident created', 'ok');
+  } catch (e) { alert('Failed: ' + e.message); }
+}
+
+// Render discipline alert banner on dashboard
+function renderDisciplineBanner(incidents) {
+  let bannerEl = document.getElementById('disciplineBanner');
+  if (!bannerEl) {
+    // Insert at top of dashboard
+    const dash = document.getElementById('view-bbDash');
+    if (!dash) return;
+    bannerEl = document.createElement('div');
+    bannerEl.id = 'disciplineBanner';
+    bannerEl.style.cssText = 'margin-bottom: 14px;';
+    dash.insertBefore(bannerEl, dash.firstChild);
+  }
+  if (!incidents || !incidents.length) { bannerEl.innerHTML = ''; bannerEl.style.display = 'none'; return; }
+  const now = Date.now();
+  const locked = incidents.filter(i => i.lockout_after && new Date(i.lockout_after).getTime() < now);
+  const warnings = incidents.length - locked.length;
+
+  let html = '';
+  if (locked.length > 0) {
+    const names = locked.map(i => (i.expand && i.expand.employee_id && i.expand.employee_id.name) || '?').join(', ');
+    html += `<div style="background: #FEF2F2; border-left: 5px solid #EF4444; padding: 14px 18px; border-radius: 8px; margin-bottom: 8px; display:flex; align-items:center; justify-content:space-between;">
+      <div>
+        <div style="font-weight:700; color:#B91C1C; font-size:14px;">🔒 ${locked.length} employee${locked.length > 1 ? 's' : ''} LOCKED — Cannot Time-In</div>
+        <div style="font-size:12px; color:#7F1D1D; margin-top:4px;">${names}</div>
+      </div>
+      <button class="btn btn-danger btn-sm" onclick="showView('bbIncidents')">Review Now</button>
+    </div>`;
+  }
+  if (warnings > 0) {
+    html += `<div style="background: #FEF3C7; border-left: 5px solid #F59E0B; padding: 12px 16px; border-radius: 8px; display:flex; align-items:center; justify-content:space-between;">
+      <div style="font-weight:600; color:#92400E; font-size:13px;">⚠ ${warnings} active warning${warnings > 1 ? 's' : ''} (employees within 2-day clearance window)</div>
+      <button class="btn btn-secondary btn-sm" onclick="showView('bbIncidents')">View</button>
+    </div>`;
+  }
+  bannerEl.innerHTML = html;
+  bannerEl.style.display = '';
+}
+
+// Update red-dot badge on sidebar Incident Reports nav item
+function updateIncidentBadge(incidents) {
+  const navItem = document.querySelector('.nav-item[data-view="bbIncidents"]');
+  if (!navItem) return;
+  // Remove existing badge
+  const oldBadge = navItem.querySelector('.nav-badge');
+  if (oldBadge) oldBadge.remove();
+  if (!incidents || !incidents.length) return;
+  const now = Date.now();
+  const lockedCount = incidents.filter(i => i.lockout_after && new Date(i.lockout_after).getTime() < now).length;
+  const badge = document.createElement('span');
+  badge.className = 'nav-badge';
+  badge.textContent = incidents.length;
+  badge.style.cssText = `margin-left: auto; background: ${lockedCount > 0 ? '#EF4444' : '#F59E0B'}; color: white; border-radius: 10px; padding: 1px 8px; font-size: 11px; font-weight: 700; min-width: 18px; text-align: center;`;
+  navItem.appendChild(badge);
+}
+
+// Admin clears incident (after Hansei meeting)
+async function clearIncident(incidentId, resolutionNotes) {
+  try {
+    const me = (kioskState.selectedUser && kioskState.selectedUser.name) || 'admin';
+    await pbUpdate('incident_reports', incidentId, {
+      status: 'resolved',
+      resolution_notes: resolutionNotes || '',
+      resolved_by: me,
+      resolved_at: new Date().toISOString()
+    });
+    return { ok: true };
+  } catch (e) { return { ok: false, error: e.message }; }
 }
 
 /* ===================== ADMIN PERMISSIONS + SESSION ===================== */
@@ -5003,6 +5643,9 @@ function viewPhoto(url, label) {
 /* ===================== BBEECO ADMIN VIEWS ===================== */
 async function loadBbDashboard() {
   try {
+    // STEP 1: Auto-detect new disciplinary incidents BEFORE loading stats
+    await detectAndCreateIncidents().catch(()=>{});
+
     const today = todayStr();
     const dayStart = today + ' 00:00:00';
     const [openDtrs, todayDtrs, activeLives, todayLives, incidents] = await Promise.all([
@@ -5019,6 +5662,11 @@ async function loadBbDashboard() {
     document.getElementById('bbStatIncidents').textContent = incidents.length;
     const totalSales = todayLives.reduce((s, l) => s + (l.sales_amount || 0), 0);
     document.getElementById('bbStatSales').textContent = '₱' + totalSales.toLocaleString();
+
+    // STEP 2: Discipline alert banner (red for locked employees, yellow for active warnings)
+    renderDisciplineBanner(incidents);
+    // STEP 3: Update red-dot badge on Incident Reports sidebar item
+    updateIncidentBadge(incidents);
 
     // Today's DTR with photos
     const dtrBody = document.getElementById('bbDashDtrBody');
@@ -7606,6 +8254,7 @@ const EXTRA_PERMS_LIST = [
   { key: 'view_kiosk_admin', label: 'View Kiosk Admin', desc: 'Browser-based kiosk management', group: 'HR' },
   { key: 'edit_dtr', label: 'Edit DTR Records', desc: 'Correct time-in/out entries (forgot to time out, etc.)', group: 'HR' },
   { key: 'review_checkins', label: 'Review Weekly Check-Ins', desc: 'Read/respond to employee reflections', group: 'HR' },
+  { key: 'resolve_incidents', label: 'Resolve Discipline Incidents', desc: 'Clear pending incidents after Hansei meeting (otherwise employees get auto-locked after 2 days)', group: 'HR' },
   // === Operations ===
   { key: 'view_roles', label: 'View Roles & SOPs', desc: 'Browse roles list', group: 'Operations' },
   { key: 'view_roster', label: 'View Shift Roster', desc: 'Hourly roster grid', group: 'Operations' },
@@ -10612,6 +11261,7 @@ async function renderViewSpecific(view) {
   else if (view === 'bbSalesAuth') loadBbSalesAuth();
   else if (view === 'bbAttSettings') loadBbAttSettings();
   else if (view === 'bbEmailSettings') loadEmailSettings();
+  else if (view === 'bbIncidents') loadBbIncidents();
   else if (view === 'bbManualDtr') loadBbManualDtr();
   else if (view === 'bbActions') loadBbActions();
   else {
