@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>BbeeCo Task Management System</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 80'%3E%3Cg%3E%3Cpath d='M 30 8 Q 30 14 32 18' stroke='%231a1a1a' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3Ccircle cx='30' cy='6' r='2' fill='%231a1a1a'/%3E%3Ccircle cx='32' cy='32' r='20' fill='white' stroke='%231a1a1a' stroke-width='2.5'/%3E%3Ccircle cx='25' cy='32' r='2' fill='%231a1a1a'/%3E%3Ccircle cx='38' cy='32' r='2' fill='%231a1a1a'/%3E%3Cpath d='M 26 38 Q 32 44 38 38' stroke='%231a1a1a' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3C/g%3E%3Cg%3E%3Cpath d='M 68 4 Q 68 10 70 14' stroke='%231a1a1a' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3Ccircle cx='68' cy='2' r='2' fill='%231a1a1a'/%3E%3Ccircle cx='70' cy='28' r='20' fill='white' stroke='%231a1a1a' stroke-width='2.5'/%3E%3Ccircle cx='63' cy='28' r='2' fill='%231a1a1a'/%3E%3Ccircle cx='76' cy='28' r='2' fill='%231a1a1a'/%3E%3Cpath d='M 64 34 Q 70 40 76 34' stroke='%231a1a1a' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -9672,7 +9673,12 @@ function kioskBack() {
 
 async function pbFetch(path) {
   const r = await fetch(PB_API + path, { method: 'GET' });
-  if (!r.ok) throw new Error('PB ' + r.status + ': ' + r.statusText);
+  if (!r.ok) {
+    // Read actual error body — r.statusText is empty for HTTP/2 (Railway/Cloudflare strip it)
+    let errBody = '';
+    try { errBody = await r.text(); } catch (e) {}
+    throw new Error('PB ' + r.status + ': ' + (errBody || r.statusText || '(no error body)'));
+  }
   return r.json();
 }
 
@@ -10100,8 +10106,18 @@ async function loadTmsTasksFromPB() {
     saveDB();
     return true;
   } catch (e) {
-    console.warn('PB tasks load failed:', e.message);
-    return false;
+    console.warn('PB tasks load (with expand) failed:', e.message);
+    // Retry without expand — collection may exist but assigned_to isn't a relation field (or no records)
+    try {
+      const tasks = await pbGetList('tms_tasks', { sort: '-created', perPage: 500 });
+      DB.tasks = tasks.map(pbTaskToLocal);
+      saveDB();
+      console.log('[Tasks] Loaded', tasks.length, 'tasks (no expand)');
+      return true;
+    } catch (e2) {
+      console.warn('PB tasks load (no expand) also failed:', e2.message);
+      return false;
+    }
   }
 }
 
