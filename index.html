@@ -4241,7 +4241,7 @@ async function loadKioskUsers(silent = false) {
     const [emps, admins, openDtrs, activeLives, pendingTasks] = await Promise.all([
       pbGetList('employees', { filter: 'is_active=true', sort: 'name', perPage: 500 }),
       pbGetList('admin_accounts', { filter: 'is_active=true', sort: 'name', perPage: 100 }),
-      pbGetList('dtr_logs', { filter: `status="open" && date>="${dayStart}"`, sort: '-time_in', perPage: 500 }),
+      pbGetList('dtr_logs', { filter: `status="open"`, sort: '-time_in', perPage: 500 }),
       pbGetList('live_sessions', { filter: `status="active"`, sort: '-start_time', perPage: 500 }),
       pbGetList('tms_tasks', { filter: 'status!="done"', perPage: 500 }).catch(() => [])
     ]);
@@ -4498,7 +4498,7 @@ async function proceedToActions() {
     const today = todayStr();
     const dayStart = today + ' 00:00:00';
     const [openDtrs, activeLives] = await Promise.all([
-      pbGetList('dtr_logs', { filter: `employee_id="${user.id}" && status="open" && date>="${dayStart}"`, sort: '-time_in' }),
+      pbGetList('dtr_logs', { filter: `employee_id="${user.id}" && status="open"`, sort: '-time_in' }),
       pbGetList('live_sessions', { filter: `employee_id="${user.id}" && status="active"`, sort: '-start_time' })
     ]);
     kioskState.openDtr = openDtrs[0] || null;
@@ -4993,7 +4993,7 @@ async function loadBbDashboard() {
     const today = todayStr();
     const dayStart = today + ' 00:00:00';
     const [openDtrs, todayDtrs, activeLives, todayLives, incidents] = await Promise.all([
-      pbGetList('dtr_logs', { filter: `status="open" && date>="${dayStart}"`, sort: '-time_in', expand: 'employee_id', perPage: 100 }),
+      pbGetList('dtr_logs', { filter: `status="open"`, sort: '-time_in', expand: 'employee_id', perPage: 100 }),
       pbGetList('dtr_logs', { filter: `date>="${dayStart}"`, sort: '-time_in', expand: 'employee_id', perPage: 200 }),
       pbGetList('live_sessions', { filter: 'status="active"', sort: '-start_time', expand: 'employee_id', perPage: 100 }),
       pbGetList('live_sessions', { filter: `date>="${dayStart}"`, sort: '-start_time', expand: 'employee_id', perPage: 200 }),
@@ -8500,6 +8500,18 @@ async function confirmPhotoAction() {
 async function doTimeInWithPhoto() {
   const user = kioskState.selectedUser;
   try {
+    // POKA-YOKE: Server-side check immediately before create.
+    // Prevents duplicate time-ins kahit may stale cache, multi-device race, or filter glitch.
+    const existingOpen = await pbGetList('dtr_logs', { filter: `employee_id="${user.id}" && status="open"`, sort: '-time_in', perPage: 5 });
+    if (existingOpen.length > 0) {
+      const open = existingOpen[0];
+      kioskState.openDtr = open;
+      if (!kioskState.allOpenDtrs) kioskState.allOpenDtrs = {};
+      kioskState.allOpenDtrs[user.id] = open;
+      const sinceMins = Math.floor((Date.now() - new Date(open.time_in).getTime()) / 60000);
+      showResult(false, 'Already Timed In', `Naka-time in ka na, ${user.name}. Time-in: ${fmtTime(open.time_in)} (${sinceMins} mins ago).\n\nMag-Time Out ka na lang kung tapos ka na, o bumalik sa landing.`);
+      return;
+    }
     const now = new Date();
     const fd = new FormData();
     fd.append('employee_id', user.id);
