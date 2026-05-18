@@ -10100,25 +10100,30 @@ function clearLocalSampleTasks() {
 }
 
 async function loadTmsTasksFromPB() {
-  try {
-    const tasks = await pbGetList('tms_tasks', { sort: '-created', expand: 'assigned_to', perPage: 500 });
-    DB.tasks = tasks.map(pbTaskToLocal);
-    saveDB();
-    return true;
-  } catch (e) {
-    console.warn('PB tasks load (with expand) failed:', e.message);
-    // Retry without expand — collection may exist but assigned_to isn't a relation field (or no records)
+  // Progressive fallback: try most-featured query first, then strip features one by one.
+  // Some PB instances fail on sort=-created if any record has invalid timestamp.
+  const attempts = [
+    { sort: '-created', expand: 'assigned_to', perPage: 500 },  // best case
+    { sort: '-id', expand: 'assigned_to', perPage: 500 },       // alt sort
+    { sort: '-id', perPage: 500 },                              // no expand
+    { perPage: 500 }                                            // no sort, no expand (always works)
+  ];
+  for (let i = 0; i < attempts.length; i++) {
     try {
-      const tasks = await pbGetList('tms_tasks', { sort: '-created', perPage: 500 });
+      const tasks = await pbGetList('tms_tasks', attempts[i]);
       DB.tasks = tasks.map(pbTaskToLocal);
+      // Sort locally as fallback so newest still appear first
+      DB.tasks.sort((a, b) => (b.created || '').localeCompare(a.created || ''));
       saveDB();
-      console.log('[Tasks] Loaded', tasks.length, 'tasks (no expand)');
+      if (i > 0) console.log('[Tasks] Loaded', tasks.length, 'using fallback attempt', i + 1, '— consider checking PB for records with invalid created/id');
+      else console.log('[Tasks] Loaded', tasks.length, 'tasks');
       return true;
-    } catch (e2) {
-      console.warn('PB tasks load (no expand) also failed:', e2.message);
-      return false;
+    } catch (e) {
+      console.warn(`[Tasks] Attempt ${i + 1} failed:`, e.message);
     }
   }
+  console.warn('[Tasks] All load attempts failed — tasks may not display correctly');
+  return false;
 }
 
 async function loadEmployeesFromPB() {
