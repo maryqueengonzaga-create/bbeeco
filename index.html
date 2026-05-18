@@ -111,8 +111,7 @@
   .nav-section:hover { background: var(--bb-honey-light); }
   .nav-section::after { content: '▾'; font-size: 11px; transition: transform 0.2s; }
   .nav-section.collapsed::after { transform: rotate(-90deg); }
-  /* Hide nav-items within collapsed section */
-  .nav-section.collapsed ~ .nav-item:not(.nav-section ~ .nav-section ~ .nav-item) { display: none !important; }
+  /* Note: nav-item hide/show is done via JS in toggleSectionItems() — CSS sibling-based hiding is unreliable */
   .sidebar-search { padding: 8px 12px; }
   .sidebar-search input { width: 100%; padding: 8px 10px; border: 1px solid var(--bb-border); border-radius: 6px; font-size: 12px; box-sizing: border-box; }
   .sidebar-search input:focus { outline: 2px solid var(--bb-honey); border-color: var(--bb-honey); }
@@ -8209,27 +8208,47 @@ async function saveManualDtr() {
     if (id) saved = await pbUpdate('dtr_logs', id, body);
     else saved = await pbCreate('dtr_logs', body);
 
-    // ALSO create a matching live_session if type='live_sell' and time_out is set
+    // ALSO create or update a matching live_session if type='live_sell' and time_out is set
     // This ensures payroll compute (which reads from live_sessions) sees the live hours
     const dtrType = document.getElementById('mdType').value;
-    if (!id && dtrType === 'live_sell' && timeOut) {
+    if (dtrType === 'live_sell' && timeOut) {
       const tOutDate = new Date(`${date}T${timeOut}:00`);
       const dur = parseFloat(((tOutDate - tInDate) / 3600000).toFixed(2));
+      const liveBody = {
+        employee_id: emp,
+        start_time: localPbDate(tInDate),
+        end_time: localPbDate(tOutDate),
+        duration_hours: dur,
+        status: 'done',
+        date: localPbDateOnly(date),
+        platform: 'FB Live',
+        sales_amount: document.getElementById('mdSales').value ? parseFloat(document.getElementById('mdSales').value) : 0
+      };
       try {
-        await pbCreate('live_sessions', {
-          employee_id: emp,
-          start_time: localPbDate(tInDate),
-          end_time: localPbDate(tOutDate),
-          duration_hours: dur,
-          status: 'done',
-          date: localPbDateOnly(date),
-          platform: 'FB Live',  // default — admin can edit later
-          sales_amount: document.getElementById('mdSales').value ? parseFloat(document.getElementById('mdSales').value) : 0
-        });
+        if (id) {
+          // UPDATE mode: look for existing live_session for this emp+date and update it, else create
+          const existingLive = await pbGetList('live_sessions', {
+            filter: `employee_id="${emp}" && date>="${date} 00:00:00" && date<="${date} 23:59:59"`,
+            perPage: 5
+          });
+          if (existingLive.length > 0) {
+            await pbUpdate('live_sessions', existingLive[0].id, liveBody);
+            console.log('[Manual Live] Updated existing live_session', existingLive[0].id);
+          } else {
+            const created = await pbCreate('live_sessions', liveBody);
+            console.log('[Manual Live] Created new live_session', created.id, 'for', dur, 'hrs');
+          }
+        } else {
+          const created = await pbCreate('live_sessions', liveBody);
+          console.log('[Manual Live] Created live_session', created.id, 'for', dur, 'hrs on', date);
+        }
+        toast('✓ DTR + Live session saved (' + dur.toFixed(2) + ' live hrs)', 'ok');
       } catch (liveErr) {
-        console.warn('Failed to also create live_session:', liveErr.message);
-        toast('⚠ DTR saved pero live_session creation failed: ' + liveErr.message, 'warn');
+        console.error('[Manual Live] FAILED:', liveErr.message);
+        toast('⚠ DTR saved pero live_session FAILED: ' + liveErr.message + ' — check live_sessions schema sa PB', 'err');
       }
+    } else {
+      toast('✓ DTR entry saved' + (dtrType === 'live_sell' && !timeOut ? ' (live_session not created — time_out required)' : ''), 'ok');
     }
 
     // Log to action_log (non-blocking)
@@ -8246,7 +8265,7 @@ async function saveManualDtr() {
     } catch (logErr) { console.warn('audit log failed:', logErr.message); }
     closeModal('manualDtrModal');
     loadBbManualDtr();
-    toast(dtrType === 'live_sell' && timeOut ? '✓ DTR + Live session saved' : '✓ DTR entry saved (logged sa audit)', 'ok');
+    // Toast already shown inside the live_session block (or in the else branch)
   } catch (e) { toast('Failed: ' + e.message, 'err'); }
 }
 
@@ -8415,7 +8434,8 @@ const EXTRA_PERMS_LIST = [
   { key: 'view_task_review', label: 'Review/Rate Tasks', desc: 'Rate completed tasks 1-5 stars', group: 'Tasks' },
   { key: 'view_task_summary', label: 'View Task Summary', desc: 'Weekly per-employee task performance', group: 'Tasks' },
   // === HR / Employees ===
-  { key: 'view_employees', label: 'View Employees (basic)', desc: 'Can see employee list', group: 'HR' },
+  { key: 'view_dtr', label: 'View HR & Employees', desc: 'Access HR module: employee records, DTR review', group: 'HR' },
+  { key: 'view_employees', label: 'View Employees (basic)', desc: 'Can see employee list (sidebar Employees tab)', group: 'HR' },
   { key: 'view_live_dtr', label: 'View Live DTR', desc: 'Real-time time-in/out tracker', group: 'HR' },
   { key: 'view_kiosk_admin', label: 'View Kiosk Admin', desc: 'Browser-based kiosk management', group: 'HR' },
   { key: 'edit_dtr', label: 'Edit DTR Records', desc: 'Correct time-in/out entries (forgot to time out, etc.)', group: 'HR' },
@@ -10196,6 +10216,8 @@ document.querySelectorAll('.nav-item').forEach(item => {
       bbAdmins: ['Admin Accounts', 'Owner + subadmin accounts with granular permissions'],
       bbSalesAuth: ['Sales Authorization', 'Pumili kung sino ang pwedeng mag-log ng non-live sales'],
       bbAttSettings: ['Attendance Settings', 'Configure default at per-employee attendance method'],
+      bbEmailSettings: ['Email & Notifications', 'EmailJS setup + alerts for payroll, late, emergency tasks'],
+      bbIncidents: ['Incident Reports', 'Discipline tracker — auto-detection + Hansei + lockout workflow'],
       bbManualDtr: ['Manual Attendance', 'Add/edit DTR records manually (when kiosk fails)'],
       bbActions: ['Action Log', 'Audit trail of all admin write operations'],
       fives: ['5S Audit', 'Workplace organization — Seiri Seiton Seiso Seiketsu Shitsuke'],
@@ -10204,8 +10226,10 @@ document.querySelectorAll('.nav-item').forEach(item => {
       reports: ['KPI Reports', 'Quality + Quantity performance reports'],
       help: ['Guide', 'How to use the BbeeCo TMS']
     };
-    document.getElementById('viewTitle').textContent = titles[view][0];
-    document.getElementById('viewSubtitle').textContent = titles[view][1];
+    // Defensive: fall back to view ID if title not registered (no crash)
+    const t = titles[view] || [view, ''];
+    document.getElementById('viewTitle').textContent = t[0];
+    document.getElementById('viewSubtitle').textContent = t[1];
     renderViewSpecific(view);
   });
 });
