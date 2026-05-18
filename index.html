@@ -1234,10 +1234,46 @@
 <div id="kioskScreen" class="kiosk-screen">
   <div class="kiosk-header">
     <div class="kiosk-brand" onclick="handleLogoTap()" style="cursor: pointer; user-select: none; -webkit-user-select: none;" title="Tap 5 times for admin access">
-      <div class="brand-mark" id="kioskLogo" style="width: 44px; height: 44px; font-size: 20px; transition: transform 0.15s;">B</div>
+      <div id="kioskLogo" style="width: 52px; height: 52px; display: flex; align-items: center; justify-content: center; transition: transform 0.15s;">
+        <!-- BbeeCo logo: two cute baby/bee faces -->
+        <svg viewBox="0 0 100 80" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: 100%;">
+          <!-- Left baby -->
+          <g>
+            <!-- Antenna -->
+            <path d="M 30 8 Q 30 14 32 18" stroke="#1a1a1a" stroke-width="2" fill="none" stroke-linecap="round"/>
+            <circle cx="30" cy="6" r="2" fill="#1a1a1a"/>
+            <!-- Head circle -->
+            <circle cx="32" cy="32" r="20" fill="white" stroke="#1a1a1a" stroke-width="2.5"/>
+            <!-- Ears -->
+            <ellipse cx="12" cy="32" rx="3.5" ry="5" fill="white" stroke="#1a1a1a" stroke-width="2"/>
+            <ellipse cx="52" cy="32" rx="3.5" ry="5" fill="white" stroke="#1a1a1a" stroke-width="2"/>
+            <!-- Eyes -->
+            <circle cx="25" cy="32" r="2" fill="#1a1a1a"/>
+            <circle cx="38" cy="32" r="2" fill="#1a1a1a"/>
+            <!-- Smile -->
+            <path d="M 26 38 Q 32 44 38 38" stroke="#1a1a1a" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+          </g>
+          <!-- Right baby (slightly higher) -->
+          <g>
+            <!-- Antenna -->
+            <path d="M 68 4 Q 68 10 70 14" stroke="#1a1a1a" stroke-width="2" fill="none" stroke-linecap="round"/>
+            <circle cx="68" cy="2" r="2" fill="#1a1a1a"/>
+            <!-- Head circle -->
+            <circle cx="70" cy="28" r="20" fill="white" stroke="#1a1a1a" stroke-width="2.5"/>
+            <!-- Ears -->
+            <ellipse cx="50" cy="28" rx="3.5" ry="5" fill="white" stroke="#1a1a1a" stroke-width="2"/>
+            <ellipse cx="90" cy="28" rx="3.5" ry="5" fill="white" stroke="#1a1a1a" stroke-width="2"/>
+            <!-- Eyes -->
+            <circle cx="63" cy="28" r="2" fill="#1a1a1a"/>
+            <circle cx="76" cy="28" r="2" fill="#1a1a1a"/>
+            <!-- Smile -->
+            <path d="M 64 34 Q 70 40 76 34" stroke="#1a1a1a" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+          </g>
+        </svg>
+      </div>
       <div>
-        <h1 style="font-size: 17px; margin: 0; font-weight: 600;">Bbee<span style="color: var(--bb-honey-dark);">.Co</span></h1>
-        <small style="font-size: 10px; letter-spacing: 0.5px;" id="kioskTapHint">Unified System</small>
+        <h1 style="font-size: 18px; margin: 0; font-weight: 700; letter-spacing: -0.5px;">Bbee<span style="color: var(--bb-honey-dark);">.Co</span></h1>
+        <small style="font-size: 10px; letter-spacing: 0.5px; color: #888;" id="kioskTapHint">Unified System</small>
       </div>
     </div>
     <div class="kiosk-clock">
@@ -1567,7 +1603,30 @@
 <div id="empModeScreen" class="emp-mode-screen" style="display: none;">
   <div class="emp-mode-topbar">
     <div style="display: flex; align-items: center; gap: 12px;">
-      <div class="brand-mark">B</div>
+      <div style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;">
+        <svg viewBox="0 0 100 80" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: 100%;">
+          <g>
+            <path d="M 30 8 Q 30 14 32 18" stroke="#1a1a1a" stroke-width="2" fill="none" stroke-linecap="round"/>
+            <circle cx="30" cy="6" r="2" fill="#1a1a1a"/>
+            <circle cx="32" cy="32" r="20" fill="white" stroke="#1a1a1a" stroke-width="2.5"/>
+            <ellipse cx="12" cy="32" rx="3.5" ry="5" fill="white" stroke="#1a1a1a" stroke-width="2"/>
+            <ellipse cx="52" cy="32" rx="3.5" ry="5" fill="white" stroke="#1a1a1a" stroke-width="2"/>
+            <circle cx="25" cy="32" r="2" fill="#1a1a1a"/>
+            <circle cx="38" cy="32" r="2" fill="#1a1a1a"/>
+            <path d="M 26 38 Q 32 44 38 38" stroke="#1a1a1a" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+          </g>
+          <g>
+            <path d="M 68 4 Q 68 10 70 14" stroke="#1a1a1a" stroke-width="2" fill="none" stroke-linecap="round"/>
+            <circle cx="68" cy="2" r="2" fill="#1a1a1a"/>
+            <circle cx="70" cy="28" r="20" fill="white" stroke="#1a1a1a" stroke-width="2.5"/>
+            <ellipse cx="50" cy="28" rx="3.5" ry="5" fill="white" stroke="#1a1a1a" stroke-width="2"/>
+            <ellipse cx="90" cy="28" rx="3.5" ry="5" fill="white" stroke="#1a1a1a" stroke-width="2"/>
+            <circle cx="63" cy="28" r="2" fill="#1a1a1a"/>
+            <circle cx="76" cy="28" r="2" fill="#1a1a1a"/>
+            <path d="M 64 34 Q 70 40 76 34" stroke="#1a1a1a" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+          </g>
+        </svg>
+      </div>
       <div>
         <h2 style="margin: 0; font-size: 18px;">Welcome, <span id="empModeName">—</span></h2>
         <small id="empModeRole" style="color: #666;">—</small>
@@ -4153,11 +4212,28 @@ function cancelHold() {
   holdAction = null;
 }
 
-async function loadKioskUsers() {
+/* Auto-refresh kiosk landing every 30s so multi-device IN/OUT badges stay current */
+let _kioskAutoRefreshTimer = null;
+function startKioskAutoRefresh() {
+  if (_kioskAutoRefreshTimer) clearInterval(_kioskAutoRefreshTimer);
+  _kioskAutoRefreshTimer = setInterval(() => {
+    // Only refresh if we're on the landing screen (not mid-action)
+    if (kioskState.step === 'name' || document.getElementById('kioskStepName').classList.contains('active')) {
+      loadKioskUsers(true);  // silent mode (no spinner)
+    }
+  }, 30000);  // 30s
+}
+function stopKioskAutoRefresh() {
+  if (_kioskAutoRefreshTimer) { clearInterval(_kioskAutoRefreshTimer); _kioskAutoRefreshTimer = null; }
+}
+
+async function loadKioskUsers(silent = false) {
   const grid = document.getElementById('kioskNameGrid');
   const conn = document.getElementById('kioskConn');
-  conn.className = 'conn-pill loading';
-  conn.innerHTML = '<span class="conn-dot"></span> Connecting...';
+  if (!silent) {
+    conn.className = 'conn-pill loading';
+    conn.innerHTML = '<span class="conn-dot"></span> Connecting...';
+  }
 
   try {
     const today = todayStr();
@@ -8426,6 +8502,13 @@ async function doTimeInWithPhoto() {
       const t = await r.text();
       throw new Error('PB ' + r.status + ': ' + t);
     }
+    const created = await r.json();
+    // Update local cache so landing badge shows correct status immediately
+    kioskState.openDtr = created;
+    if (!kioskState.allOpenDtrs) kioskState.allOpenDtrs = {};
+    kioskState.allOpenDtrs[user.id] = created;
+    // Force refresh of landing screen badges in background (for multi-device sync, next user sees it)
+    loadKioskUsers(true).catch(()=>{});
     showResult(true, 'Time-In Recorded', `Good day, ${user.name}! Naka-clock in ka na sa ${fmtTime(now)}.`);
   } catch (e) {
     showResult(false, 'Time-In Failed', e.message);
@@ -8452,6 +8535,10 @@ async function doTimeOutWithPhoto() {
       const t = await r.text();
       throw new Error('PB ' + r.status + ': ' + t);
     }
+    // Update local cache so landing badge shows OUT immediately
+    kioskState.openDtr = null;
+    if (kioskState.allOpenDtrs && kioskState.allOpenDtrs[user.id]) delete kioskState.allOpenDtrs[user.id];
+    loadKioskUsers(true).catch(()=>{});
     showResult(true, 'Time-Out Recorded', `Salamat, ${user.name}! Total hours: ${hours.toFixed(2)}h.`);
   } catch (e) {
     showResult(false, 'Time-Out Failed', e.message);
@@ -8602,6 +8689,7 @@ function kioskLogout() {
   document.getElementById('kioskScreen').style.display = 'flex';
   goKioskStep('kioskStepName');
   loadKioskUsers();
+  startKioskAutoRefresh();  // ensure auto-refresh is running
 }
 
 function kioskBack() {
@@ -10078,16 +10166,28 @@ function saveRole() {
   else { data.id = uid('r'); DB.roles.push(data); }
   saveDB();
   closeModal('roleModal');
-  renderAll();
+  populateEmpSelects();  // refresh role dropdown so new role appears in Slot Modal
+  renderAll();           // re-renders roster too
+  toast(id ? '✓ Role updated' : '✓ Role added — now visible sa Shift Roster', 'ok');
 }
 
 function deleteRole() {
   const id = document.getElementById('rId').value;
-  if (!confirm('Delete role? May mga slots na maa-affect.')) return;
+  // Check for orphan slots that would result from deletion
+  const affectedSlots = (DB.slots || []).filter(s => s.role === id);
+  let msg = 'Delete role?';
+  if (affectedSlots.length) {
+    msg = `Delete role? May ${affectedSlots.length} slot(s) na maa-affect — sila rin ay ide-delete (cascade) para hindi maging "Unknown" sa Shift Roster.`;
+  }
+  if (!confirm(msg)) return;
   DB.roles = DB.roles.filter(r => r.id !== id);
+  // Cascade delete slots referencing this role
+  DB.slots = (DB.slots || []).filter(s => s.role !== id);
   saveDB();
   closeModal('roleModal');
+  populateEmpSelects();
   renderAll();
+  toast('✓ Role + ' + affectedSlots.length + ' associated slot(s) deleted', 'ok');
 }
 
 /* ===================== SHIFT ROSTER ===================== */
@@ -10096,21 +10196,26 @@ function renderRoster() {
   if (!dateEl.value) dateEl.value = todayStr();
   const date = dateEl.value;
 
+  // Self-heal: remove any orphan slots (referencing deleted roles or employees)
+  const validRoleIds = new Set((DB.roles || []).map(r => r.id));
+  const validEmpIds = new Set([...(DB.employees || []).map(e => e.id), ...(PB_CACHE.employees || []).map(e => e.id)]);
+  const orphans = (DB.slots || []).filter(s => !validRoleIds.has(s.role) || (s.emp && !validEmpIds.has(s.emp)));
+  if (orphans.length) {
+    DB.slots = (DB.slots || []).filter(s => validRoleIds.has(s.role) && (!s.emp || validEmpIds.has(s.emp)));
+    saveDB();
+    console.warn('[Roster] Auto-cleaned ' + orphans.length + ' orphan slot(s) (deleted role/employee)');
+  }
+
   const daySlots = DB.slots.filter(s => s.date === date);
   const grid = document.getElementById('rosterGrid');
 
-  // Build hourly grid: hours 6-22 as rows, columns for each unique role on this day
+  // Build hourly grid: hours 6-22 as rows, columns for each role
   const hours = [];
   for (let h = 6; h <= 22; h++) hours.push(h);
 
-  // Get all roles that have at least one slot in roster history OR all roles if none yet today
-  let activeRoles = [...new Set(daySlots.map(s => s.role))];
-  if (!activeRoles.length) activeRoles = DB.roles.slice(0, 6).map(r => r.id);
-  // Ensure at least all roles with slots on previous 7 days included
-  const recentDates = [...new Set(DB.slots.map(s => s.date))].slice(-7);
-  DB.slots.filter(s => recentDates.includes(s.date)).forEach(s => {
-    if (!activeRoles.includes(s.role)) activeRoles.push(s.role);
-  });
+  // Always show ALL active roles (so new roles always appear), preserve original order from DB.roles
+  let activeRoles = (DB.roles || []).filter(r => r.is_active !== false).map(r => r.id);
+  if (!activeRoles.length) activeRoles = (DB.roles || []).slice(0, 6).map(r => r.id);
 
   // Header
   let html = '<thead><tr><th class="time-col">Time</th>';
@@ -10393,6 +10498,7 @@ async function init() {
   goKioskStep('kioskStepName');
   startKioskClock();
   loadKioskUsers();
+  startKioskAutoRefresh();
 }
 
 init();
