@@ -5080,11 +5080,22 @@ async function detectAndCreateIncidents() {
         const lockoutDate = new Date();
         lockoutDate.setDate(lockoutDate.getDate() + DISCIPLINE_LOCKOUT_DAYS);
         const lockoutStr = lockoutDate.toISOString().substring(0, 10) + 'T23:59:59.000Z';
+        // Compute strike_number based on prior incidents for this employee
+        let strikeNumber = 1;
+        try {
+          const prior = await pbGetList('incident_reports', { filter: `employee_id="${empId}"`, perPage: 100 });
+          strikeNumber = prior.length + 1;
+        } catch (e) { /* default 1 */ }
+        const incidentReason = `Habitual tardiness: ${lateCount} lates in cutoff ${startStr} to ${endStr} (BbeeCo Attendance Policy §3.3)`;
         try {
           await pbCreate('incident_reports', {
             employee_id: empId,
             type: 'late_habitual',
-            description: `Habitual tardiness: ${lateCount} lates in cutoff ${startStr} to ${endStr} (BbeeCo Attendance Policy §3.3)`,
+            // Legacy required fields
+            reason: incidentReason,
+            strike_number: strikeNumber,
+            // New discipline fields
+            description: incidentReason,
             offense_level: 1,
             triggered_by: 'system_auto',
             lockout_after: lockoutStr,
@@ -5335,10 +5346,21 @@ async function saveNewIncident() {
   if (!empId) { alert('Pumili ng employee'); return; }
   if (!desc) { alert('Description required'); return; }
   try {
+    // Compute strike_number: count of existing pending/resolved incidents for this employee + 1
+    let strikeNumber = 1;
+    try {
+      const prior = await pbGetList('incident_reports', { filter: `employee_id="${empId}"`, perPage: 100 });
+      strikeNumber = prior.length + 1;
+    } catch (e) { /* fall back to 1 */ }
+
     const ld = new Date(); ld.setDate(ld.getDate() + days);
     await pbCreate('incident_reports', {
       employee_id: empId,
       type,
+      // Legacy required fields (existing PB schema)
+      reason: desc,
+      strike_number: strikeNumber,
+      // New discipline-system fields
       description: desc,
       offense_level: level,
       triggered_by: 'admin_manual',
@@ -5349,7 +5371,7 @@ async function saveNewIncident() {
     });
     closeModal('incidentCreateModal');
     loadBbIncidents();
-    toast('✓ Manual incident created', 'ok');
+    toast('✓ Manual incident created (strike #' + strikeNumber + ')', 'ok');
   } catch (e) { alert('Failed: ' + e.message); }
 }
 
@@ -5423,10 +5445,66 @@ async function clearIncident(incidentId, resolutionNotes) {
 }
 
 /* ===================== ADMIN PERMISSIONS + SESSION ===================== */
-const ADMIN_SESSION_DURATION = 4 * 60 * 60 * 1000; // 4 hours
+const ADMIN_SESSION_DURATION = 4 * 60 * 60 * 1000; // 4 hours total hard cap
+const ADMIN_IDLE_TIMEOUT_MS = 15 * 60 * 1000;       // 15 minutes idle → auto-logout
+const ADMIN_IDLE_WARN_MS = 60 * 1000;               // show warning 1 min before idle logout
 const SESSION_STORAGE_KEY = 'bbeeco_admin_session_v1';
+const ACTIVE_VIEW_STORAGE_KEY = 'bbeeco_last_view_v1';
 let adminSessionTimer = null;
 let adminSessionStart = null;
+let _lastActivityAt = Date.now();
+let _idleCheckTimer = null;
+let _idleWarnShown = false;
+
+// Track user activity (mouse, keyboard, touch) to reset idle timer
+function _onAdminActivity() {
+  _lastActivityAt = Date.now();
+  if (_idleWarnShown) {
+    _idleWarnShown = false;
+    const warn = document.getElementById('idleWarnBanner');
+    if (warn) warn.style.display = 'none';
+  }
+}
+function startIdleMonitor() {
+  ['mousemove', 'keydown', 'touchstart', 'click'].forEach(ev => {
+    document.addEventListener(ev, _onAdminActivity, { passive: true });
+  });
+  _lastActivityAt = Date.now();
+  _idleWarnShown = false;
+  if (_idleCheckTimer) clearInterval(_idleCheckTimer);
+  _idleCheckTimer = setInterval(() => {
+    const idle = Date.now() - _lastActivityAt;
+    if (idle >= ADMIN_IDLE_TIMEOUT_MS) {
+      clearInterval(_idleCheckTimer);
+      _idleCheckTimer = null;
+      alert('Idle timeout: ' + (ADMIN_IDLE_TIMEOUT_MS/60000) + ' mins of inactivity. Logging out for security.');
+      kioskLogout();
+    } else if (idle >= ADMIN_IDLE_TIMEOUT_MS - ADMIN_IDLE_WARN_MS && !_idleWarnShown) {
+      _idleWarnShown = true;
+      showIdleWarning();
+    }
+  }, 10000);  // check every 10s
+}
+function stopIdleMonitor() {
+  if (_idleCheckTimer) { clearInterval(_idleCheckTimer); _idleCheckTimer = null; }
+  ['mousemove', 'keydown', 'touchstart', 'click'].forEach(ev => {
+    document.removeEventListener(ev, _onAdminActivity);
+  });
+  _idleWarnShown = false;
+  const warn = document.getElementById('idleWarnBanner');
+  if (warn) warn.style.display = 'none';
+}
+function showIdleWarning() {
+  let warn = document.getElementById('idleWarnBanner');
+  if (!warn) {
+    warn = document.createElement('div');
+    warn.id = 'idleWarnBanner';
+    warn.style.cssText = 'position:fixed; top:14px; left:50%; transform:translateX(-50%); z-index:10000; background:#FEF3C7; color:#92400E; border:2px solid #F59E0B; padding:10px 18px; border-radius:8px; font-size:13px; font-weight:600; box-shadow:0 6px 24px rgba(0,0,0,0.15);';
+    document.body.appendChild(warn);
+  }
+  warn.textContent = '⚠ Idle for ' + Math.floor((ADMIN_IDLE_TIMEOUT_MS - ADMIN_IDLE_WARN_MS)/60000) + ' mins — logout in 1 minute. Move mouse or press any key to stay logged in.';
+  warn.style.display = '';
+}
 
 /* JIS-standard session persistence — survives page refresh, expires after timeout, audit-logged */
 function saveAdminSession(admin, startTs) {
@@ -5500,6 +5578,19 @@ async function attemptSessionRestore() {
     }
     const minsLeft = Math.floor((saved.expiresAt - Date.now()) / 60000);
     toast(`✓ Session restored: ${admin.name} — ${minsLeft} mins remaining`, 'ok');
+
+    // Restore last active view (so refresh returns to same page, not Dashboard)
+    try {
+      const lastView = localStorage.getItem(ACTIVE_VIEW_STORAGE_KEY);
+      if (lastView) {
+        const targetNav = document.querySelector(`.nav-item[data-view="${lastView}"]`);
+        if (targetNav && targetNav.style.display !== 'none') {
+          // Defer click slightly so all DOM/event handlers are ready
+          setTimeout(() => targetNav.click(), 50);
+        }
+      }
+    } catch (e) { /* ignore */ }
+
     return true;
   } catch (e) { console.warn('Session restore failed:', e); clearAdminSession(); return false; }
 }
@@ -5602,6 +5693,8 @@ function startAdminSession(resume = false) {
   if (!resume) adminSessionStart = Date.now();
   // Persist session to localStorage (survives refresh)
   if (kioskState.selectedUser) saveAdminSession(kioskState.selectedUser, adminSessionStart);
+  // Start idle monitor (15-min idle = auto-logout)
+  startIdleMonitor();
   const timerEl = document.getElementById('sessionTimer');
   timerEl.style.display = '';
   if (adminSessionTimer) clearInterval(adminSessionTimer);
@@ -5631,6 +5724,8 @@ function stopAdminSession() {
   document.getElementById('adminBadge').style.display = 'none';
   window.CURRENT_PERMS = null;
   clearAdminSession();
+  stopIdleMonitor();
+  try { localStorage.removeItem(ACTIVE_VIEW_STORAGE_KEY); } catch (e) {}
 }
 
 /* ===================== PHOTO VIEWER ===================== */
@@ -10001,6 +10096,8 @@ document.querySelectorAll('.nav-item').forEach(item => {
     item.classList.add('active');
     const view = item.dataset.view;
     activeView = view;
+    // Persist active view to localStorage so refresh returns to same page
+    try { localStorage.setItem(ACTIVE_VIEW_STORAGE_KEY, view); } catch (e) {}
     document.getElementById('view-' + view).classList.add('active');
     const titles = {
       dashboard: ['Dashboard Overview', 'Buong overview ng tasks at employee performance'],
