@@ -9443,45 +9443,8 @@ async function confirmPhotoAction() {
   capturedPhotoBlob = null;
 }
 
-// JIS Andon: compute late minutes from employee's schedule. Never throws — fail-open.
-// Wrapped with timeout (3s) so slow network doesn't block time-in.
-async function computeLateMinutesFromSchedule(empId, timeInDate) {
-  try {
-    const dateStr = todayStr();
-    const lookup = pbGetList('schedules', {
-      filter: `employee_id="${empId}"`,
-      sort: '-week_start', perPage: 10
-    });
-    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000));
-    const schedules = await Promise.race([lookup, timeout]);
-    if (!schedules || !schedules.length) return { lateMins: 0, reason: 'no_schedule' };
-
-    // Find the schedule whose week contains today
-    const today = dateStr;
-    const sched = schedules.find(s => {
-      const ws = (s.week_start || '').substring(0, 10);
-      const we = (s.week_end || '').substring(0, 10);
-      return ws <= today && we >= today;
-    }) || schedules[0];  // fallback to most recent
-
-    const dayOfWeek = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][timeInDate.getDay()];
-    const schedTime = sched[dayOfWeek + '_start'];
-    if (!schedTime) return { lateMins: 0, reason: 'day_off' };
-
-    const schedDt = new Date(dateStr + 'T' + schedTime + ':00');
-    if (isNaN(schedDt.getTime())) return { lateMins: 0, reason: 'invalid_sched_time' };
-    const diffMs = timeInDate.getTime() - schedDt.getTime();
-    const lateMins = Math.max(0, Math.floor(diffMs / 60000));
-    return { lateMins, scheduledStart: schedTime };
-  } catch (e) {
-    console.warn('[Late] Schedule lookup skipped:', e.message);
-    return { lateMins: 0, reason: 'lookup_failed' };
-  }
-}
-
 async function doTimeInWithPhoto() {
   const user = kioskState.selectedUser;
-  console.log('[TimeIn] Starting for', user && user.name);
   try {
     // POKA-YOKE: Server-side check immediately before create.
     // Prevents duplicate time-ins kahit may stale cache, multi-device race, or filter glitch.
@@ -9495,11 +9458,7 @@ async function doTimeInWithPhoto() {
       showResult(false, 'Already Timed In', `Naka-time in ka na, ${user.name}. Time-in: ${fmtTime(open.time_in)} (${sinceMins} mins ago).\n\nMag-Time Out ka na lang kung tapos ka na, o bumalik sa landing.`);
       return;
     }
-
     const now = new Date();
-    console.log('[TimeIn] Saving record...');
-
-    // Save time-in FIRST (don't block on schedule lookup)
     const fd = new FormData();
     fd.append('employee_id', user.id);
     fd.append('time_in', localPbDate(now));
@@ -9515,35 +9474,14 @@ async function doTimeInWithPhoto() {
       throw new Error('PB ' + r.status + ': ' + t);
     }
     const created = await r.json();
-    console.log('[TimeIn] Saved successfully:', created.id);
-
-    // Update local cache
+    // Update local cache so landing badge shows correct status immediately
     kioskState.openDtr = created;
     if (!kioskState.allOpenDtrs) kioskState.allOpenDtrs = {};
     kioskState.allOpenDtrs[user.id] = created;
-
-    // Show result IMMEDIATELY — don't wait for schedule lookup
+    // Force refresh of landing screen badges in background (for multi-device sync, next user sees it)
+    loadKioskUsers(true).catch(()=>{});
     showResult(true, 'Time-In Recorded', `Good day, ${user.name}! Naka-clock in ka na sa ${fmtTime(now)}.`);
-
-    // NOW do late detection in background (non-blocking, fail-safe)
-    setTimeout(async () => {
-      try {
-        const lateCheck = await computeLateMinutesFromSchedule(user.id, now);
-        console.log('[TimeIn] Late check (background):', user.name, lateCheck);
-        if (lateCheck.lateMins > 5) {
-          // Update the DTR record with late_minutes
-          await pbUpdate('dtr_logs', created.id, { late_minutes: lateCheck.lateMins }).catch(e => console.warn('[Late] Failed to update record:', e.message));
-          // Trigger habitual tardiness detection
-          detectAndCreateIncidents().catch(err => console.warn('[Discipline] post-time-in detect failed:', err));
-        }
-        // Background refresh of landing badges
-        loadKioskUsers(true).catch(() => {});
-      } catch (e) {
-        console.warn('[Late] Background tasks failed (non-critical):', e.message);
-      }
-    }, 100);  // fire-and-forget, 100ms delay so showResult renders first
   } catch (e) {
-    console.error('[TimeIn] FAILED:', e);
     showResult(false, 'Time-In Failed', e.message);
   }
 }
