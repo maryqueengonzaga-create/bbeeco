@@ -3493,6 +3493,7 @@ Hi {{to_name}},
               <button class="btn btn-secondary btn-sm" onclick="exportToCsv('incident_reports')">⬇ CSV</button>
               <button class="btn btn-secondary btn-sm" onclick="loadBbIncidents()">⟳ Refresh</button>
               <button class="btn btn-primary btn-sm" onclick="openIncidentModal()">+ Manual Incident</button>
+              <button class="btn btn-danger btn-sm" onclick="clearAllPendingIncidents()" data-owner-only title="Owner emergency: resolve ALL pending incidents (used when employees blocked by accumulated warnings)">🚨 Clear All Pending</button>
             </div>
           </div>
           <p style="font-size: 12px; color: var(--bb-gray); margin-bottom: 12px;">
@@ -3748,24 +3749,22 @@ Hi {{to_name}},
       <div class="modal-bg" id="incidentWarnModal">
         <div class="modal" style="max-width: 540px; border-top: 6px solid #F59E0B;">
           <div class="modal-header" style="background: #FEF3C7;">
-            <h3 style="color: #92400E;">⚠ Notification — Action Required</h3>
+            <h3 style="color: #92400E;">⚠ Heads Up — Pending Incidents</h3>
           </div>
           <div class="modal-body">
-            <p style="font-size: 13px; color: #92400E; font-weight: 600; margin-bottom: 10px;">You have unresolved incident(s):</p>
+            <p style="font-size: 13px; color: #92400E; font-weight: 600; margin-bottom: 10px;">Hi! You have unresolved incident(s) from admin:</p>
             <ul id="incidentWarnList" style="margin: 0 0 14px 0; padding-left: 18px; background: white; border: 1px solid #FDE68A; border-radius: 8px; padding: 14px 14px 14px 32px;"></ul>
             <div style="background: #EFF6FF; border-left: 4px solid #3B82F6; padding: 12px 14px; border-radius: 6px; font-size: 12px; line-height: 1.6;">
-              <strong>JIS Hansei (Reflection) — Required Action:</strong><br>
-              You must speak with Owner/Admin within 2 days OR write your reflection now.
-              After 2 days unresolved, time-in will be LOCKED until cleared.
+              <strong>What to do:</strong> Tap <strong>"Continue Time-In"</strong> below to proceed. Please also visit Owner/Admin today para makausap regarding these incidents.
             </div>
             <div style="margin-top: 14px;">
-              <label style="font-size: 11px; font-weight: 600; color: #6B7280; text-transform: uppercase; letter-spacing: 0.5px;">Hansei Reflection (optional but recommended)</label>
-              <textarea id="incidentWarnReflection" rows="4" placeholder="Anong nangyari? What will you do differently para hindi maulit? (Min 20 chars)" style="width: 100%; padding: 10px; border: 1px solid #E5E7EB; border-radius: 6px; font-size: 13px; box-sizing: border-box; margin-top: 6px;"></textarea>
+              <label style="font-size: 11px; font-weight: 600; color: #6B7280; text-transform: uppercase; letter-spacing: 0.5px;">📝 Hansei Reflection (Optional)</label>
+              <textarea id="incidentWarnReflection" rows="3" placeholder="Optional: Anong nangyari? What will you do differently? (saved with incident)" style="width: 100%; padding: 10px; border: 1px solid #E5E7EB; border-radius: 6px; font-size: 13px; box-sizing: border-box; margin-top: 6px;"></textarea>
             </div>
           </div>
-          <div class="modal-footer">
-            <button class="btn btn-secondary" onclick="acknowledgeAdminVisit()">I will see Admin today</button>
-            <button class="btn btn-primary" onclick="submitIncidentReflection()" style="background: #F59E0B;">Submit Reflection & Time-In</button>
+          <div class="modal-footer" style="flex-direction: column; gap: 8px; align-items: stretch;">
+            <button class="btn btn-primary" onclick="proceedTimeInAfterWarning()" style="background: #1B6B33; padding: 14px; font-size: 15px;">✓ Continue Time-In</button>
+            <button class="btn btn-secondary" onclick="closeModal('incidentWarnModal'); kioskLogout();" style="font-size: 12px;">Cancel — back to landing</button>
           </div>
         </div>
       </div>
@@ -4832,6 +4831,11 @@ async function pbUpdate(collection, id, body) {
 }
 
 async function doTimeIn() {
+  // Guard: only fire when kiosk is actually in employee mode (not admin)
+  if (kioskState.selectedUserType === 'admin') {
+    console.warn('[TimeIn] Blocked — admin mode, not employee. Use kiosk path.');
+    return;
+  }
   // POKA-YOKE: Check open incidents BEFORE allowing time-in (BbeeCo Discipline Policy §3.3)
   const user = kioskState.selectedUser;
   if (user && user.id) {
@@ -4851,6 +4855,11 @@ async function doTimeIn() {
 
 // Show warning modal for unresolved incidents (Tier 1)
 function showIncidentWarning(incidents) {
+  // Defensive: never show in admin context (avoids stuck modal scenario)
+  if (kioskState.selectedUserType === 'admin' || (document.getElementById('mainApp').style.display === 'grid')) {
+    console.warn('[Discipline] showIncidentWarning suppressed — not in kiosk context');
+    return;
+  }
   const list = incidents.map(i => {
     const lockDate = i.lockout_after ? new Date(i.lockout_after) : null;
     const daysLeft = lockDate ? Math.max(0, Math.ceil((lockDate - Date.now()) / 86400000)) : '?';
@@ -4869,6 +4878,11 @@ function showIncidentWarning(incidents) {
 
 // Show lockout screen for expired incidents (Tier 2)
 function showIncidentLockout(allIncidents, expiredIncidents) {
+  // Defensive: never show in admin context
+  if (kioskState.selectedUserType === 'admin' || (document.getElementById('mainApp').style.display === 'grid')) {
+    console.warn('[Discipline] showIncidentLockout suppressed — not in kiosk context');
+    return;
+  }
   const list = expiredIncidents.map(i => `<li style="padding: 6px 0;">
     <strong>${i.type === 'late_habitual' ? 'Habitual Tardiness' : i.type === 'absence_unexcused' ? 'Unexcused Absence' : i.type === 'awol' ? 'AWOL' : 'Incident'}</strong>
     <div style="font-size: 12px; color: #555; margin: 2px 0;">${i.description || ''}</div>
@@ -4878,36 +4892,25 @@ function showIncidentLockout(allIncidents, expiredIncidents) {
   document.getElementById('incidentLockoutModal').classList.add('open');
 }
 
-// Employee chose "I will see admin today" — allow time-in but log intent
-async function acknowledgeAdminVisit() {
+// Unified: employee acknowledged → close modal + proceed with time-in. Reflection optional.
+async function proceedTimeInAfterWarning() {
   const incId = document.getElementById('incidentWarnModal').dataset.incidentId;
+  const reflection = document.getElementById('incidentWarnReflection').value.trim();
+  // Try to update PB (non-blocking — even if it fails, proceed with time-in)
   if (incId) {
-    try {
-      await pbUpdate('incident_reports', incId, { employee_acknowledged: true });
-    } catch (e) { console.warn('[Discipline] Ack failed:', e.message); }
+    const updateBody = { employee_acknowledged: true };
+    if (reflection.length > 0) updateBody.employee_reflection = reflection;
+    pbUpdate('incident_reports', incId, updateBody).catch(e => console.warn('[Discipline] Ack failed (proceeding anyway):', e.message));
   }
   closeModal('incidentWarnModal');
+  toast(reflection ? '✓ Reflection saved — see Admin for clearance' : '✓ Acknowledged — see Admin for clearance', 'ok');
   // Proceed with time-in
   startCameraFlow('timein');
 }
 
-// Employee wrote Hansei reflection — save + allow time-in
-async function submitIncidentReflection() {
-  const incId = document.getElementById('incidentWarnModal').dataset.incidentId;
-  const reflection = document.getElementById('incidentWarnReflection').value.trim();
-  if (reflection.length < 20) {
-    alert('Please write at least 20 characters explaining what happened and what you will do differently (Hansei reflection).');
-    return;
-  }
-  const result = await acknowledgeIncident(incId, reflection);
-  if (!result.ok) {
-    alert('Failed to save reflection: ' + result.error);
-    return;
-  }
-  closeModal('incidentWarnModal');
-  toast('✓ Reflection saved. Please still see Admin for full clearance.', 'ok');
-  startCameraFlow('timein');
-}
+// Legacy wrappers for any old callers
+async function acknowledgeAdminVisit() { return proceedTimeInAfterWarning(); }
+async function submitIncidentReflection() { return proceedTimeInAfterWarning(); }
 
 function doTimeOut() {
   if (!kioskState.openDtr) { showResult(false, 'No Active Time-In', 'Walang open DTR record para sa iyo.'); return; }
@@ -5004,6 +5007,11 @@ async function submitEndLive() {
 }
 
 async function enterManagerMode() {
+  // POKA-YOKE: Close any kiosk modals that may have been left open
+  // (e.g., incident warning popup from a previous employee session)
+  document.querySelectorAll('.modal-bg.open').forEach(m => m.classList.remove('open'));
+  // Stop kiosk auto-refresh while in admin mode
+  if (typeof stopKioskAutoRefresh === 'function') stopKioskAutoRefresh();
   // Hide kiosk, show main app
   document.getElementById('kioskScreen').style.display = 'none';
   document.getElementById('empModeScreen').style.display = 'none';
@@ -5379,6 +5387,31 @@ function openIncidentModal() {
   document.getElementById('incidentCreateModal').classList.add('open');
 }
 
+// OWNER EMERGENCY: bulk-resolve all pending incidents so employees aren't blocked
+async function clearAllPendingIncidents() {
+  if (!window.CURRENT_IS_OWNER) { alert('Owner-only action.'); return; }
+  if (!confirm('🚨 EMERGENCY CLEAR: Bulk-resolve ALL pending incidents. Lahat ng "Open" + "Locked" incidents ay magiging "Resolved". Use this only para makapag-time-in agad ang lahat ng employees. JIS audit trail preserved.\n\nProceed?')) return;
+  try {
+    const pending = await pbGetList('incident_reports', { filter: 'status="pending"', perPage: 500 });
+    const me = (kioskState.selectedUser && kioskState.selectedUser.name) || 'owner';
+    const now = new Date().toISOString();
+    let ok = 0, fail = 0;
+    for (const inc of pending) {
+      try {
+        await pbUpdate('incident_reports', inc.id, {
+          status: 'resolved',
+          resolved_by: me,
+          resolved_at: now,
+          resolution_notes: (inc.resolution_notes ? inc.resolution_notes + '\n\n' : '') + '[Bulk-cleared by ' + me + ' on ' + new Date().toLocaleString() + ' — emergency override]'
+        });
+        ok++;
+      } catch (e) { fail++; console.warn('Failed to clear', inc.id, e.message); }
+    }
+    toast(`✓ Cleared ${ok} incidents${fail > 0 ? ' (' + fail + ' failed)' : ''}`, 'ok');
+    loadBbIncidents();
+  } catch (e) { alert('Failed: ' + e.message); }
+}
+
 async function saveNewIncident() {
   const empId = document.getElementById('incNewEmp').value;
   const type = document.getElementById('incNewType').value;
@@ -5632,6 +5665,8 @@ async function attemptSessionRestore() {
     kioskState.selectedUserType = 'admin';
     kioskState.selectedUser = admin;
     window.CURRENT_USER = { type: 'admin', user: admin };
+    // POKA-YOKE: close any stuck kiosk modals
+    document.querySelectorAll('.modal-bg.open').forEach(m => m.classList.remove('open'));
     // Show main app, hide kiosk
     document.getElementById('kioskScreen').style.display = 'none';
     document.getElementById('empModeScreen').style.display = 'none';
