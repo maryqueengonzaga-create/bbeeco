@@ -1307,16 +1307,39 @@
     </div>
   </div>
 
-  <!-- STEP: ROSTER VIEW (read-only for non-timed-in, long-press to update for assigned employee) -->
-  <div class="kiosk-step" id="kioskStepRoster">
-    <button onclick="closeKioskRoster()" style="background: white; border: 1px solid var(--bb-border); padding: 10px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; margin-bottom: 14px;">← Back</button>
-    <h2 style="margin: 0 0 4px;">📋 Today's Shift Roster</h2>
-    <p style="color: #888; font-size: 13px; margin: 0 0 14px;" id="kioskRosterDate">—</p>
-    <div id="kioskRosterContent" style="max-height: 65vh; overflow-y: auto;"></div>
-    <div style="margin-top: 14px; padding: 12px 14px; background: var(--bb-honey-light); border-radius: 8px; font-size: 12px; line-height: 1.6; color: var(--bb-honey-dark);">
-      💡 <strong>Tip:</strong> Long-press (hold 0.5 sec) your own slot para mag-mark ng status. Must be timed-in muna.
+  <!-- STEP: ROSTER VIEW (admin-style grid, mobile-scrollable) -->
+  <div class="kiosk-step" id="kioskStepRoster" style="padding: 14px;">
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+      <button onclick="closeKioskRoster()" style="background: white; border: 1px solid var(--bb-border); padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;">← Back</button>
+      <h2 style="margin: 0; font-size: 18px; flex: 1;">📋 Shift Roster</h2>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; padding: 10px; background: var(--bb-honey-light); border-radius: 10px;">
+      <button onclick="kioskRosterChangeDate(-1)" style="background: white; border: 1px solid var(--bb-border); width: 36px; height: 36px; border-radius: 8px; font-size: 16px; cursor: pointer;">‹</button>
+      <input type="date" id="kioskRosterDateInput" onchange="kioskRosterDateChanged()" style="flex: 1; padding: 8px; border: 1px solid var(--bb-border); border-radius: 8px; font-size: 14px; font-weight: 600; text-align: center; background: white;">
+      <button onclick="kioskRosterChangeDate(1)" style="background: white; border: 1px solid var(--bb-border); width: 36px; height: 36px; border-radius: 8px; font-size: 16px; cursor: pointer;">›</button>
+      <button onclick="kioskRosterChangeDate(0)" style="background: var(--bb-honey); color: white; border: none; padding: 8px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer;">Today</button>
+    </div>
+    <div id="kioskRosterDateLabel" style="text-align: center; font-size: 13px; color: var(--bb-gray); margin-bottom: 10px;"></div>
+    <div id="kioskRosterContent" style="overflow-x: auto; overflow-y: auto; max-height: 60vh; -webkit-overflow-scrolling: touch; border: 1px solid var(--bb-border); border-radius: 10px; background: white;"></div>
+    <div style="margin-top: 12px; padding: 10px 12px; background: var(--bb-honey-light); border-radius: 8px; font-size: 11px; line-height: 1.5; color: var(--bb-honey-dark);">
+      💡 <strong>Long-press (0.5 sec)</strong> your own slot para mag-update ng status (Done/In Progress/Pending). Must be timed-in muna.
+      <br>👈 Swipe sideways para makita ang lahat ng roles.
     </div>
   </div>
+
+  <style>
+    .kiosk-roster-table { border-collapse: collapse; width: 100%; min-width: 700px; font-size: 12px; }
+    .kiosk-roster-table th, .kiosk-roster-table td { border: 1px solid #E5E7EB; padding: 6px 8px; vertical-align: top; min-width: 100px; }
+    .kiosk-roster-table th { background: #F9FAFB; font-weight: 700; font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--bb-gray); position: sticky; top: 0; z-index: 5; }
+    .kiosk-roster-table th:first-child, .kiosk-roster-table td:first-child { position: sticky; left: 0; background: #F9FAFB; z-index: 4; min-width: 70px; max-width: 70px; font-weight: 700; }
+    .kiosk-roster-table td.filled { background: white; cursor: pointer; user-select: none; -webkit-user-select: none; }
+    .kiosk-roster-table td.filled.mine { background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%); }
+    .kiosk-roster-table td.filled:active { transform: scale(0.98); }
+    .kiosk-roster-table td.empty { background: #FAFAFA; }
+    .ksr-emp { font-weight: 700; font-size: 12px; color: var(--bb-black); line-height: 1.2; }
+    .ksr-status { font-size: 10px; padding: 1px 5px; border-radius: 6px; display: inline-block; margin-top: 3px; font-weight: 600; }
+    .ksr-mine-tag { font-size: 9px; color: #92400E; font-weight: 700; margin-top: 2px; }
+  </style>
 
   <!-- SLOT STATUS UPDATE MENU (mini popup after long-press) -->
   <div class="modal-bg" id="slotStatusMenu">
@@ -9892,87 +9915,152 @@ let _kioskRosterRoles = {};        // roleId → role object cache
 let _selectedSlotForStatus = null; // slot being edited via long-press
 let _longPressTimer = null;
 
+let _kioskRosterCurrentDate = null;
+
 async function showKioskRoster() {
   goKioskStep('kioskStepRoster');
-  const today = todayStr();
-  document.getElementById('kioskRosterDate').textContent = new Date().toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+  // Default to today
+  if (!_kioskRosterCurrentDate) _kioskRosterCurrentDate = todayStr();
+  document.getElementById('kioskRosterDateInput').value = _kioskRosterCurrentDate;
+  await renderKioskRosterForDate(_kioskRosterCurrentDate);
+}
+
+function kioskRosterDateChanged() {
+  const v = document.getElementById('kioskRosterDateInput').value;
+  if (v) {
+    _kioskRosterCurrentDate = v;
+    renderKioskRosterForDate(v);
+  }
+}
+
+function kioskRosterChangeDate(offset) {
+  if (offset === 0) {
+    _kioskRosterCurrentDate = todayStr();
+  } else {
+    const d = new Date(_kioskRosterCurrentDate || todayStr());
+    d.setDate(d.getDate() + offset);
+    _kioskRosterCurrentDate = d.toISOString().substring(0, 10);
+  }
+  document.getElementById('kioskRosterDateInput').value = _kioskRosterCurrentDate;
+  renderKioskRosterForDate(_kioskRosterCurrentDate);
+}
+
+async function renderKioskRosterForDate(dateStr) {
+  const label = document.getElementById('kioskRosterDateLabel');
   const content = document.getElementById('kioskRosterContent');
+  const d = new Date(dateStr + 'T00:00:00');
+  label.textContent = d.toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
   content.innerHTML = '<div style="text-align:center;padding:30px;color:#999;">Loading roster...</div>';
 
   try {
-    // Fetch today's slots from PB
     const slots = await pbGetList('tms_roster_slots', {
-      filter: `date>="${today} 00:00:00" && date<="${today} 23:59:59"`,
+      filter: `date>="${dateStr} 00:00:00" && date<="${dateStr} 23:59:59"`,
       expand: 'employee_id',
       sort: 'start_hour',
-      perPage: 100
+      perPage: 200
     });
     _kioskRosterSlots = slots;
 
-    // Build employee cache (use cached if PB lookup fails)
+    // Build employee + role caches
     _kioskRosterEmps = {};
     (PB_CACHE.employees || []).forEach(e => { _kioskRosterEmps[e.id] = e; });
-
-    // Build role cache from local DB
     _kioskRosterRoles = {};
     (DB.roles || []).forEach(r => { _kioskRosterRoles[r.id] = r; });
 
-    if (!slots.length) {
+    // Get the unique roles for this date
+    let activeRoleIds = [...new Set(slots.map(s => s.role_id))];
+    // If no slots, show all active roles (so it's not empty)
+    if (!activeRoleIds.length) {
+      activeRoleIds = (DB.roles || []).filter(r => r.is_active !== false).map(r => r.id).slice(0, 8);
+    }
+
+    if (!activeRoleIds.length) {
       content.innerHTML = `<div style="text-align:center;padding:40px;color:#999;font-size:14px;">
-        Walang assigned slots para ngayong araw.<br><br>
-        <small>Admin will assign shifts via Shift Roster.</small>
+        Walang roles na nakaset pa.<br><small>Admin needs to add roles + assign slots first.</small>
       </div>`;
       return;
     }
 
-    // Render slots as cards, grouped by start_hour
-    const cards = slots.map(slot => {
-      const emp = (slot.expand && slot.expand.employee_id) || _kioskRosterEmps[slot.employee_id] || { name: '(unknown)' };
-      const role = _kioskRosterRoles[slot.role_id] || { name: slot.role_id, dept: '' };
-      const startH = slot.start_hour;
-      const endH = startH + (slot.duration_hours || 1);
-      const fmt = h => {
-        const hr = h % 12 || 12;
-        const ampm = h < 12 ? 'AM' : 'PM';
-        return `${hr}:00 ${ampm}`;
-      };
-      const timeRange = `${fmt(startH)} - ${fmt(endH)}`;
-      const statusColors = {
-        'Scheduled': { bg: '#F3F4F6', fg: '#6B7280', icon: '⏸' },
-        'Pending': { bg: '#FEF3C7', fg: '#92400E', icon: '⏸' },
-        'In Progress': { bg: '#DBEAFE', fg: '#1E40AF', icon: '⏳' },
-        'Done': { bg: '#D1FAE5', fg: '#065F46', icon: '✓' },
-        'Missed': { bg: '#FEE2E2', fg: '#B91C1C', icon: '✗' }
-      };
-      const statusKey = slot.status || 'Scheduled';
-      const sc = statusColors[statusKey] || statusColors['Scheduled'];
-      const isMine = (kioskState.selectedUser && kioskState.selectedUser.id === slot.employee_id);
-      const mineLabel = isMine ? '<span style="font-size:10px;color:#1B6B33;font-weight:700;margin-left:6px;">★ YOU</span>' : '';
-      return `<div class="kiosk-roster-slot"
-        data-slot-id="${slot.id}"
-        style="background:white;border:1px solid var(--bb-border);border-left:4px solid ${sc.fg};border-radius:10px;padding:14px;margin-bottom:10px;cursor:pointer;user-select:none;-webkit-user-select:none;touch-action:manipulation;"
-        onpointerdown="slotLongPressStart(event, '${slot.id}')"
-        onpointerup="slotLongPressEnd(event)"
-        onpointerleave="slotLongPressEnd(event)"
-        onpointercancel="slotLongPressEnd(event)"
-      >
-        <div style="display:flex;justify-content:space-between;align-items:start;gap:10px;">
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:11px;font-weight:600;color:var(--bb-gray);text-transform:uppercase;letter-spacing:0.5px;">${timeRange}</div>
-            <div style="font-size:15px;font-weight:700;margin-top:2px;">${role.name || '—'}${mineLabel}</div>
-            <div style="font-size:13px;color:#374151;margin-top:2px;">👤 ${emp.name || '—'}</div>
-            ${slot.notes ? `<div style="font-size:11px;color:var(--bb-gray);margin-top:6px;font-style:italic;">📝 ${slot.notes}</div>` : ''}
-          </div>
-          <div style="background:${sc.bg};color:${sc.fg};padding:6px 12px;border-radius:14px;font-size:12px;font-weight:700;white-space:nowrap;">
-            ${sc.icon} ${statusKey}
-          </div>
-        </div>
-      </div>`;
-    }).join('');
-    content.innerHTML = cards;
+    // Build grid: rows = hours (6 AM to 10 PM), cols = roles
+    const hours = [];
+    for (let h = 6; h <= 22; h++) hours.push(h);
+    const fmt = h => {
+      const hr = h % 12 || 12;
+      const ampm = h < 12 ? 'AM' : 'PM';
+      return `${hr}:00 ${ampm}`;
+    };
+
+    let html = '<table class="kiosk-roster-table"><thead><tr><th>Time</th>';
+    activeRoleIds.forEach(rid => {
+      const role = _kioskRosterRoles[rid] || { name: rid, dept: '' };
+      html += `<th>${role.name}<br><span style="font-size:9px;font-weight:400;color:var(--bb-gray);text-transform:none;">${role.dept || ''}</span></th>`;
+    });
+    html += '</tr></thead><tbody>';
+
+    hours.forEach(h => {
+      html += `<tr><td>${fmt(h)}</td>`;
+      activeRoleIds.forEach(rid => {
+        // Find slot that covers this hour (started <= h, ends > h)
+        const slot = slots.find(s => s.role_id === rid && s.start_hour <= h && (s.start_hour + (s.duration_hours || 1)) > h);
+        if (slot) {
+          const isStart = slot.start_hour === h;
+          if (!isStart) {
+            // Continuation cell — covered by rowspan above. Skip rendering.
+            return;
+          }
+          const emp = (slot.expand && slot.expand.employee_id) || _kioskRosterEmps[slot.employee_id] || { name: '(unknown)' };
+          const isMine = (kioskState.selectedUser && kioskState.selectedUser.id === slot.employee_id);
+          const statusColors = {
+            'Scheduled': { bg: '#F3F4F6', fg: '#6B7280' },
+            'Pending': { bg: '#FEF3C7', fg: '#92400E' },
+            'In Progress': { bg: '#DBEAFE', fg: '#1E40AF' },
+            'Done': { bg: '#D1FAE5', fg: '#065F46' },
+            'Missed': { bg: '#FEE2E2', fg: '#B91C1C' }
+          };
+          const statusKey = slot.status || 'Scheduled';
+          const sc = statusColors[statusKey] || statusColors['Scheduled'];
+          const dur = slot.duration_hours || 1;
+          html += `<td class="filled ${isMine ? 'mine' : ''}" rowspan="${dur}"
+            onpointerdown="slotLongPressStart(event, '${slot.id}')"
+            onpointerup="slotLongPressEnd(event)"
+            onpointerleave="slotLongPressEnd(event)"
+            onpointercancel="slotLongPressEnd(event)"
+            onclick="slotShowDetail('${slot.id}')"
+          >
+            <div style="font-size:9px;color:var(--bb-gray);font-weight:600;">${dur}h slot</div>
+            <div class="ksr-emp">${emp.name || '—'}</div>
+            <div class="ksr-status" style="background:${sc.bg};color:${sc.fg};">${statusKey}</div>
+            ${isMine ? '<div class="ksr-mine-tag">★ YOU — long-press to update</div>' : ''}
+          </td>`;
+        } else {
+          html += `<td class="empty"><span style="color:#CBD5E1;font-size:10px;">—</span></td>`;
+        }
+      });
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+    content.innerHTML = html;
   } catch (e) {
     content.innerHTML = `<div style="text-align:center;padding:30px;color:var(--bb-red);">⚠ Failed to load roster: ${e.message}</div>`;
   }
+}
+
+// Tap (short click) on slot — show details only (no status update)
+function slotShowDetail(slotId) {
+  // If long-press was triggered, this won't fire because handleSlotLongPress closes the touch sequence
+  const slot = _kioskRosterSlots.find(s => s.id === slotId);
+  if (!slot) return;
+  const emp = (slot.expand && slot.expand.employee_id) || _kioskRosterEmps[slot.employee_id] || {};
+  const role = _kioskRosterRoles[slot.role_id] || {};
+  // Compact info popup
+  const fmt = h => { const hr = h % 12 || 12; const ampm = h < 12 ? 'AM' : 'PM'; return `${hr}:00 ${ampm}`; };
+  alert(`📋 SLOT DETAILS\n\n` +
+    `Role: ${role.name || '—'}\n` +
+    `Employee: ${emp.name || '—'}\n` +
+    `Time: ${fmt(slot.start_hour)} - ${fmt(slot.start_hour + (slot.duration_hours || 1))}\n` +
+    `Status: ${slot.status || 'Scheduled'}\n` +
+    (slot.notes ? `\nNotes:\n${slot.notes}` : '') +
+    (kioskState.selectedUser && kioskState.selectedUser.id === slot.employee_id ? '\n\n💡 Long-press (hold 0.5s) to update status.' : ''));
 }
 
 function closeKioskRoster() {
