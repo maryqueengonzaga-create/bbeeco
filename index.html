@@ -1296,11 +1296,40 @@
     <p style="color: #888; margin: 0 0 16px; font-size: 14px;">
       <span class="conn-pill loading" id="kioskConn"><span class="conn-dot"></span> Connecting...</span>
     </p>
+    <button onclick="showKioskRoster()" style="width: 100%; padding: 14px; background: linear-gradient(135deg, #F5A623, #C8841A); color: white; border: none; border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer; margin-bottom: 14px; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 3px 10px rgba(245,166,35,0.3);">
+      📋 View Today's Shift Roster
+    </button>
     <div class="kiosk-search">
       <input type="text" id="kioskSearch" placeholder="🔍 Search your name..." oninput="filterKioskNames()">
     </div>
     <div class="kiosk-name-grid" id="kioskNameGrid">
       <div style="text-align:center; padding: 30px; color: #999;">Loading employees...</div>
+    </div>
+  </div>
+
+  <!-- STEP: ROSTER VIEW (read-only for non-timed-in, long-press to update for assigned employee) -->
+  <div class="kiosk-step" id="kioskStepRoster">
+    <button onclick="closeKioskRoster()" style="background: white; border: 1px solid var(--bb-border); padding: 10px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; margin-bottom: 14px;">← Back</button>
+    <h2 style="margin: 0 0 4px;">📋 Today's Shift Roster</h2>
+    <p style="color: #888; font-size: 13px; margin: 0 0 14px;" id="kioskRosterDate">—</p>
+    <div id="kioskRosterContent" style="max-height: 65vh; overflow-y: auto;"></div>
+    <div style="margin-top: 14px; padding: 12px 14px; background: var(--bb-honey-light); border-radius: 8px; font-size: 12px; line-height: 1.6; color: var(--bb-honey-dark);">
+      💡 <strong>Tip:</strong> Long-press (hold 0.5 sec) your own slot para mag-mark ng status. Must be timed-in muna.
+    </div>
+  </div>
+
+  <!-- SLOT STATUS UPDATE MENU (mini popup after long-press) -->
+  <div class="modal-bg" id="slotStatusMenu">
+    <div class="modal" style="max-width: 360px;">
+      <div class="modal-header"><h3>Update Status</h3><button class="close-btn" onclick="closeModal('slotStatusMenu')">×</button></div>
+      <div class="modal-body">
+        <div id="slotStatusInfo" style="font-size:12px;color:var(--bb-gray);margin-bottom:14px;"></div>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <button class="btn btn-primary" style="background: #1B6B33; padding: 14px; font-size: 14px;" onclick="updateSlotStatus('Done')">✓ Done</button>
+          <button class="btn btn-secondary" style="background: #3B82F6; color: white; padding: 14px; font-size: 14px;" onclick="updateSlotStatus('In Progress')">⏳ In Progress</button>
+          <button class="btn btn-secondary" style="background: #F59E0B; color: white; padding: 14px; font-size: 14px;" onclick="updateSlotStatus('Pending')">⏸ Pending</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -9856,6 +9885,153 @@ async function confirmPhotoAction() {
   capturedPhotoBlob = null;
 }
 
+/* ===================== KIOSK ROSTER VIEW (employee-facing) ===================== */
+let _kioskRosterSlots = [];        // currently displayed slots
+let _kioskRosterEmps = {};         // empId → emp object cache
+let _kioskRosterRoles = {};        // roleId → role object cache
+let _selectedSlotForStatus = null; // slot being edited via long-press
+let _longPressTimer = null;
+
+async function showKioskRoster() {
+  goKioskStep('kioskStepRoster');
+  const today = todayStr();
+  document.getElementById('kioskRosterDate').textContent = new Date().toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+  const content = document.getElementById('kioskRosterContent');
+  content.innerHTML = '<div style="text-align:center;padding:30px;color:#999;">Loading roster...</div>';
+
+  try {
+    // Fetch today's slots from PB
+    const slots = await pbGetList('tms_roster_slots', {
+      filter: `date>="${today} 00:00:00" && date<="${today} 23:59:59"`,
+      expand: 'employee_id',
+      sort: 'start_hour',
+      perPage: 100
+    });
+    _kioskRosterSlots = slots;
+
+    // Build employee cache (use cached if PB lookup fails)
+    _kioskRosterEmps = {};
+    (PB_CACHE.employees || []).forEach(e => { _kioskRosterEmps[e.id] = e; });
+
+    // Build role cache from local DB
+    _kioskRosterRoles = {};
+    (DB.roles || []).forEach(r => { _kioskRosterRoles[r.id] = r; });
+
+    if (!slots.length) {
+      content.innerHTML = `<div style="text-align:center;padding:40px;color:#999;font-size:14px;">
+        Walang assigned slots para ngayong araw.<br><br>
+        <small>Admin will assign shifts via Shift Roster.</small>
+      </div>`;
+      return;
+    }
+
+    // Render slots as cards, grouped by start_hour
+    const cards = slots.map(slot => {
+      const emp = (slot.expand && slot.expand.employee_id) || _kioskRosterEmps[slot.employee_id] || { name: '(unknown)' };
+      const role = _kioskRosterRoles[slot.role_id] || { name: slot.role_id, dept: '' };
+      const startH = slot.start_hour;
+      const endH = startH + (slot.duration_hours || 1);
+      const fmt = h => {
+        const hr = h % 12 || 12;
+        const ampm = h < 12 ? 'AM' : 'PM';
+        return `${hr}:00 ${ampm}`;
+      };
+      const timeRange = `${fmt(startH)} - ${fmt(endH)}`;
+      const statusColors = {
+        'Scheduled': { bg: '#F3F4F6', fg: '#6B7280', icon: '⏸' },
+        'Pending': { bg: '#FEF3C7', fg: '#92400E', icon: '⏸' },
+        'In Progress': { bg: '#DBEAFE', fg: '#1E40AF', icon: '⏳' },
+        'Done': { bg: '#D1FAE5', fg: '#065F46', icon: '✓' },
+        'Missed': { bg: '#FEE2E2', fg: '#B91C1C', icon: '✗' }
+      };
+      const statusKey = slot.status || 'Scheduled';
+      const sc = statusColors[statusKey] || statusColors['Scheduled'];
+      const isMine = (kioskState.selectedUser && kioskState.selectedUser.id === slot.employee_id);
+      const mineLabel = isMine ? '<span style="font-size:10px;color:#1B6B33;font-weight:700;margin-left:6px;">★ YOU</span>' : '';
+      return `<div class="kiosk-roster-slot"
+        data-slot-id="${slot.id}"
+        style="background:white;border:1px solid var(--bb-border);border-left:4px solid ${sc.fg};border-radius:10px;padding:14px;margin-bottom:10px;cursor:pointer;user-select:none;-webkit-user-select:none;touch-action:manipulation;"
+        onpointerdown="slotLongPressStart(event, '${slot.id}')"
+        onpointerup="slotLongPressEnd(event)"
+        onpointerleave="slotLongPressEnd(event)"
+        onpointercancel="slotLongPressEnd(event)"
+      >
+        <div style="display:flex;justify-content:space-between;align-items:start;gap:10px;">
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:11px;font-weight:600;color:var(--bb-gray);text-transform:uppercase;letter-spacing:0.5px;">${timeRange}</div>
+            <div style="font-size:15px;font-weight:700;margin-top:2px;">${role.name || '—'}${mineLabel}</div>
+            <div style="font-size:13px;color:#374151;margin-top:2px;">👤 ${emp.name || '—'}</div>
+            ${slot.notes ? `<div style="font-size:11px;color:var(--bb-gray);margin-top:6px;font-style:italic;">📝 ${slot.notes}</div>` : ''}
+          </div>
+          <div style="background:${sc.bg};color:${sc.fg};padding:6px 12px;border-radius:14px;font-size:12px;font-weight:700;white-space:nowrap;">
+            ${sc.icon} ${statusKey}
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+    content.innerHTML = cards;
+  } catch (e) {
+    content.innerHTML = `<div style="text-align:center;padding:30px;color:var(--bb-red);">⚠ Failed to load roster: ${e.message}</div>`;
+  }
+}
+
+function closeKioskRoster() {
+  goKioskStep('kioskStepName');
+}
+
+function slotLongPressStart(e, slotId) {
+  if (_longPressTimer) clearTimeout(_longPressTimer);
+  _longPressTimer = setTimeout(() => {
+    _longPressTimer = null;
+    handleSlotLongPress(slotId);
+  }, 500);  // 0.5s hold
+}
+function slotLongPressEnd(e) {
+  if (_longPressTimer) { clearTimeout(_longPressTimer); _longPressTimer = null; }
+}
+
+function handleSlotLongPress(slotId) {
+  const slot = _kioskRosterSlots.find(s => s.id === slotId);
+  if (!slot) return;
+  const user = kioskState.selectedUser;
+  // RULE: only the assigned employee can update
+  if (!user || !user.id) {
+    alert('Pumili muna ng pangalan mo at mag-time in bago mag-update ng status.');
+    return;
+  }
+  if (slot.employee_id !== user.id) {
+    alert(`Hindi mo pwede i-update — ang slot na ito ay para kay ${(slot.expand && slot.expand.employee_id && slot.expand.employee_id.name) || 'iba'}.`);
+    return;
+  }
+  // RULE: must be timed-in
+  if (!kioskState.openDtr) {
+    alert('Mag-time in ka muna para macheck ang status mo. Bumalik sa landing → pin → time-in → ulitin to.');
+    return;
+  }
+  _selectedSlotForStatus = slot;
+  const emp = (slot.expand && slot.expand.employee_id) || _kioskRosterEmps[slot.employee_id] || {};
+  document.getElementById('slotStatusInfo').innerHTML = `<strong>${(_kioskRosterRoles[slot.role_id] || {}).name || slot.role_id}</strong><br>${emp.name || ''} • ${slot.start_hour}:00 onwards<br><br>Current status: <strong>${slot.status || 'Scheduled'}</strong>`;
+  document.getElementById('slotStatusMenu').classList.add('open');
+}
+
+async function updateSlotStatus(newStatus) {
+  if (!_selectedSlotForStatus) return;
+  const slot = _selectedSlotForStatus;
+  const user = kioskState.selectedUser;
+  const now = new Date().toISOString();
+  const auditNote = `\n[${newStatus} by ${user.name} on ${new Date().toLocaleString('en-PH')}]`;
+  const newNotes = (slot.notes || '') + auditNote;
+  try {
+    await pbUpdate('tms_roster_slots', slot.id, { status: newStatus, notes: newNotes });
+    toast(`✓ Marked as ${newStatus}`, 'ok');
+    closeModal('slotStatusMenu');
+    // Refresh the roster view to show new status
+    showKioskRoster();
+  } catch (e) {
+    alert('Failed to update: ' + e.message);
+  }
+}
+
 async function doTimeInWithPhoto() {
   const user = kioskState.selectedUser;
   const now = new Date();
@@ -11837,7 +12013,7 @@ function editSlot(id) {
   document.getElementById('slotModal').classList.add('open');
 }
 
-function saveSlot() {
+async function saveSlot() {
   const roleId = document.getElementById('slRole').value;
   const empId = document.getElementById('slEmp').value;
   if (!roleId || !empId) { alert('Role at Employee required'); return; }
@@ -11854,6 +12030,31 @@ function saveSlot() {
   if (id) Object.assign(DB.slots.find(x => x.id === id), data);
   else { data.id = uid('s'); DB.slots.push(data); }
   saveDB();
+  // ALSO write to PocketBase so kiosks on other devices see the assignment
+  const pbBody = {
+    date: localPbDateOnly(data.date),
+    start_hour: data.hour,
+    duration_hours: data.dur,
+    role_id: data.role,
+    employee_id: data.emp,
+    status: data.status,
+    notes: data.notes || ''
+  };
+  try {
+    if (id && DB.slots.find(x => x.id === id) && DB.slots.find(x => x.id === id).pb_id) {
+      const pbId = DB.slots.find(x => x.id === id).pb_id;
+      await pbUpdate('tms_roster_slots', pbId, pbBody);
+    } else {
+      const created = await pbCreate('tms_roster_slots', pbBody);
+      // Save PB id back to local for next update
+      const local = DB.slots.find(x => x.id === data.id);
+      if (local) { local.pb_id = created.id; saveDB(); }
+    }
+    toast('✓ Slot saved (synced to all devices)', 'ok');
+  } catch (e) {
+    console.warn('Slot PB sync failed:', e.message);
+    toast('✓ Saved locally — PB sync failed, kiosks may not see this assignment', 'warn');
+  }
   closeModal('slotModal');
   renderRoster();
 }
