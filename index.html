@@ -1341,6 +1341,32 @@
     .ksr-mine-tag { font-size: 9px; color: #92400E; font-weight: 700; margin-top: 2px; }
   </style>
 
+  <!-- OT CONFIRMATION POPUP — shown when employee tries to time-out after 8h+ -->
+  <div class="modal-bg" id="otPromptModal">
+    <div class="modal" style="max-width: 480px; border-top: 6px solid #3B82F6;">
+      <div class="modal-header" style="background: #EFF6FF;">
+        <h3 style="color: #1E40AF;">⏰ OT Detected — Confirm</h3>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 14px; color: #1E40AF; font-weight: 600; margin-bottom: 10px;">
+          You've worked <span id="otPromptHours" style="font-weight:800;">—</span> today.
+        </p>
+        <p style="font-size: 13px; color: #374151; margin-bottom: 14px;">
+          Extra time beyond 8h: <strong id="otPromptExtra" style="color:#1E40AF;">—</strong>
+        </p>
+        <div style="background: #FEF3C7; border-left: 4px solid #F59E0B; padding: 12px 14px; border-radius: 8px; font-size: 12px; line-height: 1.6; color: #92400E; margin-bottom: 6px;">
+          <strong>⚠ Was this OT pre-approved by Owner/Admin?</strong><br>
+          • <strong>YES</strong> → OT will be paid at OT rate (default 1.0×, see App Config)<br>
+          • <strong>NO</strong> → Extra hours will be TRIMMED (not paid) per JIS 8-hour standard
+        </div>
+      </div>
+      <div class="modal-footer" style="flex-direction: column; gap: 8px; align-items: stretch;">
+        <button class="btn btn-primary" onclick="confirmOtAndTimeOut()" style="background: #1E40AF; padding: 14px;">✓ Yes, OT was approved — pay as OT</button>
+        <button class="btn btn-secondary" onclick="declineOtAndTimeOut()" style="padding: 14px;">No OT — just time-out (excess trimmed)</button>
+      </div>
+    </div>
+  </div>
+
   <!-- SLOT STATUS UPDATE MENU (mini popup after long-press) -->
   <div class="modal-bg" id="slotStatusMenu">
     <div class="modal" style="max-width: 360px;">
@@ -3711,12 +3737,24 @@ Hi {{to_name}},
               <div><label>Type</label><select id="mdType">
                 <option value="regular">Regular</option>
                 <option value="live_sell">Live Selling</option>
-                <option value="ot">Overtime</option>
+                <option value="ot">Overtime (approved)</option>
               </select></div>
               <div><label>Sales Amount (if live)</label><input type="number" id="mdSales" min="0" step="0.01"></div>
             </div>
+            <div class="form-row">
+              <div>
+                <label>⚠ Late Minutes (manual override)</label>
+                <input type="number" id="mdLateMins" min="0" max="480" placeholder="e.g. 7" title="Raw late mins. JIS tier: 6-15m → 15m deduction, 16-30m → 30m, 31+ → actual">
+                <div style="font-size:10px;color:var(--bb-gray);margin-top:4px;">Tier: 0-5 grace · 6-15→15m · 16-30→30m · 31+ actual</div>
+              </div>
+              <div>
+                <label>💼 OT Hours (if type=Overtime)</label>
+                <input type="number" id="mdOtHours" min="0" max="12" step="0.25" placeholder="e.g. 1.0" title="Only counted if Type=Overtime">
+                <div style="font-size:10px;color:var(--bb-gray);margin-top:4px;">Paid at OT rate (see App Config)</div>
+              </div>
+            </div>
             <div class="form-row single">
-              <div><label>Reason for manual entry (required for audit)</label><textarea id="mdReason" rows="2" placeholder="e.g., Kiosk down, employee forgot to time-out, retroactive correction..."></textarea></div>
+              <div><label>Reason for manual entry (required for audit)</label><textarea id="mdReason" rows="2" placeholder="e.g., Kiosk down, late by 7 mins, OT approved by owner..."></textarea></div>
             </div>
           </div>
           <div class="modal-footer">
@@ -5272,6 +5310,37 @@ function doTimeOut() {
     showResult(false, 'End Live First', 'May active live session ka pa. End Live muna bago mag-Time Out — para walang orphan record.');
     return;
   }
+  // ANDON: detect if today's work > 8 hours → show OT confirmation popup
+  const inTime = new Date(kioskState.openDtr.time_in);
+  const elapsedHrs = (Date.now() - inTime.getTime()) / 3600000;
+  if (elapsedHrs > 8) {
+    // Show OT confirmation popup BEFORE proceeding to camera/time-out
+    document.getElementById('otPromptHours').textContent = elapsedHrs.toFixed(2) + 'h';
+    document.getElementById('otPromptExtra').textContent = (elapsedHrs - 8).toFixed(2) + 'h';
+    document.getElementById('otPromptModal').classList.add('open');
+    return;
+  }
+  // Normal time-out flow (within 8 hours, no OT needed)
+  startCameraFlow('timeout');
+}
+
+// Employee confirms OT was admin-approved → mark dtr as OT before time-out
+async function confirmOtAndTimeOut() {
+  const dtr = kioskState.openDtr;
+  if (!dtr) { closeModal('otPromptModal'); return; }
+  // Mark the open DTR as OT type (so payroll counts excess as paid OT)
+  try {
+    await pbUpdate('dtr_logs', dtr.id, { type: 'ot' });
+    kioskState.openDtr.type = 'ot';
+    toast('✓ Marked as OT (will be paid at OT rate if approved)', 'ok');
+  } catch (e) { console.warn('OT mark failed:', e.message); }
+  closeModal('otPromptModal');
+  startCameraFlow('timeout');
+}
+
+// Employee says no OT → just time-out (extra hours will be trimmed per JIS cap)
+function declineOtAndTimeOut() {
+  closeModal('otPromptModal');
   startCameraFlow('timeout');
 }
 
@@ -8639,7 +8708,7 @@ async function loadBbManualDtr() {
 
 function openManualDtrModal() {
   document.getElementById('manualDtrModalTitle').textContent = 'Manual DTR Entry';
-  ['mdId','mdTimeIn','mdTimeOut','mdSales','mdReason'].forEach(id => document.getElementById(id).value = '');
+  ['mdId','mdTimeIn','mdTimeOut','mdSales','mdReason','mdLateMins','mdOtHours'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   document.getElementById('mdEmp').value = '';
   document.getElementById('mdDate').value = todayStr();
   document.getElementById('mdType').value = 'regular';
@@ -8659,6 +8728,8 @@ async function editManualDtr(id) {
     document.getElementById('mdTimeOut').value = d.time_out ? new Date(d.time_out).toTimeString().substring(0, 5) : '';
     document.getElementById('mdType').value = d.type || 'regular';
     document.getElementById('mdSales').value = d.sales_amount || '';
+    document.getElementById('mdLateMins').value = d.late_minutes || '';
+    document.getElementById('mdOtHours').value = d.ot_hours || '';
     document.getElementById('mdReason').value = '';
     document.getElementById('mdDelBtn').style.display = 'inline-flex';
     document.getElementById('manualDtrModal').classList.add('open');
@@ -8691,6 +8762,17 @@ async function saveManualDtr() {
   }
   if (document.getElementById('mdSales').value) {
     body.sales_amount = parseFloat(document.getElementById('mdSales').value);
+  }
+  // Manual late minutes override (admin sets explicitly per BbeeCo tier rules)
+  const lateMinsInput = document.getElementById('mdLateMins').value;
+  if (lateMinsInput !== '') {
+    const rawLate = parseInt(lateMinsInput) || 0;
+    body.late_minutes = rawLate;
+  }
+  // Manual OT hours (only meaningful if type='ot')
+  const otHoursInput = document.getElementById('mdOtHours').value;
+  if (otHoursInput !== '' && body.type === 'ot') {
+    body.ot_hours = parseFloat(otHoursInput) || 0;
   }
   try {
     let saved;
