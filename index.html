@@ -1434,6 +1434,11 @@
     <!-- TASK ALERT BANNER -->
     <div id="kioskTaskBanner" style="display: none; background: var(--bb-honey); color: var(--bb-white); padding: 14px 16px; border-radius: 10px; margin-bottom: 12px; cursor: pointer; font-weight: 600;" onclick="openEmpTasks()"></div>
 
+    <!-- ROSTER BUTTON (always available for timed-in users) -->
+    <button onclick="showKioskRoster()" style="width: 100%; padding: 12px 14px; background: linear-gradient(135deg, #F5A623, #C8841A); color: white; border: none; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 2px 8px rgba(245,166,35,0.25);">
+      📋 View My Shift Roster (long-press to mark Done)
+    </button>
+
     <!-- JIS RULE NOTE -->
     <div class="kiosk-rule-note" id="kioskActionNote" style="display: none;"></div>
 
@@ -9953,19 +9958,34 @@ async function renderKioskRosterForDate(dateStr) {
   content.innerHTML = '<div style="text-align:center;padding:30px;color:#999;">Loading roster...</div>';
 
   try {
-    const slots = await pbGetList('tms_roster_slots', {
-      filter: `date>="${dateStr} 00:00:00" && date<="${dateStr} 23:59:59"`,
-      expand: 'employee_id',
-      sort: 'start_hour',
-      perPage: 200
-    });
+    const [slots, pbRoles] = await Promise.all([
+      pbGetList('tms_roster_slots', {
+        filter: `date>="${dateStr} 00:00:00" && date<="${dateStr} 23:59:59"`,
+        expand: 'employee_id',
+        sort: 'start_hour',
+        perPage: 200
+      }),
+      pbGetList('tms_roles', { perPage: 200 }).catch(() => [])
+    ]);
     _kioskRosterSlots = slots;
 
-    // Build employee + role caches
+    // Build employee cache (from PB_CACHE)
     _kioskRosterEmps = {};
     (PB_CACHE.employees || []).forEach(e => { _kioskRosterEmps[e.id] = e; });
+
+    // Build role cache: prefer PB roles (cross-device), then local DB.roles, key by BOTH PB id and local id
     _kioskRosterRoles = {};
-    (DB.roles || []).forEach(r => { _kioskRosterRoles[r.id] = r; });
+    pbRoles.forEach(r => {
+      _kioskRosterRoles[r.id] = { id: r.id, name: r.name, dept: r.department || '' };
+    });
+    (DB.roles || []).forEach(r => {
+      // Local roles may have pb_id linking to PB record — register under BOTH ids
+      if (r.pb_id && _kioskRosterRoles[r.pb_id]) {
+        _kioskRosterRoles[r.id] = _kioskRosterRoles[r.pb_id];  // also lookup by local id
+      } else if (!_kioskRosterRoles[r.id]) {
+        _kioskRosterRoles[r.id] = { id: r.id, name: r.name, dept: r.dept || '' };
+      }
+    });
 
     // Get the unique roles for this date
     let activeRoleIds = [...new Set(slots.map(s => s.role_id))];
@@ -10064,7 +10084,13 @@ function slotShowDetail(slotId) {
 }
 
 function closeKioskRoster() {
-  goKioskStep('kioskStepName');
+  // If user is logged in (has selected user + openDtr), return to action screen
+  // Otherwise return to landing (name selection)
+  if (kioskState.selectedUser && kioskState.selectedUserType === 'employee') {
+    goKioskStep('kioskStepAction');
+  } else {
+    goKioskStep('kioskStepName');
+  }
 }
 
 function slotLongPressStart(e, slotId) {
@@ -11953,7 +11979,7 @@ function editRole(id) {
   document.getElementById('roleModal').classList.add('open');
 }
 
-function saveRole() {
+async function saveRole() {
   const name = document.getElementById('rName').value.trim();
   if (!name) { alert('Role name required'); return; }
   const id = document.getElementById('rId').value;
@@ -11967,10 +11993,40 @@ function saveRole() {
   if (id) Object.assign(DB.roles.find(x => x.id === id), data);
   else { data.id = uid('r'); DB.roles.push(data); }
   saveDB();
+
+  // ALSO sync to PB tms_roles so kiosks on other devices see the role name
+  // (otherwise kiosk shows the raw ID like "R177925..." as column header)
+  const pbBody = {
+    name: data.name,
+    department: data.dept || 'Office / Admin',
+    sop: data.sop || '',
+    kpi_metric: data.kpi || '',
+    default_hours: data.hours || '',
+    is_active: true
+  };
+  try {
+    const local = DB.roles.find(x => x.id === (id || data.id));
+    if (id && local && local.pb_id) {
+      await pbUpdate('tms_roles', local.pb_id, pbBody);
+    } else {
+      const created = await pbCreate('tms_roles', pbBody);
+      if (local) {
+        local.pb_id = created.id;
+        // Also rebind the local id to PB id so slot.role_id (which uses local) maps consistently
+        // We'll store both for legacy compatibility
+        local.pb_role_id = created.id;
+        saveDB();
+      }
+    }
+  } catch (e) {
+    console.warn('Role PB sync failed:', e.message);
+    toast('⚠ Saved locally — PB sync failed. Kiosks may show role ID instead of name.', 'warn');
+  }
+
   closeModal('roleModal');
-  populateEmpSelects();  // refresh role dropdown so new role appears in Slot Modal
-  renderAll();           // re-renders roster too
-  toast(id ? '✓ Role updated' : '✓ Role added — now visible sa Shift Roster', 'ok');
+  populateEmpSelects();
+  renderAll();
+  toast(id ? '✓ Role updated (synced to all devices)' : '✓ Role added (synced to all devices)', 'ok');
 }
 
 function deleteRole() {
