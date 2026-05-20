@@ -3460,6 +3460,18 @@
         </div>
 
         <div class="card" style="margin-bottom: 16px;">
+          <div class="card-h"><h3>💾 Backup & Disaster Recovery</h3></div>
+          <p style="font-size: 13px; color: var(--bb-gray); margin-bottom: 14px;">
+            JIS business-continuity: backup ng critical data (DTR + Live + Cash Flow + offline queue + cached employees) saved sa JSON file. Auto-triggers once per day pag may admin logged in. Keep these files safe — pwedeng i-import kung mawala ang Railway server.
+          </p>
+          <button class="btn btn-primary" onclick="downloadBackup()">⬇ Download Backup Now</button>
+          <span id="lastBackupInfo" style="margin-left: 12px; font-size: 12px; color: var(--bb-gray);"></span>
+          <p style="font-size: 11px; color: var(--bb-gray); margin-top: 10px; line-height: 1.6;">
+            <strong>Best practice:</strong> Save the backup file sa cloud storage (Google Drive, Dropbox) at email mo rin sa sarili mo. Daily backup gives you a recovery point per day. Hindi mawawala lahat kahit ilang araw down ang Railway.
+          </p>
+        </div>
+
+        <div class="card" style="margin-bottom: 16px;">
           <div class="card-h"><h3>📝 EmailJS Template (sample)</h3></div>
           <p style="font-size: 12px; color: var(--bb-gray); margin-bottom: 10px;">Kopyahin ang template na ito sa EmailJS dashboard (Email Templates → Create new). Para magamit nya yung variables natin.</p>
           <textarea readonly style="width: 100%; min-height: 220px; font-family: monospace; font-size: 11px; padding: 12px; border: 1px solid var(--bb-border); border-radius: 6px; background: #F9FAFB;">Subject: {{subject}}
@@ -4216,6 +4228,267 @@ let DB = { employees: [], tasks: [], audits: [], pdca: [], kaizens: [], roles: [
 /* ===================== POCKETBASE CONFIG ===================== */
 const PB_BASE = 'https://pocketbase-production-2d49.up.railway.app';
 const PB_API = PB_BASE + '/api';
+
+/* ===================== OFFLINE FALLBACK SYSTEM =====================
+   JIS continuity-of-operations: kiosk keeps working when Railway PB is down.
+   - Cache employees + PINs to localStorage on every successful sync
+   - Time-in saved to local queue if PB unreachable
+   - Background sync every 30s pushes queued records when PB returns
+   - Yellow banner shows offline state + pending count
+============================================================================== */
+const OFFLINE_QUEUE_KEY = 'bbeeco_offline_dtr_queue_v1';
+const OFFLINE_EMP_CACHE_KEY = 'bbeeco_offline_employees_v1';
+const OFFLINE_ADMIN_CACHE_KEY = 'bbeeco_offline_admins_v1';
+let _pbIsOnline = true;          // last known PB connectivity state
+let _offlineSyncTimer = null;    // background sync interval
+
+function offlineGetQueue() {
+  try { return JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]'); } catch (e) { return []; }
+}
+function offlineSetQueue(q) {
+  try { localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(q)); } catch (e) { console.warn('Queue save failed:', e); }
+}
+// Generic enqueue: supports any collection + create/update
+// op = { collection, operation: 'create'|'update', record_id, body }
+function offlineEnqueueOp(op) {
+  const q = offlineGetQueue();
+  op.queued_at = new Date().toISOString();
+  op.local_id = 'local_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+  q.push(op);
+  offlineSetQueue(q);
+  updateOfflineBanner();
+  return op;
+}
+// Legacy alias for backward compat (creates dtr_logs)
+function offlineEnqueue(record) {
+  return offlineEnqueueOp({ collection: 'dtr_logs', operation: 'create', body: record });
+}
+
+function offlineCacheEmployees(emps) {
+  try {
+    // Strip large fields (photos) to fit localStorage
+    const slim = emps.map(e => ({
+      id: e.id, name: e.name, pin: e.pin, role: e.role,
+      is_active: e.is_active, is_locked: e.is_locked, lock_reason: e.lock_reason,
+      reg_rate: e.reg_rate, live_rate: e.live_rate, email: e.email
+    }));
+    localStorage.setItem(OFFLINE_EMP_CACHE_KEY, JSON.stringify({ data: slim, savedAt: Date.now() }));
+  } catch (e) { console.warn('Emp cache failed:', e); }
+}
+function offlineGetCachedEmployees() {
+  try {
+    const raw = localStorage.getItem(OFFLINE_EMP_CACHE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (e) { return null; }
+}
+function offlineCacheAdmins(admins) {
+  try {
+    const slim = admins.map(a => ({
+      id: a.id, name: a.name, pin: a.pin, role: a.role, is_active: a.is_active,
+      perm_view_dtr: a.perm_view_dtr, perm_edit_emp: a.perm_edit_emp,
+      perm_resolve_incidents: a.perm_resolve_incidents,
+      perm_view_payroll: a.perm_view_payroll, perm_view_sales: a.perm_view_sales,
+      perm_lock_emp: a.perm_lock_emp
+    }));
+    localStorage.setItem(OFFLINE_ADMIN_CACHE_KEY, JSON.stringify({ data: slim, savedAt: Date.now() }));
+  } catch (e) {}
+}
+function offlineGetCachedAdmins() {
+  try {
+    const raw = localStorage.getItem(OFFLINE_ADMIN_CACHE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (e) { return null; }
+}
+
+async function pbHealthCheck() {
+  try {
+    const r = await fetch(PB_API + '/health', { method: 'GET', cache: 'no-store' });
+    return r.ok;
+  } catch (e) { return false; }
+}
+
+async function syncOfflineQueue() {
+  const q = offlineGetQueue();
+  if (!q.length) return { synced: 0, failed: 0 };
+  const online = await pbHealthCheck();
+  if (!online) { _pbIsOnline = false; updateOfflineBanner(); return { synced: 0, failed: 0, offline: true }; }
+  _pbIsOnline = true;
+  console.log('[Offline] Syncing', q.length, 'queued ops...');
+  let synced = 0, failed = 0;
+  const remaining = [];
+  // Map of local_id → new PB id (for ops that reference earlier ops in the queue)
+  const localToPbId = {};
+
+  // Process in original order so dependencies (e.g., time-in before time-out) resolve correctly
+  for (const op of q) {
+    // Backward-compat: if op doesn't have collection/operation, treat as legacy dtr_logs create
+    const collection = op.collection || 'dtr_logs';
+    const operation = op.operation || 'create';
+    let body = { ...(op.body || op) };  // body may be op.body (new format) or op itself (legacy)
+    delete body.queued_at;
+    delete body.local_id;
+    delete body.collection;
+    delete body.operation;
+    delete body.record_id;
+
+    // Resolve any local_id references in body (e.g., end-live referencing queued start-live)
+    if (op.record_id && op.record_id.startsWith && op.record_id.startsWith('local_') && localToPbId[op.record_id]) {
+      op.record_id = localToPbId[op.record_id];
+    }
+
+    try {
+      let r, url, method;
+      if (operation === 'create') {
+        url = PB_API + '/collections/' + collection + '/records';
+        method = 'POST';
+      } else if (operation === 'update' && op.record_id) {
+        url = PB_API + '/collections/' + collection + '/records/' + op.record_id;
+        method = 'PATCH';
+      } else {
+        failed++;
+        remaining.push(op);
+        continue;
+      }
+      r = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (r.ok) {
+        const created = await r.json();
+        // If this was a create, remember its new PB id for downstream ops
+        if (operation === 'create' && op.local_id) {
+          localToPbId[op.local_id] = created.id;
+        }
+        synced++;
+        console.log('[Offline] ✓ Synced', op.local_id, collection, operation);
+      } else {
+        failed++;
+        remaining.push(op);
+        console.warn('[Offline] ✗ Failed', op.local_id, collection, operation, 'status', r.status);
+      }
+    } catch (e) {
+      failed++;
+      remaining.push(op);
+    }
+  }
+  offlineSetQueue(remaining);
+  updateOfflineBanner();
+  if (synced > 0) toast(`✓ Synced ${synced} offline record${synced > 1 ? 's' : ''} to server`, 'ok');
+  return { synced, failed };
+}
+
+function updateOfflineBanner() {
+  let banner = document.getElementById('offlineBanner');
+  const queueLen = offlineGetQueue().length;
+  const offline = !_pbIsOnline;
+  const showBanner = offline || queueLen > 0;
+  if (!banner && showBanner) {
+    banner = document.createElement('div');
+    banner.id = 'offlineBanner';
+    banner.style.cssText = 'position:fixed; top:0; left:0; right:0; z-index:10001; background:#F59E0B; color:white; padding:8px 14px; font-size:12px; font-weight:600; text-align:center; box-shadow:0 2px 8px rgba(0,0,0,0.15); cursor:pointer;';
+    banner.onclick = () => { syncOfflineQueue(); };
+    document.body.appendChild(banner);
+  }
+  if (banner) {
+    if (showBanner) {
+      banner.style.display = '';
+      banner.style.background = offline ? '#EF4444' : '#F59E0B';
+      banner.textContent = offline
+        ? `⚠ Offline (server unreachable) — ${queueLen} record(s) queued. Tap to retry sync.`
+        : `🔄 ${queueLen} offline record(s) queued — tap to sync now`;
+    } else {
+      banner.style.display = 'none';
+    }
+  }
+}
+
+/* ===================== DAILY AUTO-BACKUP =====================
+   Exports queued records + recent PB data to downloadable JSON file.
+   Triggers automatically once per day + manual button.
+============================================================== */
+const LAST_BACKUP_KEY = 'bbeeco_last_backup_v1';
+
+async function generateBackupBlob() {
+  const backup = {
+    generated_at: new Date().toISOString(),
+    version: 1,
+    offline_queue: offlineGetQueue(),
+    cached_employees: offlineGetCachedEmployees(),
+    cached_admins: offlineGetCachedAdmins()
+  };
+  // Try to fetch recent PB data for full backup
+  try {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().substring(0, 10);
+    const [dtrs, lives, cashflow] = await Promise.all([
+      pbGetList('dtr_logs', { filter: `time_in>="${sevenDaysAgo} 00:00:00"`, perPage: 500 }).catch(() => []),
+      pbGetList('live_sessions', { filter: `start_time>="${sevenDaysAgo} 00:00:00"`, perPage: 500 }).catch(() => []),
+      pbGetList('tms_cash_flow', { filter: `date>="${sevenDaysAgo} 00:00:00"`, perPage: 500 }).catch(() => [])
+    ]);
+    backup.recent_dtr_logs = dtrs;
+    backup.recent_live_sessions = lives;
+    backup.recent_cash_flow = cashflow;
+  } catch (e) { console.warn('Could not fetch PB data for backup:', e.message); }
+  return JSON.stringify(backup, null, 2);
+}
+
+async function downloadBackup() {
+  try {
+    toast('Generating backup file...', 'warn');
+    const json = await generateBackupBlob();
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const stamp = new Date().toISOString().substring(0, 16).replace('T', '_').replace(':', '');
+    a.download = `bbeeco_backup_${stamp}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    localStorage.setItem(LAST_BACKUP_KEY, new Date().toISOString());
+    toast('✓ Backup saved to Downloads — keep this file safe!', 'ok');
+  } catch (e) {
+    toast('Backup failed: ' + e.message, 'err');
+  }
+}
+
+function shouldAutoBackup() {
+  const last = localStorage.getItem(LAST_BACKUP_KEY);
+  if (!last) return true;  // never backed up
+  const lastDate = new Date(last);
+  const hoursSince = (Date.now() - lastDate.getTime()) / 3600000;
+  return hoursSince >= 24;  // once per 24 hours
+}
+
+async function checkAutoBackup() {
+  if (!shouldAutoBackup()) return;
+  // Only auto-backup when admin is logged in (so user can see + save the download)
+  if (!window.CURRENT_IS_OWNER) return;
+  console.log('[Backup] Auto-triggering daily backup...');
+  try {
+    await downloadBackup();
+  } catch (e) { console.warn('[Backup] Auto-backup failed:', e.message); }
+}
+
+function startOfflineSyncMonitor() {
+  if (_offlineSyncTimer) clearInterval(_offlineSyncTimer);
+  // Try sync every 30 seconds
+  _offlineSyncTimer = setInterval(() => {
+    if (offlineGetQueue().length > 0) {
+      syncOfflineQueue().catch(()=>{});
+    } else {
+      // No queue — just lightweight health check to update banner state
+      pbHealthCheck().then(ok => {
+        if (_pbIsOnline !== ok) { _pbIsOnline = ok; updateOfflineBanner(); }
+      });
+    }
+  }, 30000);
+  // Also try immediately on tab focus
+  window.addEventListener('focus', () => { syncOfflineQueue().catch(()=>{}); });
+}
 let PB_CACHE = { employees: [], admin_accounts: [], dtr_logs: [], live_sessions: [], incident_reports: [], lastSync: null };
 let pbRefreshTimer = null;
 
@@ -4427,6 +4700,11 @@ async function loadKioskUsers(silent = false) {
     ]);
     PB_CACHE.employees = emps;
     PB_CACHE.admin_accounts = admins;
+    // Offline fallback: persist to localStorage so PIN auth + name selection work even if PB goes down
+    offlineCacheEmployees(emps);
+    offlineCacheAdmins(admins);
+    _pbIsOnline = true;
+    updateOfflineBanner();
 
     // Build lookup maps
     kioskState.allOpenDtrs = {};
@@ -4454,9 +4732,28 @@ async function loadKioskUsers(silent = false) {
     conn.innerHTML = '<span class="conn-dot"></span> Connected • ' + emps.length + ' employees online';
     renderKioskNames();
   } catch (e) {
-    conn.className = 'conn-pill disconnected';
-    conn.innerHTML = '<span class="conn-dot"></span> Connection failed';
-    grid.innerHTML = '<div style="text-align:center; padding: 30px; color: #999;">⚠️ Cannot connect to PocketBase: ' + e.message + '<br><br><small>Verify Railway URL at iyong CORS settings.</small></div>';
+    // OFFLINE FALLBACK — use cached employees + admins from last successful sync
+    _pbIsOnline = false;
+    updateOfflineBanner();
+    const cachedEmps = offlineGetCachedEmployees();
+    const cachedAdmins = offlineGetCachedAdmins();
+    if (cachedEmps && cachedEmps.data && cachedEmps.data.length) {
+      PB_CACHE.employees = cachedEmps.data;
+      PB_CACHE.admin_accounts = (cachedAdmins && cachedAdmins.data) || [];
+      kioskState.allOpenDtrs = {};
+      kioskState.allActiveLives = {};
+      kioskState.tasksByEmp = {};
+      kioskState.overdueByEmp = {};
+      const cachedAge = Math.floor((Date.now() - cachedEmps.savedAt) / 60000);
+      conn.className = 'conn-pill disconnected';
+      conn.innerHTML = '<span class="conn-dot"></span> ⚠ Offline mode — cached ' + cachedAge + ' mins ago';
+      renderKioskNames();
+      console.warn('[Offline] PB unreachable — using cached employees:', cachedEmps.data.length);
+    } else {
+      conn.className = 'conn-pill disconnected';
+      conn.innerHTML = '<span class="conn-dot"></span> Connection failed';
+      grid.innerHTML = '<div style="text-align:center; padding: 30px; color: #999;">⚠️ Cannot connect to PocketBase: ' + e.message + '<br><br><small>Walang cached data. Need first-time online to populate cache.</small></div>';
+    }
   }
 }
 
@@ -4933,23 +5230,37 @@ async function doStartLive() {
     showResult(false, 'Live Already Active', 'May active live session ka na. End mo muna bago mag-start ng bago.');
     return;
   }
-  try {
-    const now = new Date();
-    const rec = await pbCreate('live_sessions', {
-      employee_id: user.id,
-      start_time: localPbDate(now),
-      date: localPbDateOnly(todayStr()),
-      status: 'active'
-    });
-    // Update local cache so action screen + landing reflect immediately
-    kioskState.activeLiveSession = rec;
-    if (!kioskState.allActiveLives) kioskState.allActiveLives = {};
-    kioskState.allActiveLives[user.id] = rec;
-    loadKioskUsers(true).catch(()=>{});
-    showResult(true, 'Live Session Started', `Good luck sa live selling, ${user.name}! Pwede kang mag-switch ng platform anytime. Tap End Live pag tapos na.`);
-  } catch (e) {
-    showResult(false, 'Failed to Start Live', e.message);
+  const now = new Date();
+  const liveBody = {
+    employee_id: user.id,
+    start_time: localPbDate(now),
+    date: localPbDateOnly(todayStr()),
+    status: 'active'
+  };
+
+  // Try online first
+  if (_pbIsOnline) {
+    try {
+      const rec = await pbCreate('live_sessions', liveBody);
+      kioskState.activeLiveSession = rec;
+      if (!kioskState.allActiveLives) kioskState.allActiveLives = {};
+      kioskState.allActiveLives[user.id] = rec;
+      loadKioskUsers(true).catch(()=>{});
+      showResult(true, 'Live Session Started', `Good luck sa live selling, ${user.name}!`);
+      return;
+    } catch (e) {
+      console.warn('[StartLive] Online failed, queueing:', e.message);
+      _pbIsOnline = false;
+      updateOfflineBanner();
+    }
   }
+
+  // OFFLINE PATH
+  const queued = offlineEnqueueOp({ collection: 'live_sessions', operation: 'create', body: liveBody });
+  kioskState.activeLiveSession = { ...liveBody, id: queued.local_id };
+  if (!kioskState.allActiveLives) kioskState.allActiveLives = {};
+  kioskState.allActiveLives[user.id] = kioskState.activeLiveSession;
+  showResult(true, '⚠ Offline — Live Started (queued)', `Good luck, ${user.name}! Live session naka-record locally.\n\nMagsi-sync pag bumalik server.`);
 }
 
 function doEndLive() {
@@ -4988,19 +5299,51 @@ async function submitEndLive() {
     const now = new Date();
     const start = new Date(sess.start_time);
     const dur = (now - start) / 3600000;
-    await pbUpdate('live_sessions', sess.id, {
+    const liveId = sess.id;
+    const isLocalLive = liveId && liveId.startsWith && liveId.startsWith('local_');
+    const updateBody = {
       end_time: localPbDate(now),
       duration_hours: parseFloat(dur.toFixed(2)),
       sales_amount: sales,
       platform: platform,
       status: 'done'
-    });
-    // Update local cache so badges reflect immediately
+    };
+
+    // Try online if synced live record
+    if (_pbIsOnline && !isLocalLive) {
+      try {
+        await pbUpdate('live_sessions', liveId, updateBody);
+        const user = kioskState.selectedUser;
+        kioskState.activeLiveSession = null;
+        if (kioskState.allActiveLives && user && kioskState.allActiveLives[user.id]) delete kioskState.allActiveLives[user.id];
+        loadKioskUsers(true).catch(()=>{});
+        showResult(true, 'Live Session Ended', `Platform: ${platform}\nSales: ₱${sales.toLocaleString()}\nDuration: ${formatDuration(Math.floor(dur*60))}\nMagaling!`);
+        return;
+      } catch (e) {
+        console.warn('[EndLive] Online failed, queueing:', e.message);
+        _pbIsOnline = false;
+        updateOfflineBanner();
+      }
+    }
+
+    // OFFLINE PATH
+    if (isLocalLive) {
+      // Live start was also queued — find and merge
+      const q = offlineGetQueue();
+      const startOp = q.find(op => op.local_id === liveId);
+      if (startOp) {
+        Object.assign(startOp.body, updateBody);
+        offlineSetQueue(q);
+      } else {
+        offlineEnqueueOp({ collection: 'live_sessions', operation: 'create', body: { ...sess, ...updateBody } });
+      }
+    } else {
+      offlineEnqueueOp({ collection: 'live_sessions', operation: 'update', record_id: liveId, body: updateBody });
+    }
     const user = kioskState.selectedUser;
     kioskState.activeLiveSession = null;
     if (kioskState.allActiveLives && user && kioskState.allActiveLives[user.id]) delete kioskState.allActiveLives[user.id];
-    loadKioskUsers(true).catch(()=>{});
-    showResult(true, 'Live Session Ended', `Platform: ${platform}\nSales: ₱${sales.toLocaleString()}\nDuration: ${formatDuration(Math.floor(dur*60))}\nMagaling!`);
+    showResult(true, '⚠ Offline — End Live Queued', `Platform: ${platform}\nSales: ₱${sales.toLocaleString()}\nDuration: ${formatDuration(Math.floor(dur*60))}\n\nWill sync automatic pag bumalik server.`);
   } catch (e) {
     showResult(false, 'Failed to End Live', e.message);
   }
@@ -5777,6 +6120,9 @@ async function applyAdminPermissions(admin) {
     setupSidebarCollapse();
     window._sidebarCollapseInit = true;
   }
+
+  // Check if daily auto-backup is due (only triggers if 24h+ since last)
+  setTimeout(() => checkAutoBackup().catch(()=>{}), 5000);  // 5s after login so it doesn't block UI
 }
 
 /* Re-apply perms (safety — call after navigation or content render) */
@@ -8159,11 +8505,30 @@ async function saveCashFlow() {
       ? PB_API + '/collections/tms_cash_flow/records/' + id
       : PB_API + '/collections/tms_cash_flow/records';
     const method = id ? 'PATCH' : 'POST';
-    const res = await fetch(url, { method, body: fd });
-    if (!res.ok) { const t = await res.text(); throw new Error('PB ' + res.status + ': ' + t); }
-    closeModal('cashFlowModal');
-    loadBbCashFlow();
-    toast('✓ Cash flow entry saved', 'ok');
+    try {
+      const res = await fetch(url, { method, body: fd });
+      if (!res.ok) { const t = await res.text(); throw new Error('PB ' + res.status + ': ' + t); }
+      closeModal('cashFlowModal');
+      loadBbCashFlow();
+      toast('✓ Cash flow entry saved', 'ok');
+    } catch (onlineErr) {
+      // OFFLINE FALLBACK — convert FormData to plain object (skip receipt file)
+      console.warn('[CashFlow] Online save failed, queueing offline:', onlineErr.message);
+      _pbIsOnline = false;
+      updateOfflineBanner();
+      const plainBody = {};
+      for (const [k, v] of fd.entries()) {
+        if (k !== 'receipt') plainBody[k] = v;  // skip file
+      }
+      if (id) {
+        offlineEnqueueOp({ collection: 'tms_cash_flow', operation: 'update', record_id: id, body: plainBody });
+      } else {
+        offlineEnqueueOp({ collection: 'tms_cash_flow', operation: 'create', body: plainBody });
+      }
+      closeModal('cashFlowModal');
+      loadBbCashFlow();
+      toast('⚠ Offline — cash flow entry queued (no receipt photo). Will sync when server returns.', 'warn');
+    }
   } catch (e) { toast('Failed: ' + e.message, 'err'); }
 }
 
@@ -9281,6 +9646,19 @@ async function loadEmailSettings() {
   document.getElementById('notifLate').checked = await getAppConfig('notif_late', true);
   document.getElementById('notifEmergency').checked = await getAppConfig('notif_emergency', true);
   document.getElementById('notifCutoff').checked = await getAppConfig('notif_cutoff', true);
+  // Show last backup info
+  const lastBackup = localStorage.getItem(LAST_BACKUP_KEY);
+  const infoEl = document.getElementById('lastBackupInfo');
+  if (infoEl) {
+    if (lastBackup) {
+      const hours = Math.floor((Date.now() - new Date(lastBackup).getTime()) / 3600000);
+      infoEl.textContent = '⏱ Last backup: ' + hours + ' hours ago (' + new Date(lastBackup).toLocaleString() + ')';
+      infoEl.style.color = hours > 36 ? 'var(--bb-red)' : 'var(--bb-gray)';
+    } else {
+      infoEl.textContent = '⚠ Never backed up yet';
+      infoEl.style.color = 'var(--bb-red)';
+    }
+  }
 }
 
 async function saveEmailSettings() {
@@ -9480,42 +9858,76 @@ async function confirmPhotoAction() {
 
 async function doTimeInWithPhoto() {
   const user = kioskState.selectedUser;
+  const now = new Date();
+  const recordBody = {
+    employee_id: user.id,
+    time_in: localPbDate(now),
+    type: 'regular',
+    status: 'open',
+    date: localPbDateOnly(todayStr())
+  };
+
   try {
-    // POKA-YOKE: Server-side check immediately before create.
-    // Prevents duplicate time-ins kahit may stale cache, multi-device race, or filter glitch.
-    const existingOpen = await pbGetList('dtr_logs', { filter: `employee_id="${user.id}" && status="open"`, sort: '-time_in', perPage: 5 });
-    if (existingOpen.length > 0) {
-      const open = existingOpen[0];
-      kioskState.openDtr = open;
-      if (!kioskState.allOpenDtrs) kioskState.allOpenDtrs = {};
-      kioskState.allOpenDtrs[user.id] = open;
-      const sinceMins = Math.floor((Date.now() - new Date(open.time_in).getTime()) / 60000);
-      showResult(false, 'Already Timed In', `Naka-time in ka na, ${user.name}. Time-in: ${fmtTime(open.time_in)} (${sinceMins} mins ago).\n\nMag-Time Out ka na lang kung tapos ka na, o bumalik sa landing.`);
-      return;
+    // POKA-YOKE: Server-side duplicate check (skipped if offline)
+    if (_pbIsOnline) {
+      try {
+        const existingOpen = await pbGetList('dtr_logs', { filter: `employee_id="${user.id}" && status="open"`, sort: '-time_in', perPage: 5 });
+        if (existingOpen.length > 0) {
+          const open = existingOpen[0];
+          kioskState.openDtr = open;
+          if (!kioskState.allOpenDtrs) kioskState.allOpenDtrs = {};
+          kioskState.allOpenDtrs[user.id] = open;
+          const sinceMins = Math.floor((Date.now() - new Date(open.time_in).getTime()) / 60000);
+          showResult(false, 'Already Timed In', `Naka-time in ka na, ${user.name}. Time-in: ${fmtTime(open.time_in)} (${sinceMins} mins ago).\n\nMag-Time Out ka na lang kung tapos ka na, o bumalik sa landing.`);
+          return;
+        }
+      } catch (chkErr) {
+        // Duplicate check failed (likely PB down) — fall through to offline path
+        console.warn('[TimeIn] Duplicate check failed, going offline:', chkErr.message);
+        _pbIsOnline = false;
+        updateOfflineBanner();
+      }
     }
-    const now = new Date();
-    const fd = new FormData();
-    fd.append('employee_id', user.id);
-    fd.append('time_in', localPbDate(now));
-    fd.append('type', 'regular');
-    fd.append('status', 'open');
-    fd.append('date', localPbDateOnly(todayStr()));
-    if (capturedPhotoBlob) {
-      fd.append('time_in_photo', capturedPhotoBlob, `timein_${user.id}_${Date.now()}.jpg`);
+
+    // Try online save with photo via FormData
+    if (_pbIsOnline) {
+      try {
+        const fd = new FormData();
+        Object.entries(recordBody).forEach(([k, v]) => fd.append(k, v));
+        if (capturedPhotoBlob) {
+          fd.append('time_in_photo', capturedPhotoBlob, `timein_${user.id}_${Date.now()}.jpg`);
+        }
+        const r = await fetch(PB_API + '/collections/dtr_logs/records', { method: 'POST', body: fd });
+        if (!r.ok) {
+          const t = await r.text();
+          throw new Error('PB ' + r.status + ': ' + t);
+        }
+        const created = await r.json();
+        // Update local cache
+        kioskState.openDtr = created;
+        if (!kioskState.allOpenDtrs) kioskState.allOpenDtrs = {};
+        kioskState.allOpenDtrs[user.id] = created;
+        loadKioskUsers(true).catch(()=>{});
+        showResult(true, 'Time-In Recorded', `Good day, ${user.name}! Naka-clock in ka na sa ${fmtTime(now)}.`);
+        return;
+      } catch (onlineErr) {
+        console.warn('[TimeIn] Online save failed, queueing offline:', onlineErr.message);
+        _pbIsOnline = false;
+        updateOfflineBanner();
+        // Fall through to offline path
+      }
     }
-    const r = await fetch(PB_API + '/collections/dtr_logs/records', { method: 'POST', body: fd });
-    if (!r.ok) {
-      const t = await r.text();
-      throw new Error('PB ' + r.status + ': ' + t);
-    }
-    const created = await r.json();
-    // Update local cache so landing badge shows correct status immediately
-    kioskState.openDtr = created;
+
+    // OFFLINE PATH — queue to localStorage (no photo, will sync when PB returns)
+    const queued = offlineEnqueueOp({ collection: 'dtr_logs', operation: 'create', body: recordBody });
+    // Simulate openDtr locally so kiosk UI stays consistent
+    kioskState.openDtr = { ...recordBody, id: queued.local_id };
     if (!kioskState.allOpenDtrs) kioskState.allOpenDtrs = {};
-    kioskState.allOpenDtrs[user.id] = created;
-    // Force refresh of landing screen badges in background (for multi-device sync, next user sees it)
-    loadKioskUsers(true).catch(()=>{});
-    showResult(true, 'Time-In Recorded', `Good day, ${user.name}! Naka-clock in ka na sa ${fmtTime(now)}.`);
+    kioskState.allOpenDtrs[user.id] = kioskState.openDtr;
+    showResult(true, '⚠ Offline — Time-In Queued',
+      `${user.name}, naka-record na sa ${fmtTime(now)} pero offline mode.\n\n` +
+      `Magsi-sync automatic pag bumalik ang server. Tiyaga lang!\n\n` +
+      `Queued records: ${offlineGetQueue().length}`);
   } catch (e) {
     showResult(false, 'Time-In Failed', e.message);
   }
@@ -9525,30 +9937,72 @@ async function doTimeOutWithPhoto() {
   const user = kioskState.selectedUser;
   if (!kioskState.openDtr) { showResult(false, 'No Active Time-In', 'Walang open DTR record para sa iyo.'); return; }
   if (kioskState.activeLiveSession) { showResult(false, 'End Live First', 'May active live session ka pa.'); return; }
-  try {
-    const now = new Date();
-    const inTime = new Date(kioskState.openDtr.time_in);
-    const hours = (now - inTime) / 3600000;
-    const fd = new FormData();
-    fd.append('time_out', localPbDate(now));
-    fd.append('total_hours', hours.toFixed(2));
-    fd.append('status', 'closed');
-    if (capturedPhotoBlob) {
-      fd.append('time_out_photo', capturedPhotoBlob, `timeout_${user.id}_${Date.now()}.jpg`);
+
+  const now = new Date();
+  const inTime = new Date(kioskState.openDtr.time_in);
+  const hours = (now - inTime) / 3600000;
+  const dtrId = kioskState.openDtr.id;
+  const isLocalRecord = dtrId && dtrId.startsWith && dtrId.startsWith('local_');
+
+  // Try online save first (with photo)
+  if (_pbIsOnline && !isLocalRecord) {
+    try {
+      const fd = new FormData();
+      fd.append('time_out', localPbDate(now));
+      fd.append('total_hours', hours.toFixed(2));
+      fd.append('status', 'closed');
+      if (capturedPhotoBlob) {
+        fd.append('time_out_photo', capturedPhotoBlob, `timeout_${user.id}_${Date.now()}.jpg`);
+      }
+      const r = await fetch(PB_API + '/collections/dtr_logs/records/' + dtrId, { method: 'PATCH', body: fd });
+      if (!r.ok) {
+        const t = await r.text();
+        throw new Error('PB ' + r.status + ': ' + t);
+      }
+      kioskState.openDtr = null;
+      if (kioskState.allOpenDtrs && kioskState.allOpenDtrs[user.id]) delete kioskState.allOpenDtrs[user.id];
+      loadKioskUsers(true).catch(()=>{});
+      showResult(true, 'Time-Out Recorded', `Salamat, ${user.name}! Total hours: ${hours.toFixed(2)}h.`);
+      return;
+    } catch (e) {
+      console.warn('[TimeOut] Online failed, queueing offline:', e.message);
+      _pbIsOnline = false;
+      updateOfflineBanner();
     }
-    const r = await fetch(PB_API + '/collections/dtr_logs/records/' + kioskState.openDtr.id, { method: 'PATCH', body: fd });
-    if (!r.ok) {
-      const t = await r.text();
-      throw new Error('PB ' + r.status + ': ' + t);
-    }
-    // Update local cache so landing badge shows OUT immediately
-    kioskState.openDtr = null;
-    if (kioskState.allOpenDtrs && kioskState.allOpenDtrs[user.id]) delete kioskState.allOpenDtrs[user.id];
-    loadKioskUsers(true).catch(()=>{});
-    showResult(true, 'Time-Out Recorded', `Salamat, ${user.name}! Total hours: ${hours.toFixed(2)}h.`);
-  } catch (e) {
-    showResult(false, 'Time-Out Failed', e.message);
   }
+
+  // OFFLINE PATH
+  if (isLocalRecord) {
+    // Time-in was also queued — find that op in queue and add time_out to it
+    const q = offlineGetQueue();
+    const timeInOp = q.find(op => op.local_id === dtrId);
+    if (timeInOp) {
+      timeInOp.body.time_out = localPbDate(now);
+      timeInOp.body.total_hours = parseFloat(hours.toFixed(2));
+      timeInOp.body.status = 'closed';
+      offlineSetQueue(q);
+    } else {
+      // Fallback — queue as standalone create with both times
+      offlineEnqueueOp({ collection: 'dtr_logs', operation: 'create', body: {
+        employee_id: user.id,
+        time_in: kioskState.openDtr.time_in,
+        time_out: localPbDate(now),
+        total_hours: parseFloat(hours.toFixed(2)),
+        status: 'closed',
+        type: kioskState.openDtr.type || 'regular',
+        date: kioskState.openDtr.date || localPbDateOnly(todayStr())
+      }});
+    }
+  } else {
+    // Time-in was synced to PB but PB is now down — queue a patch
+    offlineEnqueueOp({
+      collection: 'dtr_logs', operation: 'update', record_id: dtrId,
+      body: { time_out: localPbDate(now), total_hours: parseFloat(hours.toFixed(2)), status: 'closed' }
+    });
+  }
+  kioskState.openDtr = null;
+  if (kioskState.allOpenDtrs && kioskState.allOpenDtrs[user.id]) delete kioskState.allOpenDtrs[user.id];
+  showResult(true, '⚠ Offline — Time-Out Queued', `Salamat ${user.name}! Total hours: ${hours.toFixed(2)}h.\n\nMagsi-sync automatic pag bumalik ang server.\n\nQueued: ${offlineGetQueue().length}`);
 }
 
 /* ===================== ACTION LOG CHARTS ===================== */
@@ -11664,6 +12118,8 @@ async function init() {
   startKioskClock();
   loadKioskUsers();
   startKioskAutoRefresh();
+  startOfflineSyncMonitor();  // Always run — syncs queued records when PB returns
+  updateOfflineBanner();
 }
 
 init();
