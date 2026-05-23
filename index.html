@@ -322,13 +322,15 @@
     width: 92%;
     max-width: 600px;
     max-height: 90vh;
-    overflow-y: auto;
+    overflow: hidden;  /* contain children — body scrolls instead */
     box-shadow: var(--shadow-lg);
+    display: flex;
+    flex-direction: column;
   }
-  .modal-header { padding: 18px 24px; border-bottom: 1px solid var(--jis-grey); display: flex; justify-content: space-between; align-items: center; }
+  .modal-header { padding: 18px 24px; border-bottom: 1px solid var(--jis-grey); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
   .modal-header h3 { font-size: 17px; }
-  .modal-body { padding: 20px 24px; }
-  .modal-footer { padding: 14px 24px; border-top: 1px solid var(--jis-grey); display: flex; justify-content: flex-end; gap: 10px; }
+  .modal-body { padding: 20px 24px; flex: 1 1 auto; overflow-y: auto; min-height: 0; }
+  .modal-footer { padding: 14px 24px; border-top: 1px solid var(--jis-grey); display: flex; justify-content: flex-end; gap: 10px; flex-shrink: 0; background: white; }
   .close-btn { background: none; border: none; font-size: 22px; cursor: pointer; color: #999; }
 
   /* 5S GRID */
@@ -1302,7 +1304,7 @@
     }
     .modal-header { padding: 14px 16px; }
     .modal-header h3 { font-size: 16px; }
-    .modal-body { padding: 14px 16px; max-height: 70vh; }
+    .modal-body { padding: 14px 16px; }  /* max-height removed — flex:1 handles it */
     .modal-footer { padding: 12px 16px; flex-wrap: wrap; gap: 8px; }
     .modal-footer .btn { flex: 1 1 auto; min-width: 100px; }
 
