@@ -1236,8 +1236,15 @@
      MOBILE ADMIN UI — full responsive redesign (phones ≤640px)
      Transforms tables to card stacks, bumps touch targets,
      stacks stats vertically, near full-screen modals.
+     Home grid is primary nav, back button returns to home.
      ============================================================ */
   @media (max-width: 640px) {
+    /* HIDE hamburger + sidebar entirely — Home grid covers nav */
+    .mobile-menu-btn { display: none !important; }
+    .sidebar { display: none !important; }
+    .mobile-overlay { display: none !important; }
+    /* Back button bumped up */
+    #topbarBackBtn { padding: 10px 14px !important; font-size: 14px !important; min-height: 44px; }
     /* === TABLES → CARD STACK (hybrid: table on tablet, cards on phone) === */
     .table-wrap { overflow: visible; }
     .bb-table, .bb-table thead, .bb-table tbody, .bb-table tr, .bb-table td, .bb-table th {
@@ -1944,7 +1951,8 @@
   <!-- MAIN -->
   <main class="main">
     <div class="topbar">
-      <button class="mobile-menu-btn" onclick="toggleMobileSidebar()">☰</button>
+      <button id="topbarBackBtn" onclick="navigateToView('home')" style="display:none; background: var(--bb-honey-light); color: var(--bb-honey-dark); border: 1.5px solid var(--bb-honey); padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; margin-right: 4px;">← Home</button>
+      <button class="mobile-menu-btn" onclick="toggleMobileSidebar()" title="Menu">☰</button>
       <div class="topbar-title">
         <h2 id="viewTitle">Dashboard Overview</h2>
         <p id="viewSubtitle">Buong overview ng tasks at employee performance</p>
@@ -6402,6 +6410,9 @@ async function applyAdminPermissions(admin) {
       const subEl = document.getElementById('viewSubtitle');
       if (titleEl) titleEl.textContent = '🏠 Home';
       if (subEl) subEl.textContent = 'Quick actions — your enabled features';
+      // Hide back button on Home (it's the destination)
+      const backBtn = document.getElementById('topbarBackBtn');
+      if (backBtn) backBtn.style.display = 'none';
       // Render the home grid
       renderHomeFeatures();
       console.log('[Home] Landed on Home view');
@@ -11305,6 +11316,9 @@ document.querySelectorAll('.nav-item').forEach(item => {
     const t = titles[view] || [view, ''];
     document.getElementById('viewTitle').textContent = t[0];
     document.getElementById('viewSubtitle').textContent = t[1];
+    // Show "← Home" back button on every view except Home itself
+    const backBtn = document.getElementById('topbarBackBtn');
+    if (backBtn) backBtn.style.display = (view === 'home') ? 'none' : 'inline-flex';
     renderViewSpecific(view);
   });
 });
