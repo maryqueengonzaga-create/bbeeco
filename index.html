@@ -5608,10 +5608,11 @@ async function submitEndLive() {
 
 async function enterManagerMode() {
   // POKA-YOKE: Close any kiosk modals that may have been left open
-  // (e.g., incident warning popup from a previous employee session)
   document.querySelectorAll('.modal-bg.open').forEach(m => m.classList.remove('open'));
   // Stop kiosk auto-refresh while in admin mode
   if (typeof stopKioskAutoRefresh === 'function') stopKioskAutoRefresh();
+  // FRESH LOGIN: clear saved view so we always land on Home (Quick Actions)
+  try { localStorage.removeItem(ACTIVE_VIEW_STORAGE_KEY); } catch (e) {}
   // Hide kiosk, show main app
   document.getElementById('kioskScreen').style.display = 'none';
   document.getElementById('empModeScreen').style.display = 'none';
@@ -6382,15 +6383,33 @@ async function applyAdminPermissions(admin) {
   setTimeout(() => checkAutoBackup().catch(()=>{}), 5000);  // 5s after login so it doesn't block UI
 
   // Default landing: Home (Quick Actions grid) — unless user has saved view from previous session
-  setTimeout(() => {
+  // Multiple attempts since DOM may not be ready immediately
+  const tryLandHome = (attempt = 1) => {
     const savedView = localStorage.getItem(ACTIVE_VIEW_STORAGE_KEY);
-    if (!savedView) {
-      // First time / no saved view → land on Home
-      const homeNav = document.querySelector('.nav-item[data-view="home"]');
-      if (homeNav) homeNav.click();
+    if (savedView && savedView !== 'home') return;  // restored to other view → leave it
+    const homeNav = document.querySelector('.nav-item[data-view="home"]');
+    const homeView = document.getElementById('view-home');
+    if (homeNav && homeView) {
+      // Force-switch to home view
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      homeNav.classList.add('active');
+      homeView.classList.add('active');
+      activeView = 'home';
+      try { localStorage.setItem(ACTIVE_VIEW_STORAGE_KEY, 'home'); } catch (e) {}
+      // Update title
+      const titleEl = document.getElementById('viewTitle');
+      const subEl = document.getElementById('viewSubtitle');
+      if (titleEl) titleEl.textContent = '🏠 Home';
+      if (subEl) subEl.textContent = 'Quick actions — your enabled features';
+      // Render the home grid
+      renderHomeFeatures();
+      console.log('[Home] Landed on Home view');
+    } else if (attempt < 5) {
+      setTimeout(() => tryLandHome(attempt + 1), 100);
     }
-    // If savedView exists, attemptSessionRestore already handled the navigation
-  }, 200);
+  };
+  setTimeout(tryLandHome, 100);
 }
 
 /* Re-apply perms (safety — call after navigation or content render) */
