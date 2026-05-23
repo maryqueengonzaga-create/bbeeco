@@ -1886,6 +1886,7 @@
       <input type="text" id="sidebarSearch" placeholder="🔍 Search menu..." oninput="filterSidebar(this.value)">
     </div>
     <nav class="nav">
+      <div class="nav-item" data-view="home" data-perm="any" style="background: linear-gradient(135deg, var(--bb-honey-light), var(--bb-honey)); color: var(--bb-honey-dark); font-weight: 700;"><span class="nav-icon">🏠</span> Home — Quick Actions</div>
       <div class="nav-section" data-section-perm="view_dashboard view_tasks view_matrix view_employees">Main</div>
       <div class="nav-item active" data-view="dashboard" data-perm="view_dashboard"><span class="nav-icon">▦</span> Dashboard</div>
       <div class="nav-item" data-view="tasks" data-perm="view_tasks"><span class="nav-icon">◉</span> Task Manager</div>
@@ -1959,6 +1960,18 @@
 
     <div class="content">
       <!-- DASHBOARD VIEW -->
+      <!-- HOME — QUICK ACTIONS (auto-rendered based on user's perms) -->
+      <section class="view" id="view-home">
+        <div style="background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%); padding: 18px 20px; border-radius: 12px; margin-bottom: 16px;">
+          <h2 style="margin: 0 0 4px; color: var(--bb-honey-dark); font-size: 20px;">👋 Hi <span id="homeUserName">—</span>!</h2>
+          <p style="margin: 0; font-size: 13px; color: var(--bb-honey-dark);" id="homeTagline">Tap any feature below to get started.</p>
+        </div>
+        <div id="homeFeatureGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px;"></div>
+        <div style="margin-top: 20px; padding: 14px 16px; background: var(--bb-gray-light); border-radius: 10px; font-size: 12px; color: var(--bb-gray); text-align: center; line-height: 1.5;">
+          💡 <strong>Tip:</strong> Use ☰ menu (top-left) for full navigation. Only enabled features show here.
+        </div>
+      </section>
+
       <section class="view active" id="view-dashboard">
         <div class="principles-bar">
           <div>
@@ -6367,6 +6380,17 @@ async function applyAdminPermissions(admin) {
 
   // Check if daily auto-backup is due (only triggers if 24h+ since last)
   setTimeout(() => checkAutoBackup().catch(()=>{}), 5000);  // 5s after login so it doesn't block UI
+
+  // Default landing: Home (Quick Actions grid) — unless user has saved view from previous session
+  setTimeout(() => {
+    const savedView = localStorage.getItem(ACTIVE_VIEW_STORAGE_KEY);
+    if (!savedView) {
+      // First time / no saved view → land on Home
+      const homeNav = document.querySelector('.nav-item[data-view="home"]');
+      if (homeNav) homeNav.click();
+    }
+    // If savedView exists, attemptSessionRestore already handled the navigation
+  }, 200);
 }
 
 /* Re-apply perms (safety — call after navigation or content render) */
@@ -11244,6 +11268,7 @@ document.querySelectorAll('.nav-item').forEach(item => {
       bbCA: ['Cash Advances', 'Active loans with auto-deduct per cutoff'],
       bbIC: ['Item Charges', 'One-time deductions (broken items, uniforms, etc)'],
       bbDed: ['Deduction Groups', 'SSS / PhilHealth / Pag-IBIG brackets'],
+      home: ['🏠 Home', 'Quick actions — your enabled features'],
       bbAdmins: ['Admin Accounts', 'Owner + subadmin accounts with granular permissions'],
       bbSalesAuth: ['Sales Authorization', 'Pumili kung sino ang pwedeng mag-log ng non-live sales'],
       bbAttSettings: ['Attendance Settings', 'Configure default at per-employee attendance method'],
@@ -12539,6 +12564,7 @@ async function renderViewSpecific(view) {
   else if (view === 'bbSalesAuth') loadBbSalesAuth();
   else if (view === 'bbAttSettings') loadBbAttSettings();
   else if (view === 'bbEmailSettings') loadEmailSettings();
+  else if (view === 'home') renderHomeFeatures();
   else if (view === 'bbIncidents') loadBbIncidents();
   else if (view === 'bbManualDtr') loadBbManualDtr();
   else if (view === 'bbActions') loadBbActions();
@@ -12559,6 +12585,105 @@ async function renderViewSpecific(view) {
   document.addEventListener('gesturechange', function(e) { e.preventDefault(); });
   // Note: viewport meta with user-scalable=no handles double-tap zoom natively
 })();
+
+/* ===== QUICK ACTIONS HOME — feature button grid based on user's perms ===== */
+// Map permission key → button config (icon, label, view name, color, description)
+const HOME_FEATURES = [
+  // Main
+  { perm: 'view_dashboard', view: 'dashboard', icon: '▦', label: 'Dashboard', desc: 'Overview', color: '#6B7280' },
+  { perm: 'view_bb_dashboard', view: 'bbDash', icon: '⌂', label: 'BbeeCo Hub', desc: 'Daily ops', color: '#F5A623' },
+  { perm: 'view_tasks', view: 'tasks', icon: '◉', label: 'Tasks', desc: 'Task manager', color: '#3B82F6' },
+  { perm: 'view_matrix', view: 'matrix', icon: '◫', label: 'Priority Matrix', desc: 'Eisenhower grid', color: '#8B5CF6' },
+  { perm: 'view_employees', view: 'employees', icon: '●', label: 'Employees', desc: 'Performance', color: '#1B6B33' },
+  // HR
+  { perm: 'view_dtr', view: 'bbHr', icon: '👥', label: 'HR & Employees', desc: 'Records + DTR', color: '#1B6B33' },
+  { perm: 'view_live_dtr', view: 'attendance', icon: '⏰', label: 'Live DTR', desc: 'Real-time clock', color: '#3B82F6' },
+  { perm: 'view_kiosk_admin', view: 'kiosk', icon: '▣', label: 'Kiosk Admin', desc: 'Browser kiosk', color: '#6B7280' },
+  { perm: 'edit_dtr', view: 'bbManualDtr', icon: '✍', label: 'Manual DTR', desc: 'Add/edit entries', color: '#F59E0B' },
+  { perm: 'review_checkins', view: 'bbCheckins', icon: '📝', label: 'Check-Ins', desc: 'Weekly reflections', color: '#8B5CF6' },
+  { perm: 'resolve_incidents', view: 'bbIncidents', icon: '⚠', label: 'Incidents', desc: 'Discipline tracker', color: '#EF4444' },
+  // Operations
+  { perm: 'view_roles', view: 'roles', icon: '⊞', label: 'Roles & SOPs', desc: 'Role catalog', color: '#6B7280' },
+  { perm: 'view_roster', view: 'roster', icon: '⏱', label: 'Shift Roster', desc: 'Hourly grid', color: '#F5A623' },
+  { perm: 'view_handover', view: 'handover', icon: '⇄', label: 'Handover Log', desc: 'Shift transfers', color: '#6B7280' },
+  { perm: 'create_schedules', view: 'bbSched', icon: '📅', label: 'Schedules', desc: 'Weekly hours', color: '#3B82F6' },
+  // Sales
+  { perm: 'view_sales', view: 'bbSales', icon: '💰', label: 'Sales & Live', desc: 'Analytics', color: '#10B981' },
+  { perm: 'log_sales', view: 'bbSalesEntries', icon: '🛒', label: 'Sales Entries', desc: 'Log transactions', color: '#10B981' },
+  // Finance
+  { perm: 'view_cash_flow', view: 'bbCashFlow', icon: '💸', label: 'Cash Flow', desc: 'Inflow/Outflow', color: '#10B981' },
+  { perm: 'request_cash_advance', view: 'bbCA', icon: '💵', label: 'Cash Advances', desc: 'Request + approve', color: '#F59E0B' },
+  { perm: 'manage_item_charges', view: 'bbIC', icon: '🧾', label: 'Item Charges', desc: 'Deductions', color: '#EF4444' },
+  // Payroll
+  { perm: 'view_payroll', view: 'bbPayroll', icon: '₱', label: 'Payroll', desc: 'Cutoffs + payslips', color: '#1B6B33' },
+  { perm: 'view_deductions', view: 'bbDed', icon: '⊟', label: 'Deductions', desc: 'SSS/PHIC/Pagibig', color: '#6B7280' },
+  // Reviews
+  { perm: 'view_task_review', view: 'bbTaskReview', icon: '✓', label: 'Task Review', desc: 'Rate quality', color: '#3B82F6' },
+  { perm: 'view_task_summary', view: 'bbTaskSummary', icon: '📊', label: 'Task Summary', desc: 'Weekly stats', color: '#8B5CF6' },
+  // JIS
+  { perm: 'view_5s', view: 'fives', icon: '5', label: '5S Audit', desc: 'Workplace org', color: '#10B981' },
+  { perm: 'view_pdca', view: 'pdca', icon: '◍', label: 'PDCA', desc: 'Improvement', color: '#3B82F6' },
+  { perm: 'view_kaizen', view: 'kaizen', icon: '★', label: 'Kaizen', desc: 'Suggestions', color: '#F59E0B' },
+  { perm: 'view_reports', view: 'reports', icon: '▤', label: 'KPI Reports', desc: 'Performance', color: '#8B5CF6' },
+  // Admin/Settings
+  { perm: 'manage_admins', view: 'bbAdmins', icon: '🔑', label: 'Admins', desc: 'Manage accounts', color: '#EF4444' },
+  { perm: 'view_action_log', view: 'bbActions', icon: '📋', label: 'Action Log', desc: 'Audit trail', color: '#6B7280' },
+  { perm: 'owner', view: 'bbAttSettings', icon: '📷', label: 'Attendance Setup', desc: 'Kiosk methods', color: '#6B7280' },
+  { perm: 'owner', view: 'bbEmailSettings', icon: '📧', label: 'Email & Backup', desc: 'Notif + JSON backup', color: '#F59E0B' }
+];
+
+function renderHomeFeatures() {
+  const grid = document.getElementById('homeFeatureGrid');
+  if (!grid) return;
+  const perms = window.CURRENT_PERMS || {};
+  const userName = (kioskState.selectedUser && kioskState.selectedUser.name) || 'Admin';
+  const home = document.getElementById('homeUserName');
+  if (home) home.textContent = userName;
+
+  // Filter features to only those user has access to
+  const enabled = HOME_FEATURES.filter(f => perms[f.perm]);
+  if (!enabled.length) {
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--bb-gray);">No features enabled. Contact owner para mag-toggle on ng access.</div>';
+    return;
+  }
+
+  // Render each as a big touchable button
+  grid.innerHTML = enabled.map(f => `
+    <button onclick="navigateToView('${f.view}')" style="
+      background: white;
+      border: 2px solid ${f.color}33;
+      border-left: 4px solid ${f.color};
+      border-radius: 14px;
+      padding: 16px 14px;
+      min-height: 110px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.15s;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+      font-family: inherit;
+    " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(0,0,0,0.10)';"
+       onmouseout="this.style.transform=''; this.style.boxShadow='0 2px 6px rgba(0,0,0,0.04)';"
+       ontouchstart="this.style.transform='scale(0.97)';"
+       ontouchend="this.style.transform='';">
+      <div style="width: 40px; height: 40px; border-radius: 10px; background: ${f.color}22; color: ${f.color}; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 700;">${f.icon}</div>
+      <div style="width: 100%;">
+        <div style="font-size: 14px; font-weight: 700; color: var(--bb-black); line-height: 1.2;">${f.label}</div>
+        <div style="font-size: 11px; color: var(--bb-gray); margin-top: 3px;">${f.desc}</div>
+      </div>
+    </button>
+  `).join('');
+}
+
+// Helper: programmatically navigate (used by home buttons + can be called elsewhere)
+function navigateToView(viewName) {
+  const navItem = document.querySelector('.nav-item[data-view="' + viewName + '"]');
+  if (navItem) navItem.click();
+}
 
 /* Mobile table → card auto-labeler: adds data-label="HeaderName" to each td based on column position.
    This makes the CSS @media (max-width:640px) card transformation show readable labels. */
