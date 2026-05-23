@@ -1231,6 +1231,124 @@
     .bb-stats-row, .kpi-grid { grid-template-columns: 1fr; }
     .att-method-grid { grid-template-columns: 1fr; }
   }
+
+  /* ============================================================
+     MOBILE ADMIN UI — full responsive redesign (phones ≤640px)
+     Transforms tables to card stacks, bumps touch targets,
+     stacks stats vertically, near full-screen modals.
+     ============================================================ */
+  @media (max-width: 640px) {
+    /* === TABLES → CARD STACK (hybrid: table on tablet, cards on phone) === */
+    .table-wrap { overflow: visible; }
+    .bb-table, .bb-table thead, .bb-table tbody, .bb-table tr, .bb-table td, .bb-table th {
+      display: block; width: 100%; box-sizing: border-box;
+    }
+    .bb-table thead { display: none; }  /* hide header row on phone */
+    .bb-table tr {
+      background: white;
+      border: 1px solid var(--bb-border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      margin-bottom: 10px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .bb-table td {
+      padding: 6px 0;
+      border: none;
+      border-bottom: 1px dashed #F3F4F6;
+      font-size: 13px;
+      text-align: left !important;
+      display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    }
+    .bb-table td:last-child { border-bottom: none; padding-top: 10px; }
+    .bb-table td::before {
+      content: attr(data-label);
+      font-weight: 600;
+      font-size: 11px;
+      color: var(--bb-gray);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      flex-shrink: 0;
+    }
+    /* Action buttons: wrap & stack inside cell */
+    .bb-table td .btn, .bb-table td button { margin: 2px; min-height: 36px; padding: 8px 12px; }
+
+    /* === STAT CARDS — stack vertically with bigger touch === */
+    .bb-stats-row { display: flex; flex-direction: column; gap: 10px; }
+    .bb-stat-card { padding: 14px 16px; }
+    .bb-stat-card .label { font-size: 11px; }
+    .bb-stat-card .value { font-size: 22px; }
+
+    /* === MODALS — near-full-screen on phone === */
+    .modal-bg .modal {
+      width: 95% !important;
+      max-width: 95% !important;
+      max-height: 92vh !important;
+      margin: 4vh auto !important;
+      border-radius: 12px;
+    }
+    .modal-header { padding: 14px 16px; }
+    .modal-header h3 { font-size: 16px; }
+    .modal-body { padding: 14px 16px; max-height: 70vh; }
+    .modal-footer { padding: 12px 16px; flex-wrap: wrap; gap: 8px; }
+    .modal-footer .btn { flex: 1 1 auto; min-width: 100px; }
+
+    /* === FORMS — stack, bigger inputs === */
+    .form-row, .form-row.triple, .form-row.single { display: flex; flex-direction: column; gap: 10px; }
+    .form-row > div { width: 100%; }
+    input[type="text"], input[type="number"], input[type="date"], input[type="time"], input[type="email"], input[type="password"], select, textarea {
+      min-height: 44px;  /* WCAG touch target */
+      font-size: 15px;   /* prevents iOS auto-zoom */
+      padding: 10px 12px;
+    }
+    textarea { min-height: 80px; }
+    label { font-size: 11px; margin-bottom: 6px; }
+
+    /* === BUTTONS — bigger touch === */
+    .btn { min-height: 44px; padding: 10px 16px; font-size: 14px; }
+    .btn-sm { min-height: 36px; padding: 7px 12px; font-size: 12px; }
+
+    /* === TOPBAR — single-line essentials only === */
+    .topbar { padding: 10px 14px; flex-wrap: wrap; gap: 8px; }
+    .topbar-title h2 { font-size: 16px; margin: 0; }
+    .topbar-title p { display: none; }  /* hide subtitle on phone */
+    .topbar-actions { gap: 6px; flex-wrap: wrap; width: 100%; justify-content: flex-end; }
+    .topbar-actions .session-badge { font-size: 10px; padding: 3px 7px; }
+    .topbar-actions .admin-badge { font-size: 11px; padding: 4px 8px; }
+    .topbar-actions .date-badge { display: none; }
+    .topbar-actions .btn { padding: 8px 12px; font-size: 12px; }
+
+    /* === SIDEBAR — bigger touch on mobile menu === */
+    .sidebar { width: 280px; }
+    .nav-item { padding: 14px 16px; font-size: 14px; min-height: 48px; }
+    .nav-section { padding: 16px 14px 8px; font-size: 11px; }
+
+    /* === CARD HEADERS — wrap action buttons === */
+    .card-h { flex-direction: column; align-items: stretch; gap: 10px; }
+    .card-h h3 { font-size: 15px; }
+    .card-h > div { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-start; }
+
+    /* === CHARTS — smaller height === */
+    .chart-box { height: 200px !important; }
+
+    /* === PAYSLIP DAILY BREAKDOWN — keep horizontal scroll === */
+    #payslipBody .table-wrap { overflow-x: auto; }
+    #payslipBody table { display: table; }  /* don't override the payslip breakdown */
+    #payslipBody table thead, #payslipBody table tr, #payslipBody table td, #payslipBody table th { display: table-cell; }
+
+    /* === MISC === */
+    h2 { font-size: 17px; }
+    h3 { font-size: 15px; }
+    h4 { font-size: 14px; }
+    .content { padding: 12px; }
+  }
+
+  @media (max-width: 380px) {
+    /* Very narrow phones — make even more compact */
+    .modal-header h3 { font-size: 15px; }
+    .btn { font-size: 13px; }
+    .nav-item { font-size: 13px; padding: 12px 14px; }
+  }
 </style>
 </head>
 <body>
@@ -12442,6 +12560,46 @@ async function renderViewSpecific(view) {
   // Note: viewport meta with user-scalable=no handles double-tap zoom natively
 })();
 
+/* Mobile table → card auto-labeler: adds data-label="HeaderName" to each td based on column position.
+   This makes the CSS @media (max-width:640px) card transformation show readable labels. */
+function autoLabelTableCells(table) {
+  const headers = [...table.querySelectorAll('thead th')].map(th => th.textContent.trim());
+  if (!headers.length) return;
+  table.querySelectorAll('tbody tr').forEach(tr => {
+    [...tr.children].forEach((td, i) => {
+      if (headers[i] && td.tagName === 'TD' && !td.hasAttribute('data-label')) {
+        td.setAttribute('data-label', headers[i]);
+      }
+    });
+  });
+}
+
+function autoLabelAllTables() {
+  document.querySelectorAll('table.bb-table').forEach(autoLabelTableCells);
+}
+
+// Run on DOM mutations so freshly-rendered tables get labeled
+function setupTableLabelObserver() {
+  if (window._tableLabelObserver) return;
+  const observer = new MutationObserver(mutations => {
+    let needsRelabel = false;
+    for (const m of mutations) {
+      for (const node of m.addedNodes) {
+        if (node.nodeType === 1 && (node.tagName === 'TR' || node.querySelector && node.querySelector('table.bb-table'))) {
+          needsRelabel = true;
+          break;
+        }
+      }
+      if (needsRelabel) break;
+    }
+    if (needsRelabel) {
+      requestAnimationFrame(autoLabelAllTables);
+    }
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+  window._tableLabelObserver = observer;
+}
+
 /* Sidebar collapse + search (JIS-clean navigation) */
 const NAV_COLLAPSED_KEY = 'bbeeco_nav_collapsed_v1';
 function setupSidebarCollapse() {
@@ -12547,6 +12705,7 @@ async function init() {
   startKioskAutoRefresh();
   startOfflineSyncMonitor();  // Always run — syncs queued records when PB returns
   updateOfflineBanner();
+  setupTableLabelObserver();   // Auto-add data-label for mobile card view of tables
 }
 
 init();
