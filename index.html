@@ -1465,6 +1465,20 @@
     </div>
   </div>
 
+  <!-- STEP: KIOSK QUICK EXPENSE (timed-in employees can log expenses with 1 tap) -->
+  <div class="kiosk-step" id="kioskStepQuickExpense" style="padding: 14px;">
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+      <button onclick="goKioskStep('kioskStepAction')" style="background: white; border: 1px solid var(--bb-border); padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;">← Back</button>
+      <h2 style="margin: 0; font-size: 18px; flex: 1;">⚡ Quick Expense / Income</h2>
+    </div>
+    <div style="background: var(--bb-honey-light); padding: 10px 12px; border-radius: 10px; font-size: 12px; color: var(--bb-honey-dark); margin-bottom: 12px;">
+      Tap a button → confirm amount → done. Saved as cash flow entry under your name.
+    </div>
+    <div id="kioskQuickTapGrid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
+      <div style="grid-column: 1/-1; text-align: center; padding: 20px; color: #999;">Loading...</div>
+    </div>
+  </div>
+
   <!-- STEP: KIOSK SCHEDULES VIEW (public — no PIN needed) -->
   <div class="kiosk-step" id="kioskStepSchedules" style="padding: 14px;">
     <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
@@ -1701,6 +1715,12 @@
         <div class="ka-icon">📝</div>
         <div class="ka-title">Weekly Check-In</div>
         <div class="ka-sub" id="kioskCheckinSub">Submit your weekly reflection</div>
+      </button>
+
+      <button class="kiosk-action-btn live-end" onclick="showKioskQuickExpense()" style="background: linear-gradient(135deg, #F5A623, #C8841A); color: white; border: none;">
+        <div class="ka-icon">⚡</div>
+        <div class="ka-title">Quick Expense</div>
+        <div class="ka-sub">One-tap expense/income log</div>
       </button>
 
       <button class="kiosk-action-btn manager" id="kioskBtnManager" onclick="enterManagerMode()">
@@ -2905,6 +2925,24 @@
 
       <!-- CASH FLOW VIEW -->
       <section class="view" id="view-bbCashFlow">
+
+        <!-- QUICK-TAP EXPENSE PANEL -->
+        <div class="card" style="margin-bottom: 16px; border-top: 4px solid #F5A623;">
+          <div class="card-h">
+            <h3>⚡ Quick-Tap Expenses <span style="font-size: 11px; color: var(--bb-gray); font-weight: 400;">— One tap to log</span></h3>
+            <div style="display:flex; gap:8px;">
+              <button class="btn btn-secondary btn-sm" onclick="seedDefaultExpenseTemplates()">🌱 Seed Defaults</button>
+              <button class="btn btn-secondary btn-sm" onclick="openManageTemplatesModal()">⚙️ Manage Templates</button>
+            </div>
+          </div>
+          <p style="font-size: 12px; color: var(--bb-gray); margin-bottom: 10px;">
+            Hindi ka na uli mag-eencode ng 9 fields per entry. Tap once = full entry logged. Long-press to adjust amount before saving.
+          </p>
+          <div id="quickTapGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-bottom: 8px;">
+            <div style="grid-column: 1/-1; text-align: center; padding: 20px; color: #999; font-size: 13px;">Loading templates...</div>
+          </div>
+        </div>
+
         <div class="card" style="margin-bottom: 16px;">
           <div class="card-h">
             <h3>Cash Flow — Inflow & Outflow Tracker</h3>
@@ -3022,6 +3060,100 @@
             <button class="btn btn-danger" id="cfDelBtn" onclick="deleteCashFlow()" style="display:none;">Delete</button>
             <button class="btn btn-secondary" onclick="closeModal('cashFlowModal')">Cancel</button>
             <button class="btn btn-primary" onclick="saveCashFlow()">Save Entry</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- QUICK-TAP CONFIRM MODAL — adjust amount before save -->
+      <div class="modal-bg" id="quickTapModal">
+        <div class="modal" style="max-width: 440px;">
+          <div class="modal-header" style="background: var(--bb-honey-light); color: var(--bb-honey-dark); border-top: 4px solid var(--bb-honey);">
+            <h3 id="qtModalTitle">⚡ Quick Expense</h3>
+            <button class="close-btn" onclick="closeModal('quickTapModal')">×</button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" id="qtTemplateId">
+            <div id="qtPreview" style="background: var(--bb-honey-light); padding: 16px; border-radius: 10px; margin-bottom: 14px; text-align: center;">
+              <div id="qtIcon" style="font-size: 40px; line-height: 1;">⚡</div>
+              <div id="qtName" style="font-weight: 700; font-size: 16px; margin-top: 6px;">—</div>
+              <div id="qtCategory" style="font-size: 11px; color: var(--bb-gray); margin-top: 2px;">—</div>
+            </div>
+            <label style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--bb-gray);">Amount (₱)</label>
+            <input type="number" id="qtAmount" min="0" step="0.01" style="width: 100%; padding: 14px; font-size: 22px; font-weight: 700; text-align: center; border: 2px solid var(--bb-honey); border-radius: 10px; margin-top: 4px;">
+            <label style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--bb-gray); margin-top: 12px; display: block;">Note (optional)</label>
+            <input type="text" id="qtNote" placeholder="e.g., 'For delivery to Manila' (optional)" style="width: 100%; padding: 10px; font-size: 13px; border: 1px solid var(--bb-border); border-radius: 8px; margin-top: 4px;">
+            <div style="font-size: 11px; color: var(--bb-gray); margin-top: 10px; padding: 8px; background: #F9FAFB; border-radius: 6px;">
+              📅 Date: <strong id="qtDate">—</strong> &nbsp;•&nbsp; 👤 By: <strong id="qtBy">—</strong>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('quickTapModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="confirmQuickTapExpense()" style="background: var(--bb-honey); padding: 12px 24px; font-weight: 700;">✓ Save Expense</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MANAGE TEMPLATES MODAL -->
+      <div class="modal-bg" id="manageTemplatesModal">
+        <div class="modal" style="max-width: 760px;">
+          <div class="modal-header">
+            <h3>⚙️ Manage Quick-Tap Templates</h3>
+            <button class="close-btn" onclick="closeModal('manageTemplatesModal')">×</button>
+          </div>
+          <div class="modal-body">
+            <p style="font-size: 12px; color: var(--bb-gray); margin-bottom: 12px;">
+              Define mga expenses na madalas mong i-log. Each tap sa main view = one-second save. Sort order = display order (lower = first).
+            </p>
+
+            <!-- Add/Edit form -->
+            <div style="background: var(--bb-honey-light); padding: 12px 14px; border-radius: 10px; margin-bottom: 14px;">
+              <div style="font-weight: 700; font-size: 13px; color: var(--bb-honey-dark); margin-bottom: 8px;" id="tmplFormTitle">➕ New Template</div>
+              <input type="hidden" id="tmplId">
+              <div class="form-row">
+                <div><label>Icon (emoji)</label><input type="text" id="tmplIcon" maxlength="2" placeholder="⛽" style="text-align: center; font-size: 20px;"></div>
+                <div><label>Name *</label><input type="text" id="tmplName" placeholder="e.g., Gasoline"></div>
+                <div><label>Default Amount ₱ *</label><input type="number" id="tmplAmount" min="0" step="0.01"></div>
+              </div>
+              <div class="form-row">
+                <div><label>Type *</label><select id="tmplType">
+                  <option value="outflow">💸 Outflow (Expense)</option>
+                  <option value="inflow">💰 Inflow (Income)</option>
+                </select></div>
+                <div><label>Category *</label><select id="tmplCategory">
+                  <option value="Supplies">Supplies</option>
+                  <option value="Transportation">Transportation</option>
+                  <option value="Utilities">Utilities</option>
+                  <option value="Rent">Rent</option>
+                  <option value="Salary/Payroll">Salary/Payroll</option>
+                  <option value="Marketing">Marketing</option>
+                  <option value="Equipment">Equipment</option>
+                  <option value="Other Expense">Other Expense</option>
+                  <option value="Sales Revenue">Sales Revenue</option>
+                  <option value="Live Selling">Live Selling</option>
+                  <option value="Other Income">Other Income</option>
+                </select></div>
+                <div><label>Sort Order</label><input type="number" id="tmplSort" min="0" max="999" value="10" placeholder="10"></div>
+              </div>
+              <div class="form-row single">
+                <div><label>Default Note (optional)</label><input type="text" id="tmplNote" placeholder="e.g., 'Regular gas refill'"></div>
+              </div>
+              <div style="margin-top: 10px; display: flex; gap: 8px; justify-content: flex-end;">
+                <button class="btn btn-ghost btn-sm" onclick="resetTemplateForm()">Clear</button>
+                <button class="btn btn-danger btn-sm" id="tmplDelBtn" onclick="deleteExpenseTemplate()" style="display:none;">Delete</button>
+                <button class="btn btn-primary btn-sm" onclick="saveExpenseTemplate()">💾 Save Template</button>
+              </div>
+            </div>
+
+            <!-- List -->
+            <div class="table-wrap">
+              <table class="bb-table">
+                <thead><tr><th>Order</th><th>Icon</th><th>Name</th><th>Amount</th><th>Type</th><th>Category</th><th>Uses</th><th>Action</th></tr></thead>
+                <tbody id="tmplListBody"><tr><td colspan="8" style="text-align:center;padding:14px;color:#999;">Loading...</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('manageTemplatesModal')">Done</button>
           </div>
         </div>
       </div>
@@ -9328,6 +9460,9 @@ function updateCfCategoryOptions() {
 }
 
 async function loadBbCashFlow() {
+  // Refresh quick-tap grid on every view load (fire-and-forget — independent of entries)
+  renderQuickTapGrid().catch(e => console.warn('Quick-tap grid render skipped:', e.message));
+
   const filter = document.getElementById('cfFilter').value;
   let dateFilter = '';
   const now = new Date();
@@ -9593,6 +9728,298 @@ async function deleteCashFlow() {
     loadBbCashFlow();
     toast('✓ Deleted', 'ok');
   } catch (e) { toast('Failed: ' + e.message, 'err'); }
+}
+
+/* ===================== QUICK-TAP EXPENSE TEMPLATES =====================
+ * Goal: reduce expense encoding from 9 fields to 1 tap.
+ * Power: also accessible sa kiosk via showKioskQuickExpense().
+ * JIS: standardized work — templates are the "one-piece flow" unit.
+ */
+let EXPENSE_TEMPLATES_CACHE = [];
+
+async function loadExpenseTemplates() {
+  try {
+    const tmpls = await pbGetList('expense_templates', { filter: 'is_active=true', sort: 'sort_order,name', perPage: 100 });
+    EXPENSE_TEMPLATES_CACHE = tmpls;
+    return tmpls;
+  } catch (e) {
+    console.warn('[Quick-Tap] Templates collection not yet created or unavailable:', e.message);
+    EXPENSE_TEMPLATES_CACHE = [];
+    return [];
+  }
+}
+
+async function renderQuickTapGrid() {
+  const grid = document.getElementById('quickTapGrid');
+  if (!grid) return;
+  const tmpls = await loadExpenseTemplates();
+  if (!tmpls.length) {
+    grid.innerHTML = `
+      <div style="grid-column: 1/-1; text-align: center; padding: 22px; color: #888; font-size: 13px; background: #FAFAFA; border-radius: 10px; border: 1px dashed #E5E7EB;">
+        🌱 <strong>Walang templates pa.</strong><br>
+        I-click ang "🌱 Seed Defaults" para mag-add ng 6 starter templates (Gasoline, Snacks, Pickup, Office Supplies, Water, Electricity).<br>
+        <small>Kung error pa rin, baka kailangan mo i-run muna ang setup_pb_collections.html para magkaroon ng expense_templates collection.</small>
+      </div>`;
+    return;
+  }
+  grid.innerHTML = tmpls.map(t => {
+    const escName = String(t.name || '').replace(/'/g, '&#39;').replace(/"/g, '&quot;');
+    const typeBadge = t.type === 'inflow'
+      ? '<span style="position:absolute;top:6px;right:6px;background:#10B981;color:white;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;">IN</span>'
+      : '<span style="position:absolute;top:6px;right:6px;background:#EF4444;color:white;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;">OUT</span>';
+    const useBadge = t.use_count ? `<div style="font-size:9px;color:#888;margin-top:2px;">${t.use_count}× used</div>` : '';
+    return `<button
+      class="qt-card"
+      onclick="openQuickTapConfirm('${t.id}')"
+      style="position: relative; padding: 14px 10px; background: white; border: 2px solid #E5E7EB; border-radius: 12px; cursor: pointer; text-align: center; transition: all 0.15s; font-family: inherit;"
+      onmouseover="this.style.borderColor='#F5A623'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(245,166,35,0.15)';"
+      onmouseout="this.style.borderColor='#E5E7EB'; this.style.transform='translateY(0)'; this.style.boxShadow='none';"
+      title="${escName}">
+      ${typeBadge}
+      <div style="font-size: 28px; line-height: 1;">${t.icon || '⚡'}</div>
+      <div style="font-weight: 700; font-size: 13px; margin-top: 6px; color: #1F2937;">${escName}</div>
+      <div style="font-weight: 800; font-size: 15px; color: ${t.type === 'inflow' ? '#047857' : '#DC2626'}; margin-top: 4px;">₱${(t.default_amount || 0).toLocaleString()}</div>
+      ${useBadge}
+    </button>`;
+  }).join('');
+}
+
+function openQuickTapConfirm(templateId) {
+  const t = EXPENSE_TEMPLATES_CACHE.find(x => x.id === templateId);
+  if (!t) { toast('Template not found', 'err'); return; }
+  document.getElementById('qtTemplateId').value = t.id;
+  document.getElementById('qtIcon').textContent = t.icon || '⚡';
+  document.getElementById('qtName').textContent = t.name;
+  document.getElementById('qtCategory').textContent = `${t.type === 'inflow' ? '💰 ' : '💸 '} ${t.category}`;
+  document.getElementById('qtAmount').value = t.default_amount;
+  document.getElementById('qtNote').value = t.default_notes || '';
+  document.getElementById('qtDate').textContent = fmtDate(todayStr());
+  document.getElementById('qtBy').textContent = (kioskState.selectedUser && kioskState.selectedUser.name) || 'admin';
+  document.getElementById('qtModalTitle').textContent = (t.type === 'inflow' ? '⚡ Quick Income' : '⚡ Quick Expense');
+  document.getElementById('quickTapModal').classList.add('open');
+  // Auto-focus amount with mobile keyboard
+  setTimeout(() => { const a = document.getElementById('qtAmount'); a.focus(); a.select(); }, 50);
+}
+
+async function confirmQuickTapExpense() {
+  const templateId = document.getElementById('qtTemplateId').value;
+  const amount = parseFloat(document.getElementById('qtAmount').value);
+  const note = document.getElementById('qtNote').value;
+  if (!amount || amount <= 0) { toast('Invalid amount', 'err'); return; }
+  const t = EXPENSE_TEMPLATES_CACHE.find(x => x.id === templateId);
+  if (!t) { toast('Template missing', 'err'); return; }
+
+  const me = (kioskState.selectedUser && kioskState.selectedUser.name) || 'admin';
+
+  // Build cash flow body with sensible defaults so all required fields are met
+  const fd = new FormData();
+  fd.append('date', localPbDateOnly(todayStr()));
+  fd.append('type', t.type);
+  fd.append('category', t.category);
+  fd.append('amount', amount);
+  fd.append('description', note || ('Quick-tap: ' + t.name));
+  fd.append('recorded_by', me);
+  // Quick-tap auto-fills approver fields for outflow (single-tap convenience — owner can edit later if needed)
+  if (t.type === 'outflow') {
+    fd.append('requested_by', me);
+    fd.append('approved_by', me);
+    fd.append('purpose', note || t.name);
+  } else {
+    // Inflow defaults
+    fd.append('source', 'Direct (Sub-admin)');
+    fd.append('received_by', me);
+  }
+  // Audit trail — track that this came from quick-tap
+  fd.append('source_method', 'quick_tap');
+  fd.append('template_id', t.id);
+
+  try {
+    const res = await fetch(PB_API + '/collections/tms_cash_flow/records', { method: 'POST', body: fd });
+    if (!res.ok) {
+      // Fallback: try without source_method + template_id (legacy schema)
+      console.warn('[Quick-Tap] Save with new fields failed, retrying without...');
+      const fd2 = new FormData();
+      ['date','type','category','amount','description','recorded_by','requested_by','approved_by','purpose','source','received_by'].forEach(k => {
+        if (fd.has(k)) fd2.append(k, fd.get(k));
+      });
+      const res2 = await fetch(PB_API + '/collections/tms_cash_flow/records', { method: 'POST', body: fd2 });
+      if (!res2.ok) { const t2 = await res2.text(); throw new Error('PB ' + res2.status + ': ' + t2); }
+    }
+
+    // Increment use_count + update last_used on template (fire-and-forget)
+    pbUpdate('expense_templates', t.id, {
+      use_count: (t.use_count || 0) + 1,
+      last_used: new Date().toISOString()
+    }).catch(e => console.warn('Template use_count update failed:', e.message));
+
+    closeModal('quickTapModal');
+    toast(`✓ ${t.icon || ''} ${t.name}: ₱${amount.toLocaleString()} logged`, 'ok');
+    // Refresh views if currently open
+    if (typeof loadBbCashFlow === 'function' && document.getElementById('view-bbCashFlow') && document.getElementById('view-bbCashFlow').classList.contains('active')) {
+      loadBbCashFlow();
+    }
+    renderQuickTapGrid();  // refresh sort order based on use_count
+  } catch (e) {
+    // Offline fallback
+    console.warn('[Quick-Tap] Online save failed, queuing offline:', e.message);
+    const plainBody = {};
+    for (const [k, v] of fd.entries()) { plainBody[k] = v; }
+    offlineEnqueueOp({ collection: 'tms_cash_flow', operation: 'create', body: plainBody });
+    closeModal('quickTapModal');
+    toast(`⚠ Offline — ${t.name} ₱${amount.toLocaleString()} queued`, 'warn');
+  }
+}
+
+/* ===================== TEMPLATE MANAGEMENT MODAL ===================== */
+async function openManageTemplatesModal() {
+  resetTemplateForm();
+  document.getElementById('manageTemplatesModal').classList.add('open');
+  await refreshTemplatesList();
+}
+
+function resetTemplateForm() {
+  document.getElementById('tmplId').value = '';
+  document.getElementById('tmplFormTitle').textContent = '➕ New Template';
+  document.getElementById('tmplIcon').value = '';
+  document.getElementById('tmplName').value = '';
+  document.getElementById('tmplAmount').value = '';
+  document.getElementById('tmplType').value = 'outflow';
+  document.getElementById('tmplCategory').value = 'Supplies';
+  document.getElementById('tmplSort').value = '10';
+  document.getElementById('tmplNote').value = '';
+  document.getElementById('tmplDelBtn').style.display = 'none';
+}
+
+async function refreshTemplatesList() {
+  try {
+    const all = await pbGetList('expense_templates', { sort: 'sort_order,name', perPage: 200 });
+    const body = document.getElementById('tmplListBody');
+    if (!all.length) {
+      body.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:14px;color:#999;">Walang templates pa. Mag-add ng bagong template sa form sa taas, o click "🌱 Seed Defaults" sa main view.</td></tr>';
+      return;
+    }
+    body.innerHTML = all.map(t => {
+      const escName = String(t.name || '').replace(/'/g, '&#39;');
+      const inactiveTag = t.is_active === false ? ' <span style="background:#FEE2E2;color:#B91C1C;padding:1px 6px;border-radius:4px;font-size:10px;">INACTIVE</span>' : '';
+      return `<tr>
+        <td><strong>${t.sort_order || 0}</strong></td>
+        <td style="font-size: 22px; text-align: center;">${t.icon || '⚡'}</td>
+        <td><strong>${escName}</strong>${inactiveTag}<div style="font-size:10px;color:#888;">${t.default_notes || ''}</div></td>
+        <td><strong>₱${(t.default_amount || 0).toLocaleString()}</strong></td>
+        <td><span class="bb-badge ${t.type === 'inflow' ? 'green' : 'red'}">${t.type === 'inflow' ? '💰 IN' : '💸 OUT'}</span></td>
+        <td><small>${t.category}</small></td>
+        <td><strong>${t.use_count || 0}</strong></td>
+        <td><button class="btn btn-ghost btn-sm" onclick="editExpenseTemplate('${t.id}')">Edit</button></td>
+      </tr>`;
+    }).join('');
+  } catch (e) {
+    document.getElementById('tmplListBody').innerHTML = `<tr><td colspan="8" style="text-align:center;padding:14px;color:#B91C1C;">Failed to load: ${e.message}<br><small>Run setup_pb_collections.html para magawa ang expense_templates collection.</small></td></tr>`;
+  }
+}
+
+async function editExpenseTemplate(id) {
+  try {
+    const r = await fetch(PB_API + '/collections/expense_templates/records/' + id);
+    if (!r.ok) throw new Error('Not found');
+    const t = await r.json();
+    document.getElementById('tmplId').value = t.id;
+    document.getElementById('tmplFormTitle').textContent = '✏️ Edit Template';
+    document.getElementById('tmplIcon').value = t.icon || '';
+    document.getElementById('tmplName').value = t.name || '';
+    document.getElementById('tmplAmount').value = t.default_amount || '';
+    document.getElementById('tmplType').value = t.type || 'outflow';
+    document.getElementById('tmplCategory').value = t.category || 'Supplies';
+    document.getElementById('tmplSort').value = t.sort_order || 10;
+    document.getElementById('tmplNote').value = t.default_notes || '';
+    document.getElementById('tmplDelBtn').style.display = 'inline-flex';
+  } catch (e) { toast('Failed: ' + e.message, 'err'); }
+}
+
+async function saveExpenseTemplate() {
+  const id = document.getElementById('tmplId').value;
+  const name = document.getElementById('tmplName').value.trim();
+  const amount = parseFloat(document.getElementById('tmplAmount').value);
+  if (!name) { toast('Name required', 'err'); return; }
+  if (!amount || amount < 0) { toast('Valid amount required', 'err'); return; }
+
+  const body = {
+    name,
+    icon: document.getElementById('tmplIcon').value.trim() || '⚡',
+    default_amount: amount,
+    type: document.getElementById('tmplType').value,
+    category: document.getElementById('tmplCategory').value,
+    sort_order: parseInt(document.getElementById('tmplSort').value) || 10,
+    default_notes: document.getElementById('tmplNote').value.trim() || '',
+    is_active: true
+  };
+
+  try {
+    if (id) {
+      await pbUpdate('expense_templates', id, body);
+      toast('✓ Template updated', 'ok');
+    } else {
+      await pbCreate('expense_templates', body);
+      toast('✓ Template created', 'ok');
+    }
+    resetTemplateForm();
+    await refreshTemplatesList();
+    await renderQuickTapGrid();
+  } catch (e) {
+    toast('Failed: ' + e.message, 'err');
+  }
+}
+
+async function deleteExpenseTemplate() {
+  const id = document.getElementById('tmplId').value;
+  if (!id) return;
+  if (!confirm('Delete this template? (Templates that were already used in cash flow records will not be affected.)')) return;
+  try {
+    await fetch(PB_API + '/collections/expense_templates/records/' + id, { method: 'DELETE' });
+    toast('✓ Template deleted', 'ok');
+    resetTemplateForm();
+    await refreshTemplatesList();
+    await renderQuickTapGrid();
+  } catch (e) { toast('Failed: ' + e.message, 'err'); }
+}
+
+/* ===================== SEED DEFAULTS — JIS starter pack =====================
+ * Creates 6 common BbeeCo expense templates so user has something to tap immediately.
+ * Safe to re-run — checks for existing templates by name first.
+ */
+async function seedDefaultExpenseTemplates() {
+  const defaults = [
+    { name: 'Gasoline',          icon: '⛽', default_amount: 500,  type: 'outflow', category: 'Transportation', sort_order: 10, default_notes: 'Gas refill' },
+    { name: 'Meals / Snacks',    icon: '🍱', default_amount: 150,  type: 'outflow', category: 'Other Expense',  sort_order: 20, default_notes: 'Lunch / snacks' },
+    { name: 'Office Supplies',   icon: '🧻', default_amount: 200,  type: 'outflow', category: 'Supplies',       sort_order: 30, default_notes: 'Office supplies' },
+    { name: 'Pickup Fee',        icon: '📦', default_amount: 120,  type: 'outflow', category: 'Transportation', sort_order: 40, default_notes: 'Customer pickup' },
+    { name: 'Delivery Rider',    icon: '🛵', default_amount: 80,   type: 'outflow', category: 'Transportation', sort_order: 50, default_notes: 'Delivery to customer' },
+    { name: 'Drinking Water',    icon: '💧', default_amount: 25,   type: 'outflow', category: 'Supplies',       sort_order: 60, default_notes: 'Water refill' },
+    { name: 'Live Selling Sale', icon: '📺', default_amount: 500,  type: 'inflow',  category: 'Live Selling',   sort_order: 70, default_notes: 'Quick live sale' },
+    { name: 'Walk-in Sale',      icon: '🚶', default_amount: 300,  type: 'inflow',  category: 'Sales Revenue',  sort_order: 80, default_notes: 'Walk-in customer' }
+  ];
+
+  if (!confirm(`Mag-add ng ${defaults.length} starter templates? (Pwede mong i-edit o i-delete kalaunan.)\n\n• ⛽ Gasoline ₱500\n• 🍱 Meals ₱150\n• 🧻 Supplies ₱200\n• 📦 Pickup ₱120\n• 🛵 Delivery ₱80\n• 💧 Water ₱25\n• 📺 Live Sale ₱500\n• 🚶 Walk-in ₱300`)) return;
+
+  try {
+    // Check what already exists by name (avoid duplicates)
+    const existing = await pbGetList('expense_templates', { perPage: 200 });
+    const existingNames = new Set(existing.map(e => e.name.toLowerCase()));
+
+    let created = 0, skipped = 0;
+    for (const d of defaults) {
+      if (existingNames.has(d.name.toLowerCase())) { skipped++; continue; }
+      try {
+        await pbCreate('expense_templates', { ...d, is_active: true, use_count: 0 });
+        created++;
+      } catch (e) {
+        console.warn('Failed to seed', d.name, ':', e.message);
+      }
+    }
+    toast(`✓ Seeded ${created} templates${skipped ? ' (' + skipped + ' already existed, skipped)' : ''}`, 'ok');
+    await renderQuickTapGrid();
+  } catch (e) {
+    alert('Seed failed: ' + e.message + '\n\nMake sure expense_templates collection exists — run setup_pb_collections.html.');
+  }
 }
 
 /* ===================== MANUAL DTR ENTRY ===================== */
@@ -11116,6 +11543,43 @@ function closeKioskSchedules() {
   } else {
     goKioskStep('kioskStepName');
   }
+}
+
+/* ===================== KIOSK QUICK EXPENSE — one-tap for timed-in employees =====================
+ * Reuses the same expense_templates + tms_cash_flow as admin Quick-Tap.
+ * Tap card → opens same quickTapModal as admin (consistent UX).
+ */
+async function showKioskQuickExpense() {
+  if (!kioskState.selectedUser) { toast('Please time-in first', 'err'); return; }
+  goKioskStep('kioskStepQuickExpense');
+  await renderKioskQuickTapGrid();
+}
+
+async function renderKioskQuickTapGrid() {
+  const grid = document.getElementById('kioskQuickTapGrid');
+  if (!grid) return;
+  const tmpls = await loadExpenseTemplates();
+  if (!tmpls.length) {
+    grid.innerHTML = `
+      <div style="grid-column: 1/-1; text-align: center; padding: 22px; color: #888; background: #FAFAFA; border-radius: 10px; border: 1px dashed #E5E7EB;">
+        🌱 <strong>Walang templates pa.</strong><br>
+        Sabihin sa admin/owner na i-click ang "🌱 Seed Defaults" sa Cash Flow view para mag-setup.
+      </div>`;
+    return;
+  }
+  grid.innerHTML = tmpls.map(t => {
+    const escName = String(t.name || '').replace(/'/g, '&#39;');
+    const typeBg = t.type === 'inflow' ? '#10B981' : '#EF4444';
+    const typeBadge = `<span style="position:absolute;top:6px;right:6px;background:${typeBg};color:white;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;">${t.type === 'inflow' ? 'IN' : 'OUT'}</span>`;
+    return `<button
+      onclick="openQuickTapConfirm('${t.id}')"
+      style="position: relative; padding: 18px 12px; background: white; border: 2px solid #E5E7EB; border-radius: 14px; cursor: pointer; text-align: center; font-family: inherit; min-height: 130px;">
+      ${typeBadge}
+      <div style="font-size: 36px; line-height: 1;">${t.icon || '⚡'}</div>
+      <div style="font-weight: 700; font-size: 14px; margin-top: 8px; color: #1F2937;">${escName}</div>
+      <div style="font-weight: 800; font-size: 16px; color: ${t.type === 'inflow' ? '#047857' : '#DC2626'}; margin-top: 4px;">₱${(t.default_amount || 0).toLocaleString()}</div>
+    </button>`;
+  }).join('');
 }
 
 function kioskSchedChangeWeek(offset) {
