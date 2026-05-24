@@ -5164,7 +5164,7 @@ function renderKioskNames() {
 
 function filterKioskNames() { renderKioskNames(); }
 
-function selectKioskUser(id, type) {
+async function selectKioskUser(id, type) {
   const list = type === 'admin' ? PB_CACHE.admin_accounts : PB_CACHE.employees;
   const user = list.find(u => u.id === id);
   if (!user) return;
@@ -5172,15 +5172,30 @@ function selectKioskUser(id, type) {
   kioskState.selectedUserType = type;
   kioskState.pin = '';
 
-  // PIN self-setup: kung walang PIN ang employee, mag-trigger ng setup
-  if (type === 'employee' && (!user.pin || user.pin.trim() === '')) {
-    document.getElementById('kioskSetupName').textContent = user.name;
-    document.getElementById('kioskSetupPinError').textContent = '';
-    document.getElementById('kioskSetupLabel').textContent = 'New 4-digit PIN:';
-    setupPinState = { step: 'enter', pin: '', confirm: '' };
-    updateSetupPinDisplay();
-    goKioskStep('kioskStepPinSetup');
-    return;
+  // PIN self-setup: trigger if pin is empty OR is the RESET sentinel OR is not a valid 4-digit PIN
+  // Also fetch fresh user from PB (online) to detect recent admin reset
+  if (type === 'employee') {
+    let livePin = user.pin;
+    if (_pbIsOnline) {
+      try {
+        const r = await fetch(PB_API + '/collections/employees/records/' + user.id);
+        if (r.ok) {
+          const fresh = await r.json();
+          livePin = fresh.pin;
+          user.pin = fresh.pin;  // sync cache
+        }
+      } catch (e) { /* fall back to cached */ }
+    }
+    const needsSetup = !livePin || livePin.trim() === '' || livePin === 'RESET' || !/^\d{4}$/.test(livePin);
+    if (needsSetup) {
+      document.getElementById('kioskSetupName').textContent = user.name;
+      document.getElementById('kioskSetupPinError').textContent = '';
+      document.getElementById('kioskSetupLabel').textContent = 'Create your new 4-digit PIN:';
+      setupPinState = { step: 'enter', pin: '', confirm: '' };
+      updateSetupPinDisplay();
+      goKioskStep('kioskStepPinSetup');
+      return;
+    }
   }
 
   document.getElementById('kioskGreeting').textContent = user.name;
@@ -5290,10 +5305,32 @@ function updatePinDisplay() {
   dots.forEach((dot, i) => dot.classList.toggle('filled', i < kioskState.pin.length));
 }
 
-function verifyPin() {
+async function verifyPin() {
   const user = kioskState.selectedUser;
   if (!user) return;
-  if (user.pin !== kioskState.pin) {
+  const entered = kioskState.pin;
+
+  // JIS: fetch FRESH employee record from PB to verify against latest PIN
+  // (cached data might be stale if admin just reset PIN on another device)
+  let livePin = user.pin;  // fallback to cached
+  if (_pbIsOnline) {
+    try {
+      const collection = kioskState.selectedUserType === 'admin' ? 'admin_accounts' : 'employees';
+      const r = await fetch(PB_API + '/collections/' + collection + '/records/' + user.id);
+      if (r.ok) {
+        const fresh = await r.json();
+        livePin = fresh.pin;
+        // Update local cache with fresh data
+        user.pin = fresh.pin;
+        user.is_locked = fresh.is_locked;
+        user.lock_reason = fresh.lock_reason;
+      }
+    } catch (e) {
+      console.warn('[PIN verify] PB fetch failed, using cached:', e.message);
+    }
+  }
+
+  if (livePin !== entered) {
     const disp = document.getElementById('kioskPinDisplay');
     disp.classList.add('wrong');
     document.getElementById('kioskPinError').textContent = '✗ Wrong PIN. Try again.';
@@ -6996,22 +7033,39 @@ async function saveNewEmployee() {
   }
 }
 
+// Sentinel value: when PIN is set to this, kiosk will route to PIN self-setup screen.
+// Uses non-4-digit string so it can't be entered as a real PIN.
+const PIN_RESET_SENTINEL = 'RESET';
+
 async function resetEmpPin() {
-  if (!confirm('Reset PIN? Employee mag-setup ulit ng bagong 4-digit PIN sa next kiosk login.')) return;
+  if (!confirm('Reset PIN? Employee mag-set ulit ng bagong 4-digit PIN sa next kiosk login (tatanungin sila automatically).')) return;
   const id = document.getElementById('esId').value;
   if (!id) { toast('No employee selected', 'err'); return; }
   try {
-    // Direct PB update — clear pin field by sending null. If PB requires non-blank, fall back to placeholder.
+    // Try setting pin to empty string first (kiosk recognizes empty as "needs setup")
     try {
-      await pbUpdate('employees', id, { pin: null });
+      await pbUpdate('employees', id, { pin: '' });
     } catch (e) {
-      // PB rejected null → use sentinel value that kiosk will recognize as "needs setup"
-      await pbUpdate('employees', id, { pin: '0000' });
+      // PB rejected empty (validation_required) — use sentinel string
+      await pbUpdate('employees', id, { pin: PIN_RESET_SENTINEL });
     }
     document.getElementById('esPin').value = '';
+    alert('✓ PIN reset successful!\n\nEmployee will see PIN setup screen on next kiosk login. They can choose their own new 4-digit PIN.');
     toast('✓ PIN reset — employee will set new PIN on next kiosk login', 'ok');
+    // Audit log
+    if (kioskState.selectedUser) {
+      try {
+        await pbCreate('action_log', {
+          module: 'hr',
+          action: 'pin_reset',
+          collection: 'employees',
+          record_id: id,
+          new_value: JSON.stringify({ pin_reset: true, by: kioskState.selectedUser.name })
+        });
+      } catch (e) {}
+    }
   } catch (e) {
-    toast('Reset failed: ' + e.message, 'err');
+    alert('Reset failed: ' + e.message);
   }
 }
 
