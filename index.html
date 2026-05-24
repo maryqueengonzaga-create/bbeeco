@@ -1429,9 +1429,14 @@
     <p style="color: #888; margin: 0 0 16px; font-size: 14px;">
       <span class="conn-pill loading" id="kioskConn"><span class="conn-dot"></span> Connecting...</span>
     </p>
-    <button onclick="showKioskRoster()" style="width: 100%; padding: 14px; background: linear-gradient(135deg, #F5A623, #C8841A); color: white; border: none; border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer; margin-bottom: 14px; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 3px 10px rgba(245,166,35,0.3);">
-      📋 View Today's Shift Roster
-    </button>
+    <div style="display: flex; gap: 8px; margin-bottom: 14px;">
+      <button onclick="showKioskRoster()" style="flex: 1; padding: 14px; background: linear-gradient(135deg, #F5A623, #C8841A); color: white; border: none; border-radius: 12px; font-size: 14px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 3px 10px rgba(245,166,35,0.3);">
+        📋 Shift Roster
+      </button>
+      <button onclick="showKioskSchedules()" style="flex: 1; padding: 14px; background: linear-gradient(135deg, #3B82F6, #1E40AF); color: white; border: none; border-radius: 12px; font-size: 14px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 3px 10px rgba(59,130,246,0.3);">
+        📅 Weekly Schedules
+      </button>
+    </div>
     <div class="kiosk-search">
       <input type="text" id="kioskSearch" placeholder="🔍 Search your name..." oninput="filterKioskNames()">
     </div>
@@ -1459,6 +1464,41 @@
       <br>👈 Swipe sideways para makita ang lahat ng roles.
     </div>
   </div>
+
+  <!-- STEP: KIOSK SCHEDULES VIEW (public — no PIN needed) -->
+  <div class="kiosk-step" id="kioskStepSchedules" style="padding: 14px;">
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+      <button onclick="closeKioskSchedules()" style="background: white; border: 1px solid var(--bb-border); padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;">← Back</button>
+      <h2 style="margin: 0; font-size: 18px; flex: 1;">📅 Weekly Schedules</h2>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; padding: 10px; background: #DBEAFE; border-radius: 10px;">
+      <button onclick="kioskSchedChangeWeek(-1)" style="background: white; border: 1px solid var(--bb-border); width: 36px; height: 36px; border-radius: 8px; font-size: 16px; cursor: pointer;">‹</button>
+      <div id="kioskSchedWeekLabel" style="flex: 1; padding: 8px; font-size: 14px; font-weight: 700; text-align: center;">—</div>
+      <button onclick="kioskSchedChangeWeek(1)" style="background: white; border: 1px solid var(--bb-border); width: 36px; height: 36px; border-radius: 8px; font-size: 16px; cursor: pointer;">›</button>
+      <button onclick="kioskSchedChangeWeek(0)" style="background: #3B82F6; color: white; border: none; padding: 8px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer;">This Week</button>
+    </div>
+    <div id="kioskSchedContent" style="overflow-x: auto; overflow-y: auto; max-height: 60vh; -webkit-overflow-scrolling: touch; border: 1px solid var(--bb-border); border-radius: 10px; background: white;"></div>
+    <div style="margin-top: 12px; padding: 10px 12px; background: #DBEAFE; border-radius: 8px; font-size: 11px; line-height: 1.5; color: #1E40AF;">
+      💡 Walang PIN needed para makita. Pakitignan ang sariling oras at ng team. 5-min grace period sa lates.<br>
+      👈 Swipe sideways para makita ang weekend days kung mobile.
+    </div>
+  </div>
+
+  <style>
+    .kiosk-sched-table { border-collapse: collapse; width: 100%; min-width: 720px; font-size: 12px; background: white; }
+    .kiosk-sched-table th, .kiosk-sched-table td { border: 1px solid #E5E7EB; padding: 8px 6px; text-align: center; vertical-align: middle; }
+    .kiosk-sched-table th { background: #DBEAFE; color: #1E40AF; font-weight: 700; font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; position: sticky; top: 0; z-index: 5; }
+    .kiosk-sched-table th:first-child, .kiosk-sched-table td:first-child { position: sticky; left: 0; background: #F3F4F6; z-index: 4; min-width: 130px; max-width: 130px; text-align: left; font-weight: 700; padding-left: 10px; }
+    .kiosk-sched-table td { font-family: 'SF Mono', Menlo, monospace; font-size: 11px; }
+    .kiosk-sched-table .ks-time-start { font-weight: 700; color: #1F2937; }
+    .kiosk-sched-table .ks-time-end { color: #6B7280; font-size: 10px; }
+    .kiosk-sched-table .ks-off { color: #BBB; font-style: italic; font-size: 10px; font-family: -apple-system, sans-serif; }
+    .kiosk-sched-table .ks-emp-name { font-size: 12px; color: var(--bb-black); }
+    .kiosk-sched-table .ks-emp-role { font-size: 9px; color: var(--bb-gray); font-weight: 400; margin-top: 2px; }
+    .kiosk-sched-table tr.today-row td { background: #FEF3C7; }
+    .kiosk-sched-table tr.today-row td:first-child { background: #FDE68A; }
+    .kiosk-sched-empty { padding: 30px; text-align: center; color: #999; font-size: 13px; }
+  </style>
 
   <style>
     .kiosk-roster-table { border-collapse: collapse; width: 100%; min-width: 700px; font-size: 12px; }
@@ -1598,10 +1638,15 @@
     <!-- TASK ALERT BANNER -->
     <div id="kioskTaskBanner" style="display: none; background: var(--bb-honey); color: var(--bb-white); padding: 14px 16px; border-radius: 10px; margin-bottom: 12px; cursor: pointer; font-weight: 600;" onclick="openEmpTasks()"></div>
 
-    <!-- ROSTER BUTTON (always available for timed-in users) -->
-    <button onclick="showKioskRoster()" style="width: 100%; padding: 12px 14px; background: linear-gradient(135deg, #F5A623, #C8841A); color: white; border: none; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 2px 8px rgba(245,166,35,0.25);">
-      📋 View My Shift Roster (long-press to mark Done)
-    </button>
+    <!-- ROSTER + SCHEDULES BUTTONS (always available for timed-in users) -->
+    <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+      <button onclick="showKioskRoster()" style="flex: 1; padding: 12px 14px; background: linear-gradient(135deg, #F5A623, #C8841A); color: white; border: none; border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 2px 8px rgba(245,166,35,0.25);">
+        📋 Shift Roster
+      </button>
+      <button onclick="showKioskSchedules()" style="flex: 1; padding: 12px 14px; background: linear-gradient(135deg, #3B82F6, #1E40AF); color: white; border: none; border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 2px 8px rgba(59,130,246,0.25);">
+        📅 Schedules
+      </button>
+    </div>
 
     <!-- JIS RULE NOTE -->
     <div class="kiosk-rule-note" id="kioskActionNote" style="display: none;"></div>
@@ -3154,12 +3199,42 @@
         <div class="card" style="margin-bottom: 16px;">
           <div class="card-h">
             <h3>Weekly Schedules</h3>
-            <div style="display:flex; gap:8px;">
+            <div style="display:flex; gap:8px; flex-wrap: wrap;">
               <button class="btn btn-secondary btn-sm" onclick="loadBbSchedules()">⟳ Refresh</button>
               <button class="btn btn-primary btn-sm" data-extra-perm="create_schedules" onclick="openSchedModal()">+ New Schedule</button>
             </div>
           </div>
           <p style="font-size: 12px; color: var(--bb-gray); margin-bottom: 12px;">Set ang start time per day per week per employee. Ginagamit ito ng payroll para sa late computation (5-min grace, 15/30min tiers).</p>
+
+          <!-- PDF EXPORT TOOLBAR -->
+          <div style="background: var(--bb-honey-light); border: 1px solid var(--bb-honey); border-radius: 10px; padding: 12px 14px; margin-bottom: 14px;">
+            <div style="font-weight: 700; font-size: 13px; color: var(--bb-honey-dark); margin-bottom: 8px; display:flex; align-items:center; gap:6px;">
+              🖨 Print / Download Schedule PDF
+            </div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end;">
+              <div>
+                <label style="font-size: 10px; color: var(--bb-gray); text-transform: uppercase; font-weight: 600; letter-spacing: 0.4px; display:block; margin-bottom:3px;">From</label>
+                <input type="date" id="schPrintFrom" style="padding: 7px 10px; border: 1px solid var(--bb-border); border-radius: 6px; font-size: 13px;">
+              </div>
+              <div>
+                <label style="font-size: 10px; color: var(--bb-gray); text-transform: uppercase; font-weight: 600; letter-spacing: 0.4px; display:block; margin-bottom:3px;">To</label>
+                <input type="date" id="schPrintTo" style="padding: 7px 10px; border: 1px solid var(--bb-border); border-radius: 6px; font-size: 13px;">
+              </div>
+              <div style="display: flex; gap: 6px; align-items: center;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="schPrintPresetThisWeek()">This Week</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="schPrintPresetNextWeek()">Next Week</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="schPrintPresetThisMonth()">This Month</button>
+              </div>
+              <div style="margin-left: auto; display: flex; gap: 6px;">
+                <button class="btn btn-primary btn-sm" onclick="printSchedulesGrid()">📊 Grid PDF (post na-print)</button>
+                <button class="btn btn-primary btn-sm" onclick="printSchedulesList()">📋 List PDF (per-employee)</button>
+              </div>
+            </div>
+            <div style="font-size: 10px; color: var(--bb-gray); margin-top: 6px;">
+              Tip: sa print dialog, piliin ang "Save as PDF" para hindi mag-print agad. Grid = good for posting. List = good for individual employee handouts.
+            </div>
+          </div>
+
           <div class="table-wrap">
             <table class="bb-table">
               <thead><tr><th>Employee</th><th>Week Start</th><th>Week End</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th><th>Action</th></tr></thead>
@@ -3317,10 +3392,16 @@
             <input type="hidden" id="schId">
             <div class="form-row">
               <div><label>Employee *</label><select id="schEmp" onchange="schedShowCopyButton()"></select></div>
-              <div><label></label><div style="padding-top: 4px; display:flex; gap:6px;">
-                <button class="btn btn-secondary btn-sm" onclick="schedFillCurrentWeek()">📅 This Week</button>
-                <button class="btn btn-secondary btn-sm" id="schCopyBtn" onclick="schedCopyPrevious()" style="display:none;">⎘ Copy from Previous</button>
-              </div></div>
+            </div>
+            <div style="margin-bottom: 12px;">
+              <label style="display:block; margin-bottom: 6px;">Quick-pick Date Range</label>
+              <div style="display:flex; gap:6px; flex-wrap: wrap;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="schedFillCurrentWeek()">📅 This Week</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="schedFillNextWeek()">📆 Next Week</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="schedFillCutoff()">💰 This Cutoff</button>
+                <button type="button" class="btn btn-secondary btn-sm" id="schCopyBtn" onclick="schedCopyPrevious()" style="display:none;">⎘ Copy from Last Week</button>
+              </div>
+              <div style="font-size: 10px; color: var(--bb-gray); margin-top: 4px;">Pumili ng employee muna bago lumitaw ang "Copy from Last Week" button.</div>
             </div>
             <div class="form-row">
               <div><label>Week Start (Monday) *</label><input type="date" id="schWeekStart"></div>
@@ -8034,6 +8115,290 @@ function schedFillCurrentWeek() {
   document.getElementById('schWeekEnd').value = sunday.toISOString().substring(0,10);
 }
 
+function schedFillNextWeek() {
+  const today = new Date();
+  const day = today.getDay();
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  const monday = new Date(today); monday.setDate(today.getDate() + mondayOffset + 7);  // +7 = next Monday
+  const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
+  document.getElementById('schWeekStart').value = monday.toISOString().substring(0,10);
+  document.getElementById('schWeekEnd').value = sunday.toISOString().substring(0,10);
+}
+
+function schedFillCutoff() {
+  // BbeeCo payroll cutoffs: 1-15, 16-end-of-month
+  const today = new Date();
+  const y = today.getFullYear();
+  const m = today.getMonth();
+  const d = today.getDate();
+  let startDate, endDate;
+  if (d <= 15) {
+    startDate = new Date(y, m, 1);
+    endDate = new Date(y, m, 15);
+  } else {
+    startDate = new Date(y, m, 16);
+    endDate = new Date(y, m + 1, 0);  // last day of current month
+  }
+  document.getElementById('schWeekStart').value = startDate.toISOString().substring(0,10);
+  document.getElementById('schWeekEnd').value = endDate.toISOString().substring(0,10);
+}
+
+/* ===================== SCHEDULE PDF PRINT — presets ===================== */
+function schPrintPresetThisWeek() {
+  const today = new Date();
+  const day = today.getDay();
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  const monday = new Date(today); monday.setDate(today.getDate() + mondayOffset);
+  const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
+  document.getElementById('schPrintFrom').value = monday.toISOString().substring(0,10);
+  document.getElementById('schPrintTo').value = sunday.toISOString().substring(0,10);
+}
+
+function schPrintPresetNextWeek() {
+  const today = new Date();
+  const day = today.getDay();
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  const monday = new Date(today); monday.setDate(today.getDate() + mondayOffset + 7);
+  const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
+  document.getElementById('schPrintFrom').value = monday.toISOString().substring(0,10);
+  document.getElementById('schPrintTo').value = sunday.toISOString().substring(0,10);
+}
+
+function schPrintPresetThisMonth() {
+  const today = new Date();
+  const y = today.getFullYear();
+  const m = today.getMonth();
+  const first = new Date(y, m, 1);
+  const last = new Date(y, m + 1, 0);
+  document.getElementById('schPrintFrom').value = first.toISOString().substring(0,10);
+  document.getElementById('schPrintTo').value = last.toISOString().substring(0,10);
+}
+
+/* ===================== Helper — fetch schedules in a date range ===================== */
+async function _fetchSchedulesInRange(fromDate, toDate) {
+  // Filter: schedule weeks that overlap with [fromDate, toDate]
+  // A schedule overlaps if its week_start <= toDate AND its week_end >= fromDate
+  const filter = `(week_start<="${toDate}" && week_end>="${fromDate}")`;
+  const [schedules, emps] = await Promise.all([
+    pbGetList('schedules', { filter, sort: 'week_start', expand: 'employee_id', perPage: 500 }),
+    populateBbEmpSelect ? (BB_EMPS_CACHE.length ? Promise.resolve(BB_EMPS_CACHE) : pbGetList('employees', { filter: 'is_active=true', sort: 'name', perPage: 500 })) : pbGetList('employees', { filter: 'is_active=true', sort: 'name', perPage: 500 })
+  ]);
+  return { schedules, emps: Array.isArray(emps) ? emps : BB_EMPS_CACHE };
+}
+
+/* ===================== SCHEDULE PDF — Grid view (for posting) ===================== */
+async function printSchedulesGrid() {
+  const from = document.getElementById('schPrintFrom').value;
+  const to = document.getElementById('schPrintTo').value;
+  if (!from || !to) { alert('Pumili muna ng From + To dates (or use a preset button).'); return; }
+  if (from > to) { alert('From date must be before To date'); return; }
+
+  try {
+    const { schedules, emps } = await _fetchSchedulesInRange(from, to);
+    if (!schedules.length) { alert('Walang schedules sa range na ito (' + from + ' to ' + to + ').'); return; }
+
+    // For each employee, find their best-matching schedule in the range
+    const empById = {}; emps.forEach(e => empById[e.id] = e);
+    const empSched = {};  // empId -> latest schedule that overlaps
+    schedules.forEach(s => {
+      if (!empSched[s.employee_id] || s.week_start > empSched[s.employee_id].week_start) {
+        empSched[s.employee_id] = s;
+      }
+    });
+
+    // Sort employees by name, only those with a schedule
+    const rows = Object.keys(empSched).map(id => ({
+      emp: empById[id] || (empSched[id].expand && empSched[id].expand.employee_id) || { name: 'Employee ' + id.substring(0,6) },
+      sched: empSched[id]
+    })).filter(r => r.emp).sort((a, b) => (a.emp.name || '').localeCompare(b.emp.name || ''));
+
+    if (!rows.length) { alert('Schedules found pero walang matching employees.'); return; }
+
+    const days = ['mon','tue','wed','thu','fri','sat','sun'];
+    const dayLabels = ['MON','TUE','WED','THU','FRI','SAT','SUN'];
+    const fmtTimes = s => {
+      const start = s.start || '';
+      const end = s.end || '';
+      if (!start && !end) return '<span class="off">— off —</span>';
+      if (!end) return `<strong>${start}</strong>`;
+      return `<strong>${start}</strong><br><span class="dur">to ${end}</span>`;
+    };
+
+    const w = window.open('', 'sched_grid', 'width=1100,height=800');
+    w.document.write(`<!DOCTYPE html><html><head><title>BbeeCo Schedule Grid — ${from} to ${to}</title>
+<style>
+  @page { size: A4 landscape; margin: 12mm; }
+  body { font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 18px; color: #222; }
+  .header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 3px solid #F5A623; padding-bottom: 10px; margin-bottom: 14px; }
+  .header h1 { margin: 0; color: #C8841A; font-size: 22px; }
+  .header p { margin: 4px 0 0; color: #666; font-size: 12px; }
+  .meta { text-align: right; font-size: 11px; color: #888; }
+  table { border-collapse: collapse; width: 100%; font-size: 11px; }
+  th, td { border: 1px solid #D1D5DB; padding: 8px 6px; text-align: center; vertical-align: middle; }
+  th { background: #FEF3C7; color: #92400E; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; font-size: 10px; }
+  th.emp-col, td.emp-col { background: #F9FAFB; text-align: left; font-weight: 700; min-width: 140px; }
+  td { background: white; }
+  .off { color: #BBB; font-style: italic; font-size: 10px; }
+  .dur { color: #666; font-size: 10px; }
+  .footer { margin-top: 18px; padding-top: 10px; border-top: 1px solid #E5E7EB; font-size: 10px; color: #888; display: flex; justify-content: space-between; }
+  .legend { font-size: 9px; color: #888; margin-top: 8px; text-align: center; }
+  @media print { .no-print { display: none; } body { padding: 0; } }
+  .no-print { background: #F5A623; color: white; padding: 12px; text-align: center; margin-bottom: 14px; border-radius: 8px; }
+  .no-print button { background: white; color: #F5A623; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 700; cursor: pointer; margin-left: 8px; }
+</style>
+</head><body>
+<div class="no-print">
+  💡 Print dialog will open shortly. In the dialog, choose <strong>"Save as PDF"</strong> as destination.
+  <button onclick="window.print()">🖨 Print Now</button>
+  <button onclick="window.close()">Close</button>
+</div>
+<div class="header">
+  <div>
+    <h1>📅 BbeeCo Weekly Schedule</h1>
+    <p>Date Range: <strong>${fmtDate(from)} — ${fmtDate(to)}</strong> &nbsp;•&nbsp; ${rows.length} employees</p>
+  </div>
+  <div class="meta">
+    Generated: ${new Date().toLocaleString('en-PH')}<br>
+    JIS-aligned standardized work schedule
+  </div>
+</div>
+<table>
+  <thead>
+    <tr>
+      <th class="emp-col">EMPLOYEE</th>
+      ${dayLabels.map(l => `<th>${l}</th>`).join('')}
+    </tr>
+  </thead>
+  <tbody>
+    ${rows.map(r => `<tr>
+      <td class="emp-col">${r.emp.name}${r.emp.role ? '<br><span style="font-size:9px;font-weight:400;color:#888;">' + (r.emp.role === 'live_seller' ? 'Live Seller' : 'Regular') + '</span>' : ''}</td>
+      ${days.map(d => `<td>${fmtTimes({ start: r.sched[d + '_start'] || '', end: r.sched[d + '_end'] || '' })}</td>`).join('')}
+    </tr>`).join('')}
+  </tbody>
+</table>
+<div class="legend">Times shown in 24-hour format (HH:MM). Empty cells = off-day. Late grace period: 5 minutes from start time.</div>
+<div class="footer">
+  <span>📋 BbeeCo Operations — Internal Use</span>
+  <span>Page 1 of 1 &nbsp;•&nbsp; Updated: ${new Date().toLocaleDateString('en-PH')}</span>
+</div>
+<script>window.onload = function() { setTimeout(function() { window.print(); }, 400); };<\/script>
+</body></html>`);
+    w.document.close();
+  } catch (e) {
+    alert('Failed to generate PDF: ' + e.message);
+    console.error(e);
+  }
+}
+
+/* ===================== SCHEDULE PDF — List view (per-employee handout) ===================== */
+async function printSchedulesList() {
+  const from = document.getElementById('schPrintFrom').value;
+  const to = document.getElementById('schPrintTo').value;
+  if (!from || !to) { alert('Pumili muna ng From + To dates (or use a preset button).'); return; }
+  if (from > to) { alert('From date must be before To date'); return; }
+
+  try {
+    const { schedules, emps } = await _fetchSchedulesInRange(from, to);
+    if (!schedules.length) { alert('Walang schedules sa range na ito.'); return; }
+
+    const empById = {}; emps.forEach(e => empById[e.id] = e);
+    // Group all schedules per employee (a long range might span multiple weeks)
+    const byEmp = {};
+    schedules.forEach(s => {
+      if (!byEmp[s.employee_id]) byEmp[s.employee_id] = [];
+      byEmp[s.employee_id].push(s);
+    });
+
+    const days = ['mon','tue','wed','thu','fri','sat','sun'];
+    const dayLabels = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+
+    const sections = Object.keys(byEmp).map(empId => {
+      const emp = empById[empId] || (byEmp[empId][0].expand && byEmp[empId][0].expand.employee_id) || { name: 'Employee ' + empId.substring(0,6) };
+      const empScheds = byEmp[empId].sort((a,b) => a.week_start.localeCompare(b.week_start));
+      const weeksHtml = empScheds.map(s => {
+        const rows = days.map((d, i) => {
+          const start = s[d + '_start'] || '';
+          const end = s[d + '_end'] || '';
+          const timeStr = (!start && !end) ? '<span class="off">Off</span>' : (start + (end ? ' — ' + end : ''));
+          return `<tr><td class="day">${dayLabels[i]}</td><td class="time">${timeStr}</td></tr>`;
+        }).join('');
+        return `<div class="week-box">
+          <div class="week-header">Week of <strong>${fmtDate(s.week_start)}</strong> to <strong>${fmtDate(s.week_end)}</strong></div>
+          <table class="week-table"><tbody>${rows}</tbody></table>
+        </div>`;
+      }).join('');
+      return `<section class="emp-section">
+        <div class="emp-header">
+          <div>
+            <div class="emp-name">${emp.name}</div>
+            <div class="emp-role">${emp.role === 'live_seller' ? 'Live Seller' : 'Regular Staff'}${emp.code ? ' • Code: ' + emp.code : ''}</div>
+          </div>
+          <div class="emp-period">Schedule period:<br><strong>${fmtDate(from)} → ${fmtDate(to)}</strong></div>
+        </div>
+        ${weeksHtml}
+        <div class="emp-footer">
+          <div class="ack">
+            <strong>Acknowledgment:</strong> I confirm I have received and understood my work schedule above. I agree to report on time per the BbeeCo Attendance Policy (5-min grace period).<br><br>
+            Signature: ____________________________________ &nbsp;&nbsp; Date: ____________
+          </div>
+        </div>
+      </section>`;
+    }).sort().join('');
+
+    const w = window.open('', 'sched_list', 'width=900,height=900');
+    w.document.write(`<!DOCTYPE html><html><head><title>BbeeCo Individual Schedules — ${from} to ${to}</title>
+<style>
+  @page { size: A4 portrait; margin: 14mm; }
+  body { font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 18px; color: #222; }
+  .header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 3px solid #F5A623; padding-bottom: 10px; margin-bottom: 18px; }
+  .header h1 { margin: 0; color: #C8841A; font-size: 22px; }
+  .header p { margin: 4px 0 0; color: #666; font-size: 12px; }
+  .meta { text-align: right; font-size: 11px; color: #888; }
+  .emp-section { page-break-after: always; padding-bottom: 24px; }
+  .emp-section:last-child { page-break-after: auto; }
+  .emp-header { display: flex; justify-content: space-between; align-items: flex-start; background: #FEF3C7; border-left: 5px solid #F5A623; padding: 14px 18px; border-radius: 8px 8px 0 0; margin-bottom: 12px; }
+  .emp-name { font-size: 22px; font-weight: 800; color: #92400E; }
+  .emp-role { font-size: 12px; color: #92400E; margin-top: 4px; }
+  .emp-period { font-size: 11px; color: #666; text-align: right; }
+  .week-box { border: 1px solid #E5E7EB; border-radius: 8px; padding: 10px 14px; margin-bottom: 10px; background: white; }
+  .week-header { font-size: 12px; color: #555; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid #F3F4F6; }
+  .week-table { width: 100%; border-collapse: collapse; }
+  .week-table td { padding: 5px 8px; font-size: 13px; border-bottom: 1px solid #F9FAFB; }
+  .week-table .day { font-weight: 700; width: 130px; color: #444; }
+  .week-table .time { font-family: 'SF Mono', Menlo, monospace; color: #1F2937; font-weight: 600; }
+  .off { color: #BBB; font-style: italic; font-weight: 400; }
+  .emp-footer { margin-top: 18px; padding: 14px; background: #F9FAFB; border-radius: 8px; font-size: 11px; color: #444; line-height: 1.7; }
+  .ack { color: #444; }
+  @media print { .no-print { display: none; } body { padding: 0; } }
+  .no-print { background: #F5A623; color: white; padding: 12px; text-align: center; margin-bottom: 14px; border-radius: 8px; }
+  .no-print button { background: white; color: #F5A623; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 700; cursor: pointer; margin-left: 8px; }
+</style>
+</head><body>
+<div class="no-print">
+  💡 Print dialog will open shortly. Choose <strong>"Save as PDF"</strong> in the destination.
+  <button onclick="window.print()">🖨 Print Now</button>
+  <button onclick="window.close()">Close</button>
+</div>
+<div class="header">
+  <div>
+    <h1>📋 BbeeCo Individual Schedules</h1>
+    <p>Period: <strong>${fmtDate(from)} — ${fmtDate(to)}</strong> &nbsp;•&nbsp; ${Object.keys(byEmp).length} employees &nbsp;•&nbsp; one page per employee</p>
+  </div>
+  <div class="meta">
+    Generated: ${new Date().toLocaleString('en-PH')}<br>
+    For employee handout + acknowledgment
+  </div>
+</div>
+${sections}
+<script>window.onload = function() { setTimeout(function() { window.print(); }, 400); };<\/script>
+</body></html>`);
+    w.document.close();
+  } catch (e) {
+    alert('Failed to generate PDF: ' + e.message);
+    console.error(e);
+  }
+}
+
 async function editSched(id) {
   try {
     // Poka-yoke: ensure dropdown is populated BEFORE setting value
@@ -10233,9 +10598,13 @@ async function schedCopyPrevious() {
     if (!prev.length) { alert('Walang previous schedule for this employee'); return; }
     const p = prev[0];
     ['mon','tue','wed','thu','fri','sat','sun'].forEach(d => {
-      document.getElementById('sch' + d.charAt(0).toUpperCase() + d.slice(1)).value = p[d + '_start'] || '';
+      const cap = d.charAt(0).toUpperCase() + d.slice(1);
+      document.getElementById('sch' + cap).value = p[d + '_start'] || '';
+      // Copy end times too (added when end-time schema was deployed)
+      const endEl = document.getElementById('sch' + cap + 'End');
+      if (endEl) endEl.value = p[d + '_end'] || '';
     });
-    alert(`Copied times from week of ${fmtDate(p.week_start)}. Adjust week start/end as needed.`);
+    toast(`✓ Copied start + end times from week of ${fmtDate(p.week_start)}`, 'ok');
   } catch (e) { alert('Failed: ' + e.message); }
 }
 
@@ -10729,6 +11098,126 @@ function closeKioskRoster() {
     goKioskStep('kioskStepAction');
   } else {
     goKioskStep('kioskStepName');
+  }
+}
+
+/* ===================== KIOSK SCHEDULES VIEW (public, no PIN) ===================== */
+let _kioskSchedAnchorDate = new Date();  // anchor for the week being shown
+
+async function showKioskSchedules() {
+  goKioskStep('kioskStepSchedules');
+  _kioskSchedAnchorDate = new Date();
+  await renderKioskSchedules();
+}
+
+function closeKioskSchedules() {
+  if (kioskState.selectedUser && kioskState.selectedUserType === 'employee') {
+    goKioskStep('kioskStepAction');
+  } else {
+    goKioskStep('kioskStepName');
+  }
+}
+
+function kioskSchedChangeWeek(offset) {
+  if (offset === 0) {
+    _kioskSchedAnchorDate = new Date();
+  } else {
+    _kioskSchedAnchorDate.setDate(_kioskSchedAnchorDate.getDate() + offset * 7);
+  }
+  renderKioskSchedules();
+}
+
+function _getWeekRange(anchor) {
+  const day = anchor.getDay(); // 0=sun, 1=mon
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  const monday = new Date(anchor); monday.setDate(anchor.getDate() + mondayOffset); monday.setHours(0,0,0,0);
+  const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
+  return { monday, sunday };
+}
+
+async function renderKioskSchedules() {
+  const { monday, sunday } = _getWeekRange(_kioskSchedAnchorDate);
+  const fromStr = monday.toISOString().substring(0,10);
+  const toStr = sunday.toISOString().substring(0,10);
+
+  // Update week label
+  const labelEl = document.getElementById('kioskSchedWeekLabel');
+  if (labelEl) labelEl.textContent = `Week of ${fmtDate(fromStr)} → ${fmtDate(toStr)}`;
+
+  const contentEl = document.getElementById('kioskSchedContent');
+  if (!contentEl) return;
+  contentEl.innerHTML = '<div class="kiosk-sched-empty">Loading schedules...</div>';
+
+  try {
+    // Fetch schedules that overlap with this week
+    const filter = `(week_start<="${toStr}" && week_end>="${fromStr}")`;
+    const [schedules, emps] = await Promise.all([
+      pbGetList('schedules', { filter, sort: 'week_start', expand: 'employee_id', perPage: 500 }),
+      BB_EMPS_CACHE.length ? Promise.resolve(BB_EMPS_CACHE) : pbGetList('employees', { filter: 'is_active=true', sort: 'name', perPage: 500 })
+    ]);
+
+    if (!schedules.length) {
+      contentEl.innerHTML = '<div class="kiosk-sched-empty">📭 Walang schedule pa para sa week na ito.<br><br>Pakitanong sa admin o tignan ang ibang week.</div>';
+      return;
+    }
+
+    const empById = {}; emps.forEach(e => empById[e.id] = e);
+    // Pick best schedule per employee (latest one that overlaps)
+    const empSched = {};
+    schedules.forEach(s => {
+      if (!empSched[s.employee_id] || s.week_start > empSched[s.employee_id].week_start) {
+        empSched[s.employee_id] = s;
+      }
+    });
+
+    const rows = Object.keys(empSched).map(id => ({
+      emp: empById[id] || (empSched[id].expand && empSched[id].expand.employee_id) || { name: 'Unknown' },
+      sched: empSched[id]
+    })).sort((a, b) => (a.emp.name || '').localeCompare(b.emp.name || ''));
+
+    const days = ['mon','tue','wed','thu','fri','sat','sun'];
+    const dayLabels = ['MON','TUE','WED','THU','FRI','SAT','SUN'];
+
+    // Highlight today's column
+    const todayDay = new Date().getDay(); // 0=sun
+    const todayIdx = todayDay === 0 ? 6 : todayDay - 1; // 0=mon..6=sun
+
+    const renderCell = (start, end) => {
+      if (!start && !end) return '<span class="ks-off">off</span>';
+      const startStr = `<div class="ks-time-start">${start}</div>`;
+      const endStr = end ? `<div class="ks-time-end">to ${end}</div>` : '';
+      return startStr + endStr;
+    };
+
+    const myEmpId = kioskState.selectedUser ? kioskState.selectedUser.id : null;
+
+    const tableHtml = `
+      <table class="kiosk-sched-table">
+        <thead>
+          <tr>
+            <th>EMPLOYEE</th>
+            ${dayLabels.map((l, i) => `<th${i === todayIdx ? ' style="background:#FCD34D;color:#92400E;"' : ''}>${l}${i === todayIdx ? '<br><span style="font-size:8px;">TODAY</span>' : ''}</th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(r => {
+            const isMine = myEmpId && r.emp.id === myEmpId;
+            return `<tr class="${isMine ? 'today-row' : ''}">
+              <td>
+                <div class="ks-emp-name">${r.emp.name}${isMine ? ' 👤' : ''}</div>
+                <div class="ks-emp-role">${r.emp.role === 'live_seller' ? 'Live Seller' : 'Regular'}</div>
+              </td>
+              ${days.map(d => `<td>${renderCell(r.sched[d + '_start'] || '', r.sched[d + '_end'] || '')}</td>`).join('')}
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    `;
+
+    contentEl.innerHTML = tableHtml;
+  } catch (e) {
+    contentEl.innerHTML = '<div class="kiosk-sched-empty" style="color:#B91C1C;">❌ Failed to load schedules: ' + e.message + '<br><br>Check internet o pakitanong sa admin.</div>';
+    console.error('Kiosk schedules load:', e);
   }
 }
 
