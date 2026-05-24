@@ -6007,20 +6007,17 @@ async function loadBbIncidents() {
 
     const filter = (document.getElementById('incFilter') && document.getElementById('incFilter').value) || 'open';
     const monthAgoISO = new Date(Date.now() - 30*86400000).toISOString();
-    const [incidents, emps] = await Promise.all([
-      pbGetList('incident_reports', { sort: '-created', expand: 'employee_id', perPage: 500 }),
-      pbGetList('employees', { filter: 'is_active=true', sort: 'name', perPage: 500 })
-    ]);
+
+    // Populate dropdown via centralized helper (multi-layer fallback)
+    await populateBbEmpSelect('incNewEmp');
+
+    const incidents = await pbGetList('incident_reports', { sort: '-created', expand: 'employee_id', perPage: 500 });
 
     console.log('[Incidents] Loaded', incidents.length, 'records:', incidents);
 
     // Build empMap as fallback in case expand is empty
     const empMap = {};
-    emps.forEach(e => { empMap[e.id] = e; });
-
-    // Populate employee dropdown for manual incident
-    const empSel = document.getElementById('incNewEmp');
-    if (empSel) empSel.innerHTML = '<option value="">— Select —</option>' + emps.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+    BB_EMPS_CACHE.forEach(e => { empMap[e.id] = e; });
 
     const now = Date.now();
     const isLocked = i => i.status === 'pending' && i.lockout_after && new Date(i.lockout_after).getTime() < now;
@@ -6184,7 +6181,9 @@ async function deleteIncident() {
   } catch (e) { alert('Failed: ' + e.message); }
 }
 
-function openIncidentModal() {
+async function openIncidentModal() {
+  // Poka-yoke: ensure dropdown is populated when modal opens
+  await populateBbEmpSelect('incNewEmp');
   document.getElementById('incNewEmp').value = '';
   document.getElementById('incNewType').value = 'manual';
   document.getElementById('incNewLevel').value = '1';
@@ -7900,22 +7899,95 @@ function printPayslip() {
   setTimeout(() => w.print(), 500);
 }
 
+/* ===================== JIS HELPER: Employee dropdown (poka-yoke) =====================
+ * Centralized employee dropdown populator with multi-layer fallback.
+ * Solves the recurring "empty dropdown" bug across all BbeeCo modals.
+ *
+ * Fallback chain (poka-yoke — mistake-proofing):
+ *   1. PB live fetch with is_active=true filter (preferred — fresh data)
+ *   2. PB live fetch WITHOUT filter (in case is_active field is null/missing)
+ *   3. DB.employees cache (always loaded at startup)
+ *   4. BB_SCHED_EMPLOYEES cache (last-known good from previous load)
+ *
+ * Preserves current selection. Logs which fallback was used for andon visibility.
+ *
+ * Usage: await populateBbEmpSelect('schEmp')
+ *        await populateBbEmpSelect('caEmp', { placeholder: '— Select employee —' })
+ */
+let BB_EMPS_CACHE = [];  // last-known good employee list, shared across modules
+
+async function populateBbEmpSelect(elementId, opts = {}) {
+  const el = document.getElementById(elementId);
+  if (!el) { console.warn('[BB Emp Dropdown]', elementId, 'not in DOM'); return 0; }
+  const currentValue = el.value;
+  const placeholder = opts.placeholder || '— Select —';
+  const showRole = opts.showRole || false;
+
+  let emps = [];
+  let source = 'none';
+
+  // Layer 1: try filtered fresh fetch
+  try {
+    emps = await pbGetList('employees', { filter: 'is_active=true', sort: 'name', perPage: 500 });
+    if (emps.length) source = 'pb_filtered';
+  } catch (e) { console.warn('[BB Emp Dropdown] L1 filtered fetch failed:', e.message); }
+
+  // Layer 2: try unfiltered fresh fetch (catches records where is_active is null)
+  if (!emps.length) {
+    try {
+      const all = await pbGetList('employees', { sort: 'name', perPage: 500 });
+      // keep records that aren't explicitly inactive
+      emps = all.filter(e => e.is_active !== false);
+      if (emps.length) source = 'pb_unfiltered';
+    } catch (e) { console.warn('[BB Emp Dropdown] L2 unfiltered fetch failed:', e.message); }
+  }
+
+  // Layer 3: DB.employees cache (always loaded at startup)
+  if (!emps.length && Array.isArray(DB.employees) && DB.employees.length) {
+    emps = DB.employees.map(e => ({ id: e.id, name: e.name, role: e.role }));
+    source = 'db_cache';
+  }
+
+  // Layer 4: last-known good
+  if (!emps.length && BB_EMPS_CACHE.length) {
+    emps = BB_EMPS_CACHE;
+    source = 'bb_cache';
+  }
+
+  if (emps.length) {
+    BB_EMPS_CACHE = emps;  // refresh cache for future fallback
+    BB_SCHED_EMPLOYEES = emps;  // keep legacy variable in sync
+  }
+
+  const optHtml = emps.map(e => {
+    const label = showRole && e.role ? `${e.name} (${e.role})` : e.name;
+    return `<option value="${e.id}">${label}</option>`;
+  }).join('');
+  el.innerHTML = `<option value="">${placeholder}</option>` + optHtml;
+  if (currentValue) el.value = currentValue;
+
+  // Andon: visual signal when fallback used
+  if (source !== 'pb_filtered' && source !== 'none') {
+    console.warn('[BB Emp Dropdown]', elementId, 'populated from', source, '— PB may have issues');
+  }
+  if (emps.length === 0) {
+    console.error('[BB Emp Dropdown]', elementId, 'STILL EMPTY after all fallbacks — check PB connection + employees collection');
+    if (typeof toast === 'function') toast('⚠ Walang employees na-load — i-check ang PB connection', 'err');
+  }
+  return emps.length;
+}
+
 /* ===================== SCHEDULES ===================== */
 let BB_SCHED_EMPLOYEES = [];
 
 async function loadBbSchedules() {
   try {
-    const [schedules, emps] = await Promise.all([
-      pbGetList('schedules', { sort: '-week_start', expand: 'employee_id', perPage: 500 }),
-      pbGetList('employees', { filter: 'is_active=true', sort: 'name', perPage: 500 })
-    ]);
-    BB_SCHED_EMPLOYEES = emps;
-    const empMap = {};
-    emps.forEach(e => empMap[e.id] = e);
+    // Populate dropdown via centralized helper (multi-layer fallback)
+    await populateBbEmpSelect('schEmp');
 
-    // populate employee dropdown in modal
-    const sel = document.getElementById('schEmp');
-    sel.innerHTML = '<option value="">— Select —</option>' + emps.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+    const schedules = await pbGetList('schedules', { sort: '-week_start', expand: 'employee_id', perPage: 500 });
+    const empMap = {};
+    BB_EMPS_CACHE.forEach(e => empMap[e.id] = e);
 
     const body = document.getElementById('bbSchedBody');
     if (!schedules.length) {
@@ -7942,9 +8014,11 @@ async function loadBbSchedules() {
   } catch (e) { console.error('Schedules load:', e); }
 }
 
-function openSchedModal() {
+async function openSchedModal() {
   document.getElementById('schedModalTitle').textContent = 'New Schedule';
   ['schId','schWeekStart','schWeekEnd','schMon','schMonEnd','schTue','schTueEnd','schWed','schWedEnd','schThu','schThuEnd','schFri','schFriEnd','schSat','schSatEnd','schSun','schSunEnd'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  // Poka-yoke: always ensure dropdown is populated when modal opens (don't rely on view-load timing)
+  await populateBbEmpSelect('schEmp');
   document.getElementById('schEmp').value = '';
   document.getElementById('schDelBtn').style.display = 'none';
   document.getElementById('schedModal').classList.add('open');
@@ -7962,6 +8036,8 @@ function schedFillCurrentWeek() {
 
 async function editSched(id) {
   try {
+    // Poka-yoke: ensure dropdown is populated BEFORE setting value
+    await populateBbEmpSelect('schEmp');
     const r = await fetch(PB_API + '/collections/schedules/records/' + id);
     const s = await r.json();
     document.getElementById('schedModalTitle').textContent = 'Edit Schedule';
@@ -8036,12 +8112,10 @@ async function deleteSched() {
 /* ===================== CASH ADVANCES ===================== */
 async function loadBbCA() {
   try {
-    const [cas, emps] = await Promise.all([
-      pbGetList('cash_advances', { sort: '-date', expand: 'employee_id', perPage: 500 }),
-      pbGetList('employees', { filter: 'is_active=true', sort: 'name', perPage: 500 })
-    ]);
-    const empMap = {}; emps.forEach(e => empMap[e.id] = e);
-    document.getElementById('caEmp').innerHTML = '<option value="">— Select —</option>' + emps.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+    // Populate dropdown via centralized helper (multi-layer fallback)
+    await populateBbEmpSelect('caEmp');
+    const cas = await pbGetList('cash_advances', { sort: '-date', expand: 'employee_id', perPage: 500 });
+    const empMap = {}; BB_EMPS_CACHE.forEach(e => empMap[e.id] = e);
 
     // Categorize by approval_status (fallback to legacy status field for old records)
     // Note: pending records use status='fully_paid' as sentinel, so we MUST check approval_status first
@@ -8142,10 +8216,12 @@ function updateCAPreview() {
   el.textContent = `Estimated ${cutoffs} cutoff(s) para ma-pay off. Last cutoff deduction: ₱${(amt - ((cutoffs-1)*ded)).toFixed(2)}.`;
 }
 
-function openCAModal() {
+async function openCAModal() {
   const isOwner = !!window.CURRENT_IS_OWNER;
   document.getElementById('caModalTitle').textContent = isOwner ? 'New Cash Advance (auto-approved)' : 'Request Cash Advance';
   ['caId','caAmount','caDeduct','caNotes','caMaxApproved','caDecisionNotes'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  // Poka-yoke: ensure dropdown is populated when modal opens
+  await populateBbEmpSelect('caEmp');
   document.getElementById('caEmp').value = '';
   document.getElementById('caDate').value = todayStr();
   document.getElementById('caPreview').textContent = 'Compute cutoffs and projected payoff.';
@@ -8176,6 +8252,8 @@ function openCAModal() {
 
 async function editCA(id) {
   try {
+    // Poka-yoke: ensure dropdown is populated BEFORE setting value
+    await populateBbEmpSelect('caEmp');
     const r = await fetch(PB_API + '/collections/cash_advances/records/' + id);
     const c = await r.json();
     const isOwner = !!window.CURRENT_IS_OWNER;
@@ -8326,12 +8404,10 @@ async function deleteCA() {
 /* ===================== ITEM CHARGES ===================== */
 async function loadBbIC() {
   try {
-    const [ics, emps] = await Promise.all([
-      pbGetList('item_charges', { sort: '-date', expand: 'employee_id', perPage: 500 }),
-      pbGetList('employees', { filter: 'is_active=true', sort: 'name', perPage: 500 })
-    ]);
-    const empMap = {}; emps.forEach(e => empMap[e.id] = e);
-    document.getElementById('icEmp').innerHTML = '<option value="">— Select —</option>' + emps.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+    // Populate dropdown via centralized helper (multi-layer fallback)
+    await populateBbEmpSelect('icEmp');
+    const ics = await pbGetList('item_charges', { sort: '-date', expand: 'employee_id', perPage: 500 });
+    const empMap = {}; BB_EMPS_CACHE.forEach(e => empMap[e.id] = e);
     const body = document.getElementById('bbICBody');
     if (!ics.length) {
       body.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:#999;">Walang item charges.</td></tr>';
@@ -8352,9 +8428,11 @@ async function loadBbIC() {
   } catch (e) { console.error(e); }
 }
 
-function openICModal() {
+async function openICModal() {
   document.getElementById('icModalTitle').textContent = 'New Item Charge';
   ['icId','icDesc','icAmount'].forEach(id => document.getElementById(id).value = '');
+  // Poka-yoke: ensure dropdown is populated when modal opens
+  await populateBbEmpSelect('icEmp');
   document.getElementById('icEmp').value = '';
   document.getElementById('icDate').value = todayStr();
   document.getElementById('icStatus').value = 'pending';
@@ -8364,6 +8442,8 @@ function openICModal() {
 
 async function editIC(id) {
   try {
+    // Poka-yoke: ensure dropdown is populated BEFORE setting value
+    await populateBbEmpSelect('icEmp');
     const r = await fetch(PB_API + '/collections/item_charges/records/' + id);
     const c = await r.json();
     document.getElementById('icModalTitle').textContent = 'Edit Item Charge';
@@ -9153,12 +9233,10 @@ async function deleteCashFlow() {
 /* ===================== MANUAL DTR ENTRY ===================== */
 async function loadBbManualDtr() {
   try {
-    const [dtrs, emps] = await Promise.all([
-      pbGetList('dtr_logs', { sort: '-time_in', expand: 'employee_id', perPage: 200 }),
-      pbGetList('employees', { filter: 'is_active=true', sort: 'name', perPage: 500 })
-    ]);
-    const empMap = {}; emps.forEach(e => empMap[e.id] = e);
-    document.getElementById('mdEmp').innerHTML = '<option value="">— Select —</option>' + emps.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+    // Populate dropdown via centralized helper (multi-layer fallback)
+    await populateBbEmpSelect('mdEmp');
+    const dtrs = await pbGetList('dtr_logs', { sort: '-time_in', expand: 'employee_id', perPage: 200 });
+    const empMap = {}; BB_EMPS_CACHE.forEach(e => empMap[e.id] = e);
 
     const body = document.getElementById('bbManualDtrBody');
     if (!dtrs.length) {
@@ -9187,9 +9265,11 @@ async function loadBbManualDtr() {
   } catch (e) { console.error(e); }
 }
 
-function openManualDtrModal() {
+async function openManualDtrModal() {
   document.getElementById('manualDtrModalTitle').textContent = 'Manual DTR Entry';
   ['mdId','mdTimeIn','mdTimeOut','mdSales','mdReason','mdLateMins','mdOtHours'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  // Poka-yoke: ensure dropdown is populated when modal opens
+  await populateBbEmpSelect('mdEmp');
   document.getElementById('mdEmp').value = '';
   document.getElementById('mdDate').value = todayStr();
   document.getElementById('mdType').value = 'regular';
@@ -9199,6 +9279,8 @@ function openManualDtrModal() {
 
 async function editManualDtr(id) {
   try {
+    // Poka-yoke: ensure dropdown is populated BEFORE setting value
+    await populateBbEmpSelect('mdEmp');
     const r = await fetch(PB_API + '/collections/dtr_logs/records/' + id);
     const d = await r.json();
     document.getElementById('manualDtrModalTitle').textContent = 'Edit DTR Entry';
@@ -9699,12 +9781,10 @@ async function loadBbSalesEntries() {
   }
 
   try {
-    const [entries, emps] = await Promise.all([
-      pbGetList('tms_sales_entries', { filter: dateFilter, sort: '-date', expand: 'employee_id', perPage: 500 }),
-      pbGetList('employees', { filter: 'is_active=true', sort: 'name', perPage: 500 })
-    ]);
-    const empMap = {}; emps.forEach(e => empMap[e.id] = e);
-    document.getElementById('seEmp').innerHTML = '<option value="">— Select —</option>' + emps.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+    // Populate dropdown via centralized helper (multi-layer fallback)
+    await populateBbEmpSelect('seEmp');
+    const entries = await pbGetList('tms_sales_entries', { filter: dateFilter, sort: '-date', expand: 'employee_id', perPage: 500 });
+    const empMap = {}; BB_EMPS_CACHE.forEach(e => empMap[e.id] = e);
 
     // Stats
     const total = entries.reduce((s, e) => s + (e.amount || 0), 0);
@@ -9868,15 +9948,11 @@ async function loadBbCheckins() {
   }
 
   try {
-    const [checkins, emps] = await Promise.all([
-      pbGetList('tms_weekly_checkins', { filter: dateFilter, sort: '-week_start', expand: 'employee_id', perPage: 500 }),
-      pbGetList('employees', { filter: 'is_active=true', sort: 'name', perPage: 500 })
-    ]);
+    // Populate dropdown via centralized helper (multi-layer fallback)
+    await populateBbEmpSelect('ciEmp');
+    const checkins = await pbGetList('tms_weekly_checkins', { filter: dateFilter, sort: '-week_start', expand: 'employee_id', perPage: 500 });
+    const emps = BB_EMPS_CACHE;  // use cached list for missing-employee calculations below
     const empMap = {}; emps.forEach(e => empMap[e.id] = e);
-
-    // Populate employee dropdown
-    const sel = document.getElementById('ciEmp');
-    if (sel) sel.innerHTML = '<option value="">— Select —</option>' + emps.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
 
     // Stats
     const curr = getCurrentWeekRange();
