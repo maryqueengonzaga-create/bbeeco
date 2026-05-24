@@ -6952,6 +6952,7 @@ async function saveNewEmployee() {
   const pin = document.getElementById('nePin').value.trim();
   if (!name) { alert('Name required'); return; }
   if (!pin || pin.length !== 4 || !/^\d{4}$/.test(pin)) { alert('PIN must be exactly 4 digits (0-9)'); return; }
+  // Full body — match existing PB schema values (verified vs esSchedType dropdown which uses 'standard'/'special')
   const body = {
     name,
     pin,
@@ -6962,19 +6963,36 @@ async function saveNewEmployee() {
     email: document.getElementById('neEmail').value.trim(),
     phone: document.getElementById('nePhone').value.trim(),
     is_locked: false,
-    schedule_type: 'fixed'
+    schedule_type: 'standard'  // valid PB values: 'standard' or 'special'
   };
   try {
-    const created = await pbCreate('employees', body);
+    await pbCreate('employees', body);
     toast('✓ Employee created: ' + name + ' (PIN: ' + pin + ')', 'ok');
     closeModal('newEmployeeModal');
-    // Reload to refresh employee list everywhere
     if (typeof loadBbHR === 'function') loadBbHR();
     await loadEmployeesFromPB().catch(()=>{});
     populateEmpSelects();
     renderAll();
   } catch (e) {
-    alert('Failed to create employee: ' + e.message);
+    console.warn('Full body create failed, trying minimal:', e.message);
+    // JIS fallback — strip optional fields that might be rejected, retry with bare minimum
+    try {
+      const minimalBody = {
+        name,
+        pin,
+        role: body.role,
+        is_active: true
+      };
+      await pbCreate('employees', minimalBody);
+      toast('✓ Employee created (basic): ' + name + ' — edit settings for rates/email later', 'warn');
+      closeModal('newEmployeeModal');
+      if (typeof loadBbHR === 'function') loadBbHR();
+      await loadEmployeesFromPB().catch(()=>{});
+      populateEmpSelects();
+      renderAll();
+    } catch (e2) {
+      alert('Failed to create employee: ' + e2.message + '\n\nFirst error: ' + e.message);
+    }
   }
 }
 
