@@ -2508,7 +2508,8 @@
               <div style="display: flex; gap: 8px; align-items: center;">
                 <input type="text" id="bbEmpSearch" placeholder="Search..." style="padding: 7px 11px; font-size: 12px; border: 1px solid var(--bb-border); border-radius: 6px;" oninput="renderBbEmployees()">
                 <button class="btn btn-secondary btn-sm" onclick="exportToCsv('employees')">⬇ CSV</button>
-                <button class="btn btn-primary btn-sm" onclick="loadBbHR()">⟳ Refresh</button>
+                <button class="btn btn-secondary btn-sm" onclick="loadBbHR()">⟳ Refresh</button>
+                <button class="btn btn-primary btn-sm" data-extra-perm="edit_emp" onclick="openNewEmployeeModal()">+ New Employee</button>
               </div>
             </div>
             <div class="table-wrap">
@@ -3947,6 +3948,50 @@ Hi {{to_name}},
       </div>
 
       <!-- EMPLOYEE SETTINGS MODAL (Allowance + Deductions + Payroll History + PIN Reset) -->
+      <!-- NEW EMPLOYEE MODAL (PB-saving, with PIN required) -->
+      <div class="modal-bg" id="newEmployeeModal">
+        <div class="modal" style="max-width: 480px;">
+          <div class="modal-header">
+            <h3>➕ Add New Employee</h3>
+            <button class="close-btn" onclick="closeModal('newEmployeeModal')">×</button>
+          </div>
+          <div class="modal-body">
+            <div class="form-row single">
+              <div><label>Full Name *</label><input type="text" id="neName" placeholder="e.g., Maria Santos"></div>
+            </div>
+            <div class="form-row">
+              <div><label>Role</label><select id="neRole">
+                <option value="regular">Regular Staff</option>
+                <option value="live_seller">Live Seller</option>
+              </select></div>
+              <div><label>Active</label><select id="neActive">
+                <option value="true" selected>Yes</option>
+                <option value="false">No</option>
+              </select></div>
+            </div>
+            <div class="form-row">
+              <div><label>Reg Rate (₱/hr)</label><input type="number" id="neRegRate" min="0" step="0.01" value="62.50"></div>
+              <div><label>Live Rate (₱/hr)</label><input type="number" id="neLiveRate" min="0" step="0.01" value="83.33"></div>
+            </div>
+            <div class="form-row">
+              <div><label>Email (optional)</label><input type="email" id="neEmail" placeholder="employee@example.com"></div>
+              <div><label>Phone (optional)</label><input type="text" id="nePhone" placeholder="09xx-xxxxxxx"></div>
+            </div>
+            <div class="form-row single">
+              <div>
+                <label>Initial PIN (4 digits) *</label>
+                <input type="text" id="nePin" maxlength="4" pattern="[0-9]{4}" placeholder="e.g., 1234" style="font-family: monospace; letter-spacing: 4px; font-size: 18px; text-align: center;">
+                <div style="font-size: 11px; color: var(--bb-gray); margin-top: 4px;">Employee will use this to log in. Can self-change later sa kiosk.</div>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('newEmployeeModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="saveNewEmployee()">✓ Create Employee</button>
+          </div>
+        </div>
+      </div>
+
       <div class="modal-bg" id="empSettingsModal">
         <div class="modal" style="max-width: 720px;">
           <div class="modal-header">
@@ -6863,10 +6908,14 @@ async function saveEmpSettings() {
     is_active: document.getElementById('esActive').value === 'true',
     weekly_allowance: parseFloat(document.getElementById('esWeeklyAllow').value) || 0,
     cutoff_allowance: parseFloat(document.getElementById('esCutoffAllow').value) || 0,
-    pin: document.getElementById('esPin').value,
     is_locked: document.getElementById('esLocked').value === 'true',
     lock_reason: document.getElementById('esLockReason').value
   };
+  // Only include pin if NON-EMPTY (PB rejects blank pin even on update)
+  const pinVal = document.getElementById('esPin').value.trim();
+  if (pinVal !== '') {
+    body.pin = pinVal;
+  }
   // Always set deduction_group_id (even empty string clears the relation)
   body.deduction_group_id = document.getElementById('esDedGroup').value || '';
   if (!body.name) { toast('Name required', 'err'); return; }
@@ -6889,10 +6938,63 @@ async function saveEmpSettings() {
   } catch (e) { toast('Failed: ' + e.message, 'err'); }
 }
 
-function resetEmpPin() {
-  if (!confirm('Reset PIN to empty? Employee mag-setup ulit ng bagong PIN sa next login.')) return;
-  document.getElementById('esPin').value = '';
-  toast('PIN cleared (save changes to commit)', 'warn');
+function openNewEmployeeModal() {
+  ['neName','nePin','neEmail','nePhone'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  document.getElementById('neRole').value = 'regular';
+  document.getElementById('neActive').value = 'true';
+  document.getElementById('neRegRate').value = '62.50';
+  document.getElementById('neLiveRate').value = '83.33';
+  document.getElementById('newEmployeeModal').classList.add('open');
+}
+
+async function saveNewEmployee() {
+  const name = document.getElementById('neName').value.trim();
+  const pin = document.getElementById('nePin').value.trim();
+  if (!name) { alert('Name required'); return; }
+  if (!pin || pin.length !== 4 || !/^\d{4}$/.test(pin)) { alert('PIN must be exactly 4 digits (0-9)'); return; }
+  const body = {
+    name,
+    pin,
+    role: document.getElementById('neRole').value,
+    is_active: document.getElementById('neActive').value === 'true',
+    reg_rate: parseFloat(document.getElementById('neRegRate').value) || 62.50,
+    live_rate: parseFloat(document.getElementById('neLiveRate').value) || 83.33,
+    email: document.getElementById('neEmail').value.trim(),
+    phone: document.getElementById('nePhone').value.trim(),
+    is_locked: false,
+    schedule_type: 'fixed'
+  };
+  try {
+    const created = await pbCreate('employees', body);
+    toast('✓ Employee created: ' + name + ' (PIN: ' + pin + ')', 'ok');
+    closeModal('newEmployeeModal');
+    // Reload to refresh employee list everywhere
+    if (typeof loadBbHR === 'function') loadBbHR();
+    await loadEmployeesFromPB().catch(()=>{});
+    populateEmpSelects();
+    renderAll();
+  } catch (e) {
+    alert('Failed to create employee: ' + e.message);
+  }
+}
+
+async function resetEmpPin() {
+  if (!confirm('Reset PIN? Employee mag-setup ulit ng bagong 4-digit PIN sa next kiosk login.')) return;
+  const id = document.getElementById('esId').value;
+  if (!id) { toast('No employee selected', 'err'); return; }
+  try {
+    // Direct PB update — clear pin field by sending null. If PB requires non-blank, fall back to placeholder.
+    try {
+      await pbUpdate('employees', id, { pin: null });
+    } catch (e) {
+      // PB rejected null → use sentinel value that kiosk will recognize as "needs setup"
+      await pbUpdate('employees', id, { pin: '0000' });
+    }
+    document.getElementById('esPin').value = '';
+    toast('✓ PIN reset — employee will set new PIN on next kiosk login', 'ok');
+  } catch (e) {
+    toast('Reset failed: ' + e.message, 'err');
+  }
 }
 
 /* Tab switcher for employee settings modal */
