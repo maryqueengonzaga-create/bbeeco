@@ -1474,27 +1474,32 @@
     .ksr-mine-tag { font-size: 9px; color: #92400E; font-weight: 700; margin-top: 2px; }
   </style>
 
-  <!-- OT CONFIRMATION POPUP — shown when employee tries to time-out after 8h+ -->
+  <!-- OT CONFIRMATION POPUP — shown when elapsed > scheduled (or 9h default) -->
   <div class="modal-bg" id="otPromptModal">
-    <div class="modal" style="max-width: 480px; border-top: 6px solid #3B82F6;">
+    <div class="modal" style="max-width: 500px; border-top: 6px solid #3B82F6;">
       <div class="modal-header" style="background: #EFF6FF;">
         <h3 style="color: #1E40AF;">⏰ OT Detected — Confirm</h3>
       </div>
       <div class="modal-body">
-        <p style="font-size: 14px; color: #1E40AF; font-weight: 600; margin-bottom: 10px;">
-          You've worked <span id="otPromptHours" style="font-weight:800;">—</span> today.
+        <p style="font-size: 14px; color: #1E40AF; font-weight: 600; margin-bottom: 6px;">
+          Total worked: <span id="otPromptHours" style="font-weight:800;">—</span>
+        </p>
+        <p style="font-size: 12px; color: var(--bb-gray); margin-bottom: 10px;">
+          Your scheduled cap: <span id="otPromptThreshold">—</span>
         </p>
         <p style="font-size: 13px; color: #374151; margin-bottom: 14px;">
-          Extra time beyond 8h: <strong id="otPromptExtra" style="color:#1E40AF;">—</strong>
+          Extra time worked: <strong id="otPromptExtra" style="color:#1E40AF;">—</strong>
         </p>
-        <div style="background: #FEF3C7; border-left: 4px solid #F59E0B; padding: 12px 14px; border-radius: 8px; font-size: 12px; line-height: 1.6; color: #92400E; margin-bottom: 6px;">
-          <strong>⚠ Was this OT pre-approved by Owner/Admin?</strong><br>
-          • <strong>YES</strong> → OT will be paid at OT rate (default 1.0×, see App Config)<br>
-          • <strong>NO</strong> → Extra hours will be TRIMMED (not paid) per JIS 8-hour standard
+        <div style="background: #FEF3C7; border-left: 4px solid #F59E0B; padding: 12px 14px; border-radius: 8px; font-size: 12px; line-height: 1.6; color: #92400E; margin-bottom: 14px;">
+          <strong>Was this OT actually worked (approved)?</strong><br>
+          Enter the OT hours below. Admin will review + approve before payroll.
         </div>
+        <label style="font-size: 11px; font-weight: 600; color: var(--bb-gray); text-transform: uppercase; letter-spacing: 0.5px;">OT Hours Worked</label>
+        <input type="number" id="otPromptInput" min="0" max="6" step="0.25" style="width: 100%; padding: 12px; border: 1.5px solid var(--bb-honey); border-radius: 8px; font-size: 18px; font-weight: 700; text-align: center; margin-top: 6px;">
+        <div style="font-size: 10px; color: var(--bb-gray); margin-top: 6px; text-align: center;">Pre-filled with elapsed extra hours. Adjust if needed.</div>
       </div>
       <div class="modal-footer" style="flex-direction: column; gap: 8px; align-items: stretch;">
-        <button class="btn btn-primary" onclick="confirmOtAndTimeOut()" style="background: #1E40AF; padding: 14px;">✓ Yes, OT was approved — pay as OT</button>
+        <button class="btn btn-primary" onclick="confirmOtAndTimeOut()" style="background: #1E40AF; padding: 14px;">✓ Submit OT Request & Time-Out</button>
         <button class="btn btn-secondary" onclick="declineOtAndTimeOut()" style="padding: 14px;">No OT — just time-out (excess trimmed)</button>
       </div>
     </div>
@@ -3320,19 +3325,46 @@
               <div><label>Week Start (Monday) *</label><input type="date" id="schWeekStart"></div>
               <div><label>Week End (Sunday) *</label><input type="date" id="schWeekEnd"></div>
             </div>
-            <div style="font-size: 11px; color: var(--bb-gray); margin: 12px 0 8px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Start Times (HH:MM, 24h format) — leave blank for off-day</div>
-            <div class="form-row triple">
-              <div><label>Monday</label><input type="time" id="schMon"></div>
-              <div><label>Tuesday</label><input type="time" id="schTue"></div>
-              <div><label>Wednesday</label><input type="time" id="schWed"></div>
+            <div style="font-size: 11px; color: var(--bb-gray); margin: 12px 0 8px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Start + End Times per day (HH:MM, 24h) — leave blank for off-day. OT popup fires when employee works beyond End time.</div>
+            <div style="display: grid; grid-template-columns: 80px 1fr 1fr; gap: 8px; align-items: center; margin-bottom: 6px;">
+              <div style="font-weight: 600; font-size: 12px; color: var(--bb-gray);">Day</div>
+              <div style="font-weight: 600; font-size: 11px; color: var(--bb-gray); text-transform: uppercase;">Start</div>
+              <div style="font-weight: 600; font-size: 11px; color: var(--bb-gray); text-transform: uppercase;">End</div>
             </div>
-            <div class="form-row triple">
-              <div><label>Thursday</label><input type="time" id="schThu"></div>
-              <div><label>Friday</label><input type="time" id="schFri"></div>
-              <div><label>Saturday</label><input type="time" id="schSat"></div>
+            <div style="display: grid; grid-template-columns: 80px 1fr 1fr; gap: 8px; align-items: center; margin-bottom: 6px;">
+              <div style="font-weight: 600;">Mon</div>
+              <input type="time" id="schMon">
+              <input type="time" id="schMonEnd">
             </div>
-            <div class="form-row">
-              <div><label>Sunday</label><input type="time" id="schSun"></div>
+            <div style="display: grid; grid-template-columns: 80px 1fr 1fr; gap: 8px; align-items: center; margin-bottom: 6px;">
+              <div style="font-weight: 600;">Tue</div>
+              <input type="time" id="schTue">
+              <input type="time" id="schTueEnd">
+            </div>
+            <div style="display: grid; grid-template-columns: 80px 1fr 1fr; gap: 8px; align-items: center; margin-bottom: 6px;">
+              <div style="font-weight: 600;">Wed</div>
+              <input type="time" id="schWed">
+              <input type="time" id="schWedEnd">
+            </div>
+            <div style="display: grid; grid-template-columns: 80px 1fr 1fr; gap: 8px; align-items: center; margin-bottom: 6px;">
+              <div style="font-weight: 600;">Thu</div>
+              <input type="time" id="schThu">
+              <input type="time" id="schThuEnd">
+            </div>
+            <div style="display: grid; grid-template-columns: 80px 1fr 1fr; gap: 8px; align-items: center; margin-bottom: 6px;">
+              <div style="font-weight: 600;">Fri</div>
+              <input type="time" id="schFri">
+              <input type="time" id="schFriEnd">
+            </div>
+            <div style="display: grid; grid-template-columns: 80px 1fr 1fr; gap: 8px; align-items: center; margin-bottom: 6px;">
+              <div style="font-weight: 600;">Sat</div>
+              <input type="time" id="schSat">
+              <input type="time" id="schSatEnd">
+            </div>
+            <div style="display: grid; grid-template-columns: 80px 1fr 1fr; gap: 8px; align-items: center; margin-bottom: 6px;">
+              <div style="font-weight: 600;">Sun</div>
+              <input type="time" id="schSun">
+              <input type="time" id="schSunEnd">
             </div>
           </div>
           <div class="modal-footer">
@@ -4717,6 +4749,39 @@ async function checkAutoBackup() {
   } catch (e) { console.warn('[Backup] Auto-backup failed:', e.message); }
 }
 
+/* JIS auto-cap: any open DTR > 11 hours from time-in auto-times-out (system safety net) */
+const AUTO_TIMEOUT_HOURS = 11;
+async function autoTimeOutOverdue() {
+  try {
+    const openDtrs = await pbGetList('dtr_logs', { filter: `status="open"`, perPage: 200 });
+    const now = Date.now();
+    for (const d of openDtrs) {
+      const inT = new Date(d.time_in).getTime();
+      const hrs = (now - inT) / 3600000;
+      if (hrs >= AUTO_TIMEOUT_HOURS) {
+        const capOutTime = new Date(inT + AUTO_TIMEOUT_HOURS * 3600000);
+        try {
+          await pbUpdate('dtr_logs', d.id, {
+            time_out: capOutTime.toISOString(),
+            total_hours: AUTO_TIMEOUT_HOURS,
+            status: 'closed',
+            notes: ((d.notes || '') + `\n[AUTO-CAP at ${AUTO_TIMEOUT_HOURS}h — system safety: employee did not time-out manually. Excess hrs trimmed per JIS.]`).trim()
+          });
+          console.log('[Auto-Cap] Closed', d.id, 'after', hrs.toFixed(2), 'hrs');
+        } catch (e) { console.warn('[Auto-Cap] Failed for', d.id, e.message); }
+      }
+    }
+  } catch (e) { console.warn('[Auto-Cap] Scan failed:', e.message); }
+}
+let _autoCapTimer = null;
+function startAutoCapMonitor() {
+  if (_autoCapTimer) clearInterval(_autoCapTimer);
+  // Run every 5 minutes
+  _autoCapTimer = setInterval(autoTimeOutOverdue, 5 * 60 * 1000);
+  // Also run immediately
+  autoTimeOutOverdue().catch(()=>{});
+}
+
 function startOfflineSyncMonitor() {
   if (_offlineSyncTimer) clearInterval(_offlineSyncTimer);
   // Try sync every 30 seconds
@@ -5453,41 +5518,81 @@ async function proceedTimeInAfterWarning() {
 async function acknowledgeAdminVisit() { return proceedTimeInAfterWarning(); }
 async function submitIncidentReflection() { return proceedTimeInAfterWarning(); }
 
-function doTimeOut() {
+async function doTimeOut() {
   if (!kioskState.openDtr) { showResult(false, 'No Active Time-In', 'Walang open DTR record para sa iyo.'); return; }
   if (kioskState.activeLiveSession) {
     showResult(false, 'End Live First', 'May active live session ka pa. End Live muna bago mag-Time Out — para walang orphan record.');
     return;
   }
-  // ANDON: detect if today's work > 8 hours → show OT confirmation popup
+  // ANDON: determine OT threshold per employee schedule (fallback 9h)
+  const user = kioskState.selectedUser;
   const inTime = new Date(kioskState.openDtr.time_in);
   const elapsedHrs = (Date.now() - inTime.getTime()) / 3600000;
-  if (elapsedHrs > 8) {
-    // Show OT confirmation popup BEFORE proceeding to camera/time-out
+  let otThreshold = 9;  // default if no schedule
+  let scheduledEndTime = null;
+  try {
+    const todayStr2 = todayStr();
+    const schedules = await pbGetList('schedules', {
+      filter: `employee_id="${user.id}"`,
+      sort: '-week_start', perPage: 5
+    });
+    const sched = schedules.find(s => {
+      const ws = (s.week_start || '').substring(0, 10);
+      const we = (s.week_end || '').substring(0, 10);
+      return ws <= todayStr2 && we >= todayStr2;
+    });
+    if (sched) {
+      const dayKey = ['sun','mon','tue','wed','thu','fri','sat'][inTime.getDay()];
+      const startT = sched[dayKey + '_start'];
+      const endT = sched[dayKey + '_end'];
+      if (startT && endT) {
+        const [sh, sm] = startT.split(':').map(Number);
+        const [eh, em] = endT.split(':').map(Number);
+        const schedHrs = (eh + em/60) - (sh + sm/60);
+        if (schedHrs > 0) {
+          otThreshold = schedHrs;
+          scheduledEndTime = endT;
+        }
+      }
+    }
+  } catch (e) { console.warn('[OT] Schedule lookup failed, using default 9h:', e.message); }
+
+  if (elapsedHrs > otThreshold) {
+    // Show OT confirmation popup with exact hours input
     document.getElementById('otPromptHours').textContent = elapsedHrs.toFixed(2) + 'h';
-    document.getElementById('otPromptExtra').textContent = (elapsedHrs - 8).toFixed(2) + 'h';
+    document.getElementById('otPromptExtra').textContent = (elapsedHrs - otThreshold).toFixed(2) + 'h';
+    document.getElementById('otPromptThreshold').textContent = otThreshold.toFixed(2) + 'h' + (scheduledEndTime ? ' (scheduled out: ' + scheduledEndTime + ')' : ' (default)');
+    document.getElementById('otPromptInput').value = (elapsedHrs - otThreshold).toFixed(2);
     document.getElementById('otPromptModal').classList.add('open');
     return;
   }
-  // Normal time-out flow (within 8 hours, no OT needed)
   startCameraFlow('timeout');
 }
 
-// Employee confirms OT was admin-approved → mark dtr as OT before time-out
+// Employee confirms OT — request goes to admin with exact hours
 async function confirmOtAndTimeOut() {
   const dtr = kioskState.openDtr;
   if (!dtr) { closeModal('otPromptModal'); return; }
-  // Mark the open DTR as OT type (so payroll counts excess as paid OT)
+  const otHours = parseFloat(document.getElementById('otPromptInput').value) || 0;
+  if (otHours <= 0) { alert('Enter valid OT hours (> 0).'); return; }
   try {
-    await pbUpdate('dtr_logs', dtr.id, { type: 'ot' });
+    await pbUpdate('dtr_logs', dtr.id, {
+      type: 'ot',
+      ot_hours: otHours,
+      ot_status: 'pending',     // requires admin approval
+      ot_requested_by: kioskState.selectedUser.name,
+      ot_requested_at: new Date().toISOString()
+    });
     kioskState.openDtr.type = 'ot';
-    toast('✓ Marked as OT (will be paid at OT rate if approved)', 'ok');
-  } catch (e) { console.warn('OT mark failed:', e.message); }
+    toast('✓ OT request submitted — awaiting admin approval', 'ok');
+  } catch (e) {
+    console.warn('OT mark failed:', e.message);
+    toast('⚠ Couldn\'t save OT request: ' + e.message + ' — proceeding with time-out', 'warn');
+  }
   closeModal('otPromptModal');
   startCameraFlow('timeout');
 }
 
-// Employee says no OT → just time-out (extra hours will be trimmed per JIS cap)
 function declineOtAndTimeOut() {
   closeModal('otPromptModal');
   startCameraFlow('timeout');
@@ -7665,7 +7770,7 @@ async function loadBbSchedules() {
 
 function openSchedModal() {
   document.getElementById('schedModalTitle').textContent = 'New Schedule';
-  ['schId','schWeekStart','schWeekEnd','schMon','schTue','schWed','schThu','schFri','schSat','schSun'].forEach(id => document.getElementById(id).value = '');
+  ['schId','schWeekStart','schWeekEnd','schMon','schMonEnd','schTue','schTueEnd','schWed','schWedEnd','schThu','schThuEnd','schFri','schFriEnd','schSat','schSatEnd','schSun','schSunEnd'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   document.getElementById('schEmp').value = '';
   document.getElementById('schDelBtn').style.display = 'none';
   document.getElementById('schedModal').classList.add('open');
@@ -7691,7 +7796,10 @@ async function editSched(id) {
     document.getElementById('schWeekStart').value = (s.week_start || '').substring(0, 10);
     document.getElementById('schWeekEnd').value = (s.week_end || '').substring(0, 10);
     ['mon','tue','wed','thu','fri','sat','sun'].forEach(d => {
-      document.getElementById('sch' + d.charAt(0).toUpperCase() + d.slice(1)).value = s[d + '_start'] || '';
+      const cap = d.charAt(0).toUpperCase() + d.slice(1);
+      document.getElementById('sch' + cap).value = s[d + '_start'] || '';
+      const endEl = document.getElementById('sch' + cap + 'End');
+      if (endEl) endEl.value = s[d + '_end'] || '';
     });
     document.getElementById('schDelBtn').style.display = 'inline-flex';
     document.getElementById('schedModal').classList.add('open');
@@ -7703,17 +7811,18 @@ async function saveSched() {
   const ws = document.getElementById('schWeekStart').value;
   const we = document.getElementById('schWeekEnd').value;
   if (!emp || !ws || !we) { alert('Employee + week start/end required'); return; }
+  const get = id => (document.getElementById(id) && document.getElementById(id).value) || '';
   const body = {
     employee_id: emp,
     week_start: ws,
     week_end: we,
-    mon_start: document.getElementById('schMon').value || '',
-    tue_start: document.getElementById('schTue').value || '',
-    wed_start: document.getElementById('schWed').value || '',
-    thu_start: document.getElementById('schThu').value || '',
-    fri_start: document.getElementById('schFri').value || '',
-    sat_start: document.getElementById('schSat').value || '',
-    sun_start: document.getElementById('schSun').value || ''
+    mon_start: get('schMon'), mon_end: get('schMonEnd'),
+    tue_start: get('schTue'), tue_end: get('schTueEnd'),
+    wed_start: get('schWed'), wed_end: get('schWedEnd'),
+    thu_start: get('schThu'), thu_end: get('schThuEnd'),
+    fri_start: get('schFri'), fri_end: get('schFriEnd'),
+    sat_start: get('schSat'), sat_end: get('schSatEnd'),
+    sun_start: get('schSun'), sun_end: get('schSunEnd')
   };
   const id = document.getElementById('schId').value;
   try {
@@ -7721,7 +7830,23 @@ async function saveSched() {
     else await pbCreate('schedules', body);
     closeModal('schedModal');
     loadBbSchedules();
-  } catch (e) { alert('Failed: ' + e.message); }
+    toast('✓ Schedule saved', 'ok');
+  } catch (e) {
+    // Try fallback without end fields (in case schema upgrade not run yet)
+    if ((e.message || '').includes('400')) {
+      try {
+        const minimal = { employee_id: emp, week_start: ws, week_end: we };
+        ['mon','tue','wed','thu','fri','sat','sun'].forEach(d => { minimal[d + '_start'] = get('sch' + d.charAt(0).toUpperCase() + d.slice(1)); });
+        if (id) await pbUpdate('schedules', id, minimal);
+        else await pbCreate('schedules', minimal);
+        closeModal('schedModal');
+        loadBbSchedules();
+        toast('✓ Saved (end times skipped — run schema upgrade to enable end-time OT triggers)', 'warn');
+        return;
+      } catch (e2) { alert('Failed: ' + e2.message); return; }
+    }
+    alert('Failed: ' + e.message);
+  }
 }
 
 async function deleteSched() {
@@ -12896,6 +13021,7 @@ async function init() {
   startOfflineSyncMonitor();  // Always run — syncs queued records when PB returns
   updateOfflineBanner();
   setupTableLabelObserver();   // Auto-add data-label for mobile card view of tables
+  startAutoCapMonitor();       // JIS safety: auto-close any DTR > 11 hrs
 }
 
 init();
