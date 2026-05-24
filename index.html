@@ -3064,9 +3064,9 @@
         </div>
       </div>
 
-      <!-- QUICK-TAP CONFIRM MODAL — adjust amount before save -->
+      <!-- QUICK-TAP CONFIRM MODAL — adjust amount before save + collapsible details -->
       <div class="modal-bg" id="quickTapModal">
-        <div class="modal" style="max-width: 440px;">
+        <div class="modal" style="max-width: 480px;">
           <div class="modal-header" style="background: var(--bb-honey-light); color: var(--bb-honey-dark); border-top: 4px solid var(--bb-honey);">
             <h3 id="qtModalTitle">⚡ Quick Expense</h3>
             <button class="close-btn" onclick="closeModal('quickTapModal')">×</button>
@@ -3080,10 +3080,84 @@
             </div>
             <label style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--bb-gray);">Amount (₱)</label>
             <input type="number" id="qtAmount" min="0" step="0.01" style="width: 100%; padding: 14px; font-size: 22px; font-weight: 700; text-align: center; border: 2px solid var(--bb-honey); border-radius: 10px; margin-top: 4px;">
+
             <label style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--bb-gray); margin-top: 12px; display: block;">Note (optional)</label>
-            <input type="text" id="qtNote" placeholder="e.g., 'For delivery to Manila' (optional)" style="width: 100%; padding: 10px; font-size: 13px; border: 1px solid var(--bb-border); border-radius: 8px; margin-top: 4px;">
+            <input type="text" id="qtNote" placeholder="e.g., 'For delivery to Manila'" style="width: 100%; padding: 10px; font-size: 13px; border: 1px solid var(--bb-border); border-radius: 8px; margin-top: 4px;">
+
             <div style="font-size: 11px; color: var(--bb-gray); margin-top: 10px; padding: 8px; background: #F9FAFB; border-radius: 6px;">
               📅 Date: <strong id="qtDate">—</strong> &nbsp;•&nbsp; 👤 By: <strong id="qtBy">—</strong>
+            </div>
+
+            <!-- COLLAPSIBLE: ADD MORE DETAILS -->
+            <button type="button" id="qtToggleDetails" onclick="toggleQtDetails()" style="width: 100%; margin-top: 14px; padding: 10px 14px; background: white; border: 1.5px dashed #D1D5DB; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 600; color: #4B5563; display: flex; align-items: center; justify-content: space-between; transition: all 0.15s;"
+              onmouseover="this.style.borderColor='#F5A623'; this.style.color='#92400E';"
+              onmouseout="this.style.borderColor='#D1D5DB'; this.style.color='#4B5563';">
+              <span><span id="qtToggleIcon">▼</span> &nbsp; Add more details (Requested by, Approved by, Receipt...)</span>
+              <span style="font-size: 10px; color: #9CA3AF; font-weight: 400;">Optional</span>
+            </button>
+
+            <div id="qtDetailsPanel" style="display: none; margin-top: 12px; padding: 14px; background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 10px;">
+              <!-- OUTFLOW-only fields -->
+              <div id="qtOutflowFields">
+                <div style="font-size: 10px; font-weight: 700; color: #B91C1C; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">💸 Cash Release Approval</div>
+                <div class="form-row">
+                  <div>
+                    <label style="font-size: 11px;">Requested By *</label>
+                    <select id="qtRequestedBy" style="padding: 8px 10px; font-size: 13px;">
+                      <option value="">— Who needs the money —</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style="font-size: 11px;">Approved By *</label>
+                    <select id="qtApprovedBy" style="padding: 8px 10px; font-size: 13px;">
+                      <option value="">— Who approved release —</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-row single" style="margin-top: 6px;">
+                  <div>
+                    <label style="font-size: 11px;">Purpose</label>
+                    <input type="text" id="qtPurpose" placeholder="e.g., JNT parcel, Office snacks, Gas refill" style="padding: 8px 10px; font-size: 13px;">
+                  </div>
+                </div>
+              </div>
+
+              <!-- INFLOW-only fields -->
+              <div id="qtInflowFields" style="display: none;">
+                <div style="font-size: 10px; font-weight: 700; color: #047857; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">💰 Source Tracking</div>
+                <div class="form-row">
+                  <div>
+                    <label style="font-size: 11px;">Source *</label>
+                    <select id="qtSource" style="padding: 8px 10px; font-size: 13px;">
+                      <option value="">— Select source —</option>
+                      <option value="Walk-in Customer">🚶 Walk-in Customer</option>
+                      <option value="Pickup Rider">🛵 Pickup Rider</option>
+                      <option value="Direct (Sub-admin)">👤 Direct to Sub-admin</option>
+                      <option value="Bank Transfer / GCash">🏦 Bank Transfer / GCash</option>
+                      <option value="Supplier">🏪 Supplier Refund</option>
+                      <option value="Other">📝 Other</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style="font-size: 11px;">Received By</label>
+                    <select id="qtReceivedBy" style="padding: 8px 10px; font-size: 13px;">
+                      <option value="">— Select employee —</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Common optional fields -->
+              <div class="form-row" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #E5E7EB;">
+                <div>
+                  <label style="font-size: 11px;">Reference No.</label>
+                  <input type="text" id="qtRefNo" placeholder="OR/Invoice #" style="padding: 8px 10px; font-size: 13px;">
+                </div>
+                <div>
+                  <label style="font-size: 11px;">Receipt Photo</label>
+                  <input type="file" id="qtReceipt" accept="image/*,application/pdf" style="padding: 6px; font-size: 11px;">
+                </div>
+              </div>
             </div>
           </div>
           <div class="modal-footer">
@@ -9784,9 +9858,11 @@ async function renderQuickTapGrid() {
   }).join('');
 }
 
-function openQuickTapConfirm(templateId) {
+async function openQuickTapConfirm(templateId) {
   const t = EXPENSE_TEMPLATES_CACHE.find(x => x.id === templateId);
   if (!t) { toast('Template not found', 'err'); return; }
+  const me = (kioskState.selectedUser && kioskState.selectedUser.name) || 'admin';
+
   document.getElementById('qtTemplateId').value = t.id;
   document.getElementById('qtIcon').textContent = t.icon || '⚡';
   document.getElementById('qtName').textContent = t.name;
@@ -9794,11 +9870,67 @@ function openQuickTapConfirm(templateId) {
   document.getElementById('qtAmount').value = t.default_amount;
   document.getElementById('qtNote').value = t.default_notes || '';
   document.getElementById('qtDate').textContent = fmtDate(todayStr());
-  document.getElementById('qtBy').textContent = (kioskState.selectedUser && kioskState.selectedUser.name) || 'admin';
+  document.getElementById('qtBy').textContent = me;
   document.getElementById('qtModalTitle').textContent = (t.type === 'inflow' ? '⚡ Quick Income' : '⚡ Quick Expense');
+
+  // Reset collapsible details state (collapsed by default — keep fast path fast)
+  document.getElementById('qtDetailsPanel').style.display = 'none';
+  document.getElementById('qtToggleIcon').textContent = '▼';
+  // Clear all detail fields so they don't leak between modals
+  ['qtRequestedBy','qtApprovedBy','qtPurpose','qtSource','qtReceivedBy','qtRefNo'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  const fileEl = document.getElementById('qtReceipt'); if (fileEl) fileEl.value = '';
+
+  // Show only relevant fields based on type
+  document.getElementById('qtOutflowFields').style.display = t.type === 'outflow' ? '' : 'none';
+  document.getElementById('qtInflowFields').style.display = t.type === 'inflow' ? '' : 'none';
+
+  // Populate dropdowns (fire-and-forget — modal opens immediately, dropdowns fill in ms)
+  populateQtDropdowns(me).catch(e => console.warn('Qt dropdown populate:', e.message));
+
   document.getElementById('quickTapModal').classList.add('open');
   // Auto-focus amount with mobile keyboard
   setTimeout(() => { const a = document.getElementById('qtAmount'); a.focus(); a.select(); }, 50);
+}
+
+/* Populate the quick-tap detail dropdowns — defaults to current user where sensible */
+async function populateQtDropdowns(currentUserName) {
+  try {
+    const [emps, admins] = await Promise.all([
+      pbGetList('employees', { filter: 'is_active=true', sort: 'name', perPage: 500 }).catch(() => BB_EMPS_CACHE || []),
+      pbGetList('admin_accounts', { filter: 'is_active=true', sort: 'name', perPage: 100 }).catch(() => [])
+    ]);
+    const empOpts = '<option value="">— Select employee —</option>' + emps.map(e => `<option value="${e.name}">${e.name}</option>`).join('');
+    const adminOpts = '<option value="">— Select approver —</option>' + admins.map(a => `<option value="${a.name}">${a.name} (${a.role || 'admin'})</option>`).join('');
+
+    // Outflow
+    const reqEl = document.getElementById('qtRequestedBy');
+    const apvEl = document.getElementById('qtApprovedBy');
+    if (reqEl) { reqEl.innerHTML = empOpts; reqEl.value = currentUserName || ''; }
+    if (apvEl) { apvEl.innerHTML = adminOpts; apvEl.value = currentUserName || ''; }
+    // Inflow
+    const recvEl = document.getElementById('qtReceivedBy');
+    if (recvEl) { recvEl.innerHTML = empOpts; recvEl.value = currentUserName || ''; }
+  } catch (e) {
+    console.warn('Quick-tap dropdowns populate failed:', e.message);
+  }
+}
+
+/* Toggle the collapsible details panel — JIS: progressive disclosure */
+function toggleQtDetails() {
+  const panel = document.getElementById('qtDetailsPanel');
+  const icon = document.getElementById('qtToggleIcon');
+  const open = panel.style.display === 'none';
+  panel.style.display = open ? 'block' : 'none';
+  icon.textContent = open ? '▲' : '▼';
+  // When opening for outflow, auto-focus Purpose (most likely needs typing)
+  if (open) {
+    const t = EXPENSE_TEMPLATES_CACHE.find(x => x.id === document.getElementById('qtTemplateId').value);
+    if (t && t.type === 'outflow') {
+      setTimeout(() => { const p = document.getElementById('qtPurpose'); if (p) p.focus(); }, 80);
+    }
+  }
 }
 
 async function confirmQuickTapExpense() {
@@ -9810,6 +9942,16 @@ async function confirmQuickTapExpense() {
   if (!t) { toast('Template missing', 'err'); return; }
 
   const me = (kioskState.selectedUser && kioskState.selectedUser.name) || 'admin';
+  const detailsOpen = document.getElementById('qtDetailsPanel').style.display !== 'none';
+
+  // Read detail field values (used only if user opened the collapsible + filled them)
+  const qtRequestedBy = document.getElementById('qtRequestedBy').value.trim();
+  const qtApprovedBy = document.getElementById('qtApprovedBy').value.trim();
+  const qtPurpose = document.getElementById('qtPurpose').value.trim();
+  const qtSource = document.getElementById('qtSource').value.trim();
+  const qtReceivedBy = document.getElementById('qtReceivedBy').value.trim();
+  const qtRefNo = document.getElementById('qtRefNo').value.trim();
+  const qtReceiptFile = document.getElementById('qtReceipt').files[0];
 
   // Build cash flow body with sensible defaults so all required fields are met
   const fd = new FormData();
@@ -9819,18 +9961,24 @@ async function confirmQuickTapExpense() {
   fd.append('amount', amount);
   fd.append('description', note || ('Quick-tap: ' + t.name));
   fd.append('recorded_by', me);
-  // Quick-tap auto-fills approver fields for outflow (single-tap convenience — owner can edit later if needed)
+
   if (t.type === 'outflow') {
-    fd.append('requested_by', me);
-    fd.append('approved_by', me);
-    fd.append('purpose', note || t.name);
+    // Use detail field values if filled, otherwise default to current user (single-tap convenience)
+    fd.append('requested_by', qtRequestedBy || me);
+    fd.append('approved_by', qtApprovedBy || me);
+    fd.append('purpose', qtPurpose || note || t.name);
   } else {
     // Inflow defaults
-    fd.append('source', 'Direct (Sub-admin)');
-    fd.append('received_by', me);
+    fd.append('source', qtSource || 'Direct (Sub-admin)');
+    fd.append('received_by', qtReceivedBy || me);
   }
-  // Audit trail — track that this came from quick-tap
-  fd.append('source_method', 'quick_tap');
+
+  // Optional common fields
+  if (qtRefNo) fd.append('reference_no', qtRefNo);
+  if (qtReceiptFile) fd.append('receipt', qtReceiptFile);
+
+  // Audit trail — track that this came from quick-tap (mark whether details were used)
+  fd.append('source_method', detailsOpen ? 'quick_tap_detailed' : 'quick_tap');
   fd.append('template_id', t.id);
 
   try {
@@ -9839,7 +9987,7 @@ async function confirmQuickTapExpense() {
       // Fallback: try without source_method + template_id (legacy schema)
       console.warn('[Quick-Tap] Save with new fields failed, retrying without...');
       const fd2 = new FormData();
-      ['date','type','category','amount','description','recorded_by','requested_by','approved_by','purpose','source','received_by'].forEach(k => {
+      ['date','type','category','amount','description','recorded_by','requested_by','approved_by','purpose','source','received_by','reference_no','receipt'].forEach(k => {
         if (fd.has(k)) fd2.append(k, fd.get(k));
       });
       const res2 = await fetch(PB_API + '/collections/tms_cash_flow/records', { method: 'POST', body: fd2 });
