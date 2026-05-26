@@ -2645,22 +2645,94 @@
           </div>
         </div>
 
+        <!-- ORPHANED LIVE SESSIONS ALERT — shows when there are stuck sessions -->
+        <div class="card" id="bbStuckLivesCard" style="margin-bottom: 16px; border-left: 4px solid #EF4444; display:none;">
+          <div class="card-h">
+            <h3 style="color: #B91C1C;">⚠ Stuck / Orphaned Live Sessions</h3>
+            <div style="display:flex; gap:8px;">
+              <button class="btn btn-secondary btn-sm" onclick="loadBbSales()">⟳ Refresh</button>
+              <button class="btn btn-danger btn-sm" data-extra-perm="edit_dtr" onclick="bulkForceEndStuckLives()">🛑 Force-End All Stuck</button>
+            </div>
+          </div>
+          <p style="font-size: 12px; color: var(--bb-gray); margin-bottom: 12px;">
+            Active live sessions na may start_time > 12 hours na ang nakalipas (most likely orphaned — kiosk session na hindi na-end). I-force end para hindi mag-block ang time-out at hindi makasira ng payroll calculation.
+          </p>
+          <div class="table-wrap">
+            <table class="bb-table">
+              <thead><tr><th>Seller</th><th>Started</th><th>Hours Stuck</th><th>Action</th></tr></thead>
+              <tbody id="bbStuckLivesBody"></tbody>
+            </table>
+          </div>
+        </div>
+
         <div class="card">
           <div class="card-h">
             <h3>Recent Live Sessions</h3>
             <div style="display:flex; gap:8px;">
               <button class="btn btn-secondary btn-sm" onclick="exportToCsv('live_sessions')">⬇ CSV</button>
               <button class="btn btn-secondary btn-sm" onclick="loadBbSales()">⟳ Refresh</button>
+              <button class="btn btn-primary btn-sm" data-extra-perm="edit_dtr" onclick="openLiveSessionModal()">+ Manual Live Session</button>
             </div>
           </div>
+          <p style="font-size: 12px; color: var(--bb-gray); margin-bottom: 8px;">
+            Admin can force-end active sessions, edit completed ones, or add a retroactive session. JIS-aligned: every change leaves audit trail in action_log.
+          </p>
           <div class="table-wrap">
             <table class="bb-table">
-              <thead><tr><th>Seller</th><th>Start</th><th>End</th><th>Duration</th><th>Platform</th><th>Sales</th><th>Status</th></tr></thead>
+              <thead><tr><th>Seller</th><th>Start</th><th>End</th><th>Duration</th><th>Platform</th><th>Sales</th><th>Status</th><th>Action</th></tr></thead>
               <tbody id="bbLiveSessionsBody"></tbody>
             </table>
           </div>
         </div>
       </section>
+
+      <!-- MANUAL LIVE SESSION MODAL -->
+      <div class="modal-bg" id="liveSessionModal">
+        <div class="modal" style="max-width: 580px;">
+          <div class="modal-header">
+            <h3 id="lsModalTitle">+ Manual Live Session</h3>
+            <button class="close-btn" onclick="closeModal('liveSessionModal')">×</button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" id="lsId">
+            <div style="background: #EFF6FF; padding: 12px 14px; border-radius: 8px; margin-bottom: 14px; font-size: 12px; color: #1E40AF;">
+              💡 Use this para sa retroactive entries (e.g., naka-FB live pero kiosk down), or to edit existing session.
+            </div>
+            <div class="form-row">
+              <div><label>Employee *</label><select id="lsEmp"></select></div>
+              <div><label>Date *</label><input type="date" id="lsDate"></div>
+            </div>
+            <div class="form-row">
+              <div><label>Start Time *</label><input type="time" id="lsStartTime"></div>
+              <div><label>End Time</label><input type="time" id="lsEndTime"></div>
+            </div>
+            <div class="form-row">
+              <div><label>Platform *</label><select id="lsPlatform">
+                <option value="">— Select platform —</option>
+                <option value="FB Live">FB Live</option>
+                <option value="TikTok">TikTok</option>
+                <option value="Shopee Live">Shopee Live</option>
+                <option value="Lazada Live">Lazada Live</option>
+                <option value="IG Live">IG Live</option>
+                <option value="Others">Others</option>
+              </select></div>
+              <div><label>Sales Amount (₱)</label><input type="number" id="lsSales" min="0" step="0.01" placeholder="0"></div>
+            </div>
+            <div class="form-row">
+              <div><label>Status</label><select id="lsStatus">
+                <option value="done">✓ Done</option>
+                <option value="active">▶ Active (ongoing)</option>
+              </select></div>
+              <div><label>Reason / Notes</label><input type="text" id="lsNotes" placeholder="e.g., 'Kiosk was down, manual entry'"></div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-danger" id="lsDelBtn" onclick="deleteLiveSession()" style="display:none;">Delete</button>
+            <button class="btn btn-secondary" onclick="closeModal('liveSessionModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="saveLiveSession()">Save Session</button>
+          </div>
+        </div>
+      </div>
 
       <!-- PAYROLL -->
       <section class="view" id="view-bbPayroll">
@@ -6037,13 +6109,43 @@ function selectEndPlatform(platform, btn) {
 }
 
 async function submitEndLive() {
-  const sess = kioskState.activeLiveSession;
+  let sess = kioskState.activeLiveSession;
   const sales = parseFloat(document.getElementById('kioskLiveSales').value) || 0;
   const platform = kioskState.selectedEndPlatform;
   if (!platform) {
     alert('Pumili muna ng platform bago mag-submit.');
     return;
   }
+
+  // JIS RECOVERY: if kiosk state lost the session, re-fetch from PB before failing
+  // (Prevents the "ghost active session" bug where employee can't end via kiosk)
+  if (!sess && _pbIsOnline) {
+    const user = kioskState.selectedUser;
+    if (user) {
+      try {
+        console.warn('[EndLive] sess lost in state, attempting PB recovery for user', user.id);
+        const recovered = await pbGetList('live_sessions', {
+          filter: `employee_id="${user.id}" && status="active"`,
+          sort: '-start_time',
+          perPage: 1
+        });
+        if (recovered.length) {
+          sess = recovered[0];
+          kioskState.activeLiveSession = sess;
+          console.log('[EndLive] Recovered active session from PB:', sess.id);
+        }
+      } catch (e) {
+        console.warn('[EndLive] PB recovery failed:', e.message);
+      }
+    }
+  }
+
+  if (!sess) {
+    showResult(false, 'No Active Live Session',
+      'Wala nang active live session sa system mo. Kung sigurado ka may live ka pa, sabihin sa admin na i-check ang Sales view sa admin panel — pwede nilang i-force end ang stuck session.');
+    return;
+  }
+
   try {
     const now = new Date();
     const start = new Date(sess.start_time);
@@ -6069,6 +6171,16 @@ async function submitEndLive() {
         showResult(true, 'Live Session Ended', `Platform: ${platform}\nSales: ₱${sales.toLocaleString()}\nDuration: ${formatDuration(Math.floor(dur*60))}\nMagaling!`);
         return;
       } catch (e) {
+        const errStr = (e.message || '').toLowerCase();
+        // If 404, the record was already deleted/ended — treat as success + clear local state
+        if (errStr.includes('404') || errStr.includes('not found')) {
+          console.warn('[EndLive] Session record gone from PB — likely already ended by admin. Clearing local state.');
+          const user = kioskState.selectedUser;
+          kioskState.activeLiveSession = null;
+          if (kioskState.allActiveLives && user && kioskState.allActiveLives[user.id]) delete kioskState.allActiveLives[user.id];
+          showResult(true, 'Already Ended', 'Live session was already ended (probably ng admin sa panel). Local state synced.');
+          return;
+        }
         console.warn('[EndLive] Online failed, queueing:', e.message);
         _pbIsOnline = false;
         updateOfflineBanner();
@@ -6094,7 +6206,10 @@ async function submitEndLive() {
     if (kioskState.allActiveLives && user && kioskState.allActiveLives[user.id]) delete kioskState.allActiveLives[user.id];
     showResult(true, '⚠ Offline — End Live Queued', `Platform: ${platform}\nSales: ₱${sales.toLocaleString()}\nDuration: ${formatDuration(Math.floor(dur*60))}\n\nWill sync automatic pag bumalik server.`);
   } catch (e) {
-    showResult(false, 'Failed to End Live', e.message);
+    // JIS: surface the REAL error so user knows exactly what to do
+    console.error('[EndLive] Unexpected error:', e);
+    showResult(false, 'Failed to End Live',
+      `${e.message}\n\nKung urgent, sabihin sa admin na i-force end ang session sa admin panel (Sales view → 🛑 End button per row).`);
   }
 }
 
@@ -7510,13 +7625,47 @@ async function loadBbSales() {
       ? ranked.map(([name, s], i) => `<tr><td><strong>#${i+1}</strong></td><td>${name}</td><td>${s.sessions}</td><td>${s.hours.toFixed(1)}h</td><td><strong style="color:var(--bb-honey-dark);">₱${s.sales.toLocaleString()}</strong></td></tr>`).join('')
       : '<tr><td colspan="5" style="text-align:center;padding:20px;color:#999;">Walang live sessions this week.</td></tr>';
 
-    // Recent sessions
+    // Detect ORPHANED / STUCK active sessions across all of week (not just today)
+    // Threshold: any 'active' session whose start_time is > 12 hours ago is "stuck"
+    const STUCK_HOURS_THRESHOLD = 12;
+    const now = new Date();
+    const stuckSessions = weekSessions.filter(l => {
+      if (l.status !== 'active') return false;
+      const start = new Date(l.start_time);
+      const hoursAgo = (now - start) / 3600000;
+      return hoursAgo > STUCK_HOURS_THRESHOLD;
+    });
+    const stuckCard = document.getElementById('bbStuckLivesCard');
+    const stuckBody = document.getElementById('bbStuckLivesBody');
+    if (stuckSessions.length && stuckCard && stuckBody) {
+      stuckCard.style.display = '';
+      stuckCard.querySelector('h3').textContent = `⚠ Stuck / Orphaned Live Sessions (${stuckSessions.length})`;
+      stuckBody.innerHTML = stuckSessions.map(l => {
+        const e = l.expand && l.expand.employee_id;
+        const start = new Date(l.start_time);
+        const hoursAgo = ((now - start) / 3600000).toFixed(1);
+        return `<tr>
+          <td><strong>${e ? e.name : '—'}</strong></td>
+          <td><small>${start.toLocaleString('en-PH')}</small></td>
+          <td><strong style="color:#B91C1C;">${hoursAgo}h ago</strong></td>
+          <td><button class="btn btn-danger btn-sm" onclick="forceEndLiveSession('${l.id}')">🛑 Force End</button></td>
+        </tr>`;
+      }).join('');
+    } else if (stuckCard) {
+      stuckCard.style.display = 'none';
+    }
+
+    // Recent sessions with action buttons
     document.getElementById('bbLiveSessionsBody').innerHTML = todaySessions.length
       ? todaySessions.slice(0, 20).map(l => {
         const e = l.expand && l.expand.employee_id;
         const start = new Date(l.start_time);
         const end = l.end_time ? new Date(l.end_time) : null;
-        return `<tr>
+        const isActive = l.status === 'active';
+        const actionBtn = isActive
+          ? `<button class="btn btn-danger btn-sm" onclick="forceEndLiveSession('${l.id}')" style="margin-right:4px;">🛑 End</button><button class="btn btn-ghost btn-sm" onclick="editLiveSession('${l.id}')">Edit</button>`
+          : `<button class="btn btn-ghost btn-sm" onclick="editLiveSession('${l.id}')">Edit</button>`;
+        return `<tr${isActive ? ' style="background:#FFFBEB;"' : ''}>
           <td><strong>${e ? e.name : '—'}</strong></td>
           <td>${start.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })}</td>
           <td>${end ? end.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' }) : '<strong style="color:var(--bb-green);">ONGOING</strong>'}</td>
@@ -7524,12 +7673,200 @@ async function loadBbSales() {
           <td>${l.platform || '<em style="color:#999;">not set</em>'}</td>
           <td>${l.sales_amount ? '₱' + l.sales_amount.toLocaleString() : '—'}</td>
           <td><span class="bb-badge ${l.status === 'done' ? 'green' : 'honey'}">${l.status}</span></td>
+          <td style="white-space: nowrap;">${actionBtn}</td>
         </tr>`;
       }).join('')
-      : '<tr><td colspan="7" style="text-align:center;padding:20px;color:#999;">Walang sessions today.</td></tr>';
+      : '<tr><td colspan="8" style="text-align:center;padding:20px;color:#999;">Walang sessions today.</td></tr>';
   } catch (e) {
     console.error('Sales load:', e);
   }
+}
+
+/* ===================== ADMIN LIVE SESSION MANAGEMENT =====================
+ * Three operations: force-end, edit, manual-add. Each writes to action_log.
+ * JIS: standardized work — never go straight to PB UI.
+ */
+
+async function forceEndLiveSession(id) {
+  if (!confirm('🛑 Force-end this live session?\n\nUseful for orphaned/stuck sessions na hindi na-end ng employee. Will set status=done with current time as end_time.\n\nProceed?')) return;
+  try {
+    // Fetch current session to compute duration
+    const r = await fetch(PB_API + '/collections/live_sessions/records/' + id);
+    if (!r.ok) throw new Error('Session not found');
+    const sess = await r.json();
+    const now = new Date();
+    const start = new Date(sess.start_time);
+    const dur = (now - start) / 3600000;
+
+    const body = {
+      end_time: localPbDate(now),
+      duration_hours: parseFloat(dur.toFixed(2)),
+      status: 'done'
+    };
+    // Preserve existing sales/platform if any; don't overwrite with empty
+    if (!sess.platform) body.platform = 'Others';
+
+    await pbUpdate('live_sessions', id, body);
+
+    // Audit log
+    const me = (kioskState.selectedUser && kioskState.selectedUser.name) || 'admin';
+    try {
+      await pbCreate('action_log', {
+        module: 'sales',
+        action: 'update',
+        collection: 'live_sessions',
+        new_value: JSON.stringify({ force_ended: true, by: me, original_start: sess.start_time, duration_hours: body.duration_hours })
+      });
+    } catch (e) { /* action_log optional */ }
+
+    toast(`✓ Session force-ended (${dur.toFixed(2)}h)`, 'ok');
+    loadBbSales();
+  } catch (e) {
+    alert('Force-end failed: ' + e.message);
+  }
+}
+
+async function bulkForceEndStuckLives() {
+  if (!confirm('🛑 Force-end ALL stuck live sessions (>12h old)?\n\nThis is the bulk version of "Force End" — useful when may multiple orphaned sessions. Each will be marked done with computed duration.\n\nProceed?')) return;
+  try {
+    const STUCK_THRESHOLD_HOURS = 12;
+    const now = new Date();
+    const all = await pbGetList('live_sessions', { filter: 'status="active"', perPage: 200 });
+    const stuck = all.filter(l => ((now - new Date(l.start_time)) / 3600000) > STUCK_THRESHOLD_HOURS);
+    if (!stuck.length) { toast('No stuck sessions found', 'ok'); return; }
+
+    let ok = 0, fail = 0;
+    const me = (kioskState.selectedUser && kioskState.selectedUser.name) || 'admin';
+    for (const sess of stuck) {
+      try {
+        const start = new Date(sess.start_time);
+        const dur = (now - start) / 3600000;
+        const body = {
+          end_time: localPbDate(now),
+          duration_hours: parseFloat(dur.toFixed(2)),
+          status: 'done'
+        };
+        if (!sess.platform) body.platform = 'Others';
+        await pbUpdate('live_sessions', sess.id, body);
+        try {
+          await pbCreate('action_log', {
+            module: 'sales', action: 'update', collection: 'live_sessions',
+            new_value: JSON.stringify({ bulk_force_ended: true, by: me, session_id: sess.id, duration_hours: body.duration_hours })
+          });
+        } catch (e) {}
+        ok++;
+      } catch (e) { fail++; console.warn('Force-end failed for', sess.id, e.message); }
+    }
+    toast(`✓ Force-ended ${ok} stuck sessions${fail ? ' (' + fail + ' failed)' : ''}`, ok > 0 ? 'ok' : 'err');
+    loadBbSales();
+  } catch (e) {
+    alert('Bulk force-end failed: ' + e.message);
+  }
+}
+
+async function openLiveSessionModal() {
+  document.getElementById('lsModalTitle').textContent = '+ Manual Live Session';
+  document.getElementById('lsId').value = '';
+  // Populate employee dropdown via centralized helper
+  await populateBbEmpSelect('lsEmp');
+  document.getElementById('lsEmp').value = '';
+  document.getElementById('lsDate').value = todayStr();
+  document.getElementById('lsStartTime').value = '';
+  document.getElementById('lsEndTime').value = '';
+  document.getElementById('lsPlatform').value = '';
+  document.getElementById('lsSales').value = '';
+  document.getElementById('lsStatus').value = 'done';
+  document.getElementById('lsNotes').value = '';
+  document.getElementById('lsDelBtn').style.display = 'none';
+  document.getElementById('liveSessionModal').classList.add('open');
+}
+
+async function editLiveSession(id) {
+  try {
+    await populateBbEmpSelect('lsEmp');
+    const r = await fetch(PB_API + '/collections/live_sessions/records/' + id);
+    if (!r.ok) throw new Error('Session not found');
+    const s = await r.json();
+    document.getElementById('lsModalTitle').textContent = '✏️ Edit Live Session';
+    document.getElementById('lsId').value = s.id;
+    document.getElementById('lsEmp').value = s.employee_id || '';
+    document.getElementById('lsDate').value = (s.date || s.start_time || '').substring(0, 10);
+    document.getElementById('lsStartTime').value = s.start_time ? new Date(s.start_time).toTimeString().substring(0, 5) : '';
+    document.getElementById('lsEndTime').value = s.end_time ? new Date(s.end_time).toTimeString().substring(0, 5) : '';
+    document.getElementById('lsPlatform').value = s.platform || '';
+    document.getElementById('lsSales').value = s.sales_amount || '';
+    document.getElementById('lsStatus').value = s.status || 'done';
+    document.getElementById('lsNotes').value = s.notes || '';
+    document.getElementById('lsDelBtn').style.display = 'inline-flex';
+    document.getElementById('liveSessionModal').classList.add('open');
+  } catch (e) { alert('Failed: ' + e.message); }
+}
+
+async function saveLiveSession() {
+  const id = document.getElementById('lsId').value;
+  const empId = document.getElementById('lsEmp').value;
+  const date = document.getElementById('lsDate').value;
+  const startTime = document.getElementById('lsStartTime').value;
+  const endTime = document.getElementById('lsEndTime').value;
+  const platform = document.getElementById('lsPlatform').value;
+  const sales = parseFloat(document.getElementById('lsSales').value) || 0;
+  const status = document.getElementById('lsStatus').value;
+  const notes = document.getElementById('lsNotes').value;
+
+  if (!empId) { toast('Employee required', 'err'); return; }
+  if (!date || !startTime) { toast('Date + start time required', 'err'); return; }
+  if (status === 'done' && (!endTime || !platform)) { toast('Done status needs end time + platform', 'err'); return; }
+
+  try {
+    const startDt = new Date(date + 'T' + startTime + ':00');
+    const body = {
+      employee_id: empId,
+      date: localPbDateOnly(date),
+      start_time: localPbDate(startDt),
+      status,
+      platform: platform || '',
+      sales_amount: sales,
+      notes: notes || ''
+    };
+    if (endTime) {
+      const endDt = new Date(date + 'T' + endTime + ':00');
+      if (endDt < startDt) endDt.setDate(endDt.getDate() + 1);  // overnight session
+      body.end_time = localPbDate(endDt);
+      body.duration_hours = parseFloat(((endDt - startDt) / 3600000).toFixed(2));
+    }
+
+    const me = (kioskState.selectedUser && kioskState.selectedUser.name) || 'admin';
+    if (id) {
+      await pbUpdate('live_sessions', id, body);
+      toast('✓ Live session updated', 'ok');
+    } else {
+      await pbCreate('live_sessions', body);
+      toast('✓ Manual live session created', 'ok');
+    }
+    // Audit log
+    try {
+      await pbCreate('action_log', {
+        module: 'sales', action: id ? 'update' : 'create', collection: 'live_sessions',
+        new_value: JSON.stringify({ manual_entry: true, by: me, employee_id: empId, sales, notes })
+      });
+    } catch (e) {}
+    closeModal('liveSessionModal');
+    loadBbSales();
+  } catch (e) {
+    alert('Save failed: ' + e.message);
+  }
+}
+
+async function deleteLiveSession() {
+  const id = document.getElementById('lsId').value;
+  if (!id) return;
+  if (!confirm('Delete this live session? Hindi reversible. Mawawalan ng record sa payroll calculation.')) return;
+  try {
+    await fetch(PB_API + '/collections/live_sessions/records/' + id, { method: 'DELETE' });
+    closeModal('liveSessionModal');
+    loadBbSales();
+    toast('✓ Live session deleted', 'ok');
+  } catch (e) { alert('Delete failed: ' + e.message); }
 }
 
 async function loadBbPayroll() {
