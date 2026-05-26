@@ -2649,13 +2649,16 @@
         <div class="card" id="bbStuckLivesCard" style="margin-bottom: 16px; border-left: 4px solid #EF4444; display:none;">
           <div class="card-h">
             <h3 style="color: #B91C1C;">⚠ Stuck / Orphaned Live Sessions</h3>
-            <div style="display:flex; gap:8px;">
+            <div style="display:flex; gap:8px; flex-wrap: wrap;">
               <button class="btn btn-secondary btn-sm" onclick="loadBbSales()">⟳ Refresh</button>
               <button class="btn btn-danger btn-sm" data-extra-perm="edit_dtr" onclick="bulkForceEndStuckLives()">🛑 Force-End All Stuck</button>
+              <button class="btn btn-danger btn-sm" data-extra-perm="edit_dtr" onclick="deleteAllActiveLiveSessions()" style="background: #7C2D12;">☢️ NUCLEAR: Delete All Active</button>
             </div>
           </div>
           <p style="font-size: 12px; color: var(--bb-gray); margin-bottom: 12px;">
-            Active live sessions na may start_time > 12 hours na ang nakalipas (most likely orphaned — kiosk session na hindi na-end). I-force end para hindi mag-block ang time-out at hindi makasira ng payroll calculation.
+            Active live sessions na may start_time > 12 hours na ang nakalipas (orphaned — kiosk session na hindi na-end). <strong>Multi-strategy fix:</strong> tries to close each session with full → minimal → status-only bodies. If lahat fail, may option to DELETE.
+            <br><strong>Duration cap:</strong> 8h max (anything longer is bad data).
+            <br><strong>☢️ Nuclear:</strong> totally deletes ALL active sessions — use only kapag totally corrupt at need ng clean slate.
           </p>
           <div class="table-wrap">
             <table class="bb-table">
@@ -6046,11 +6049,37 @@ async function doStartLive() {
     showResult(false, 'Time-In Required', 'Mag-Time In ka muna bago mag-Start Live. Live time is part of your duty hours.');
     return;
   }
-  // JIS rule: only one active live at a time per employee
+  // JIS rule: only one active live at a time per employee (local state check)
   if (kioskState.activeLiveSession) {
     showResult(false, 'Live Already Active', 'May active live session ka na. End mo muna bago mag-start ng bago.');
     return;
   }
+
+  // POKA-YOKE: also check PB for existing active session (in case local state is stale)
+  // This prevents the "stacking" bug where multiple actives accumulate for the same employee
+  if (_pbIsOnline) {
+    try {
+      const existing = await pbGetList('live_sessions', {
+        filter: `employee_id="${user.id}" && status="active"`,
+        perPage: 5
+      });
+      if (existing.length) {
+        // Recover stale state — adopt the existing session
+        kioskState.activeLiveSession = existing[0];
+        if (!kioskState.allActiveLives) kioskState.allActiveLives = {};
+        kioskState.allActiveLives[user.id] = existing[0];
+        const start = new Date(existing[0].start_time);
+        const hoursAgo = ((Date.now() - start) / 3600000).toFixed(1);
+        showResult(false, 'Recovered: You Already Have an Active Live',
+          `Found ${existing.length} active live session(s) for you sa PB (started ${hoursAgo}h ago). ` +
+          `Adopted to your local state — i-End mo na lang ito. Kung orphan/stuck, sabihin sa admin na i-force-end sa admin panel.`);
+        return;
+      }
+    } catch (e) {
+      console.warn('[StartLive] PB duplicate-check failed, proceeding anyway:', e.message);
+    }
+  }
+
   const now = new Date();
   const liveBody = {
     employee_id: user.id,
@@ -7625,16 +7654,22 @@ async function loadBbSales() {
       ? ranked.map(([name, s], i) => `<tr><td><strong>#${i+1}</strong></td><td>${name}</td><td>${s.sessions}</td><td>${s.hours.toFixed(1)}h</td><td><strong style="color:var(--bb-honey-dark);">₱${s.sales.toLocaleString()}</strong></td></tr>`).join('')
       : '<tr><td colspan="5" style="text-align:center;padding:20px;color:#999;">Walang live sessions this week.</td></tr>';
 
-    // Detect ORPHANED / STUCK active sessions across all of week (not just today)
+    // Detect ORPHANED / STUCK active sessions across ALL TIME (not just week)
     // Threshold: any 'active' session whose start_time is > 12 hours ago is "stuck"
+    // JIS: fetch separately to avoid being limited by today/week filter
     const STUCK_HOURS_THRESHOLD = 12;
     const now = new Date();
-    const stuckSessions = weekSessions.filter(l => {
-      if (l.status !== 'active') return false;
+    let allActiveSessions = [];
+    try {
+      allActiveSessions = await pbGetList('live_sessions', { filter: 'status="active"', sort: 'start_time', expand: 'employee_id', perPage: 500 });
+    } catch (e) { console.warn('Failed to fetch active sessions:', e.message); }
+
+    const stuckSessions = allActiveSessions.filter(l => {
       const start = new Date(l.start_time);
       const hoursAgo = (now - start) / 3600000;
       return hoursAgo > STUCK_HOURS_THRESHOLD;
     });
+
     const stuckCard = document.getElementById('bbStuckLivesCard');
     const stuckBody = document.getElementById('bbStuckLivesBody');
     if (stuckSessions.length && stuckCard && stuckBody) {
@@ -7645,10 +7680,13 @@ async function loadBbSales() {
         const start = new Date(l.start_time);
         const hoursAgo = ((now - start) / 3600000).toFixed(1);
         return `<tr>
-          <td><strong>${e ? e.name : '—'}</strong></td>
+          <td><strong>${e ? e.name : '—'}</strong><br><small style="color:#999;">${l.id.substring(0,8)}</small></td>
           <td><small>${start.toLocaleString('en-PH')}</small></td>
           <td><strong style="color:#B91C1C;">${hoursAgo}h ago</strong></td>
-          <td><button class="btn btn-danger btn-sm" onclick="forceEndLiveSession('${l.id}')">🛑 Force End</button></td>
+          <td style="white-space:nowrap;">
+            <button class="btn btn-danger btn-sm" onclick="forceEndLiveSession('${l.id}')">🛑 End</button>
+            <button class="btn btn-secondary btn-sm" onclick="deleteStuckLive('${l.id}')" style="margin-left:4px;background:#7C2D12;color:white;border-color:#7C2D12;">🗑 Delete</button>
+          </td>
         </tr>`;
       }).join('');
     } else if (stuckCard) {
@@ -7687,81 +7725,236 @@ async function loadBbSales() {
  * JIS: standardized work — never go straight to PB UI.
  */
 
+/* ===================== NUCLEAR FIX: Multi-strategy live session cleanup =====================
+ * Problem: simple pbUpdate kept failing — PB validation, schema mismatch, or auth issues.
+ * Solution: try multiple body shapes (full → minimal → status-only). If ALL fail, offer DELETE.
+ * Cap durations at 8h max for orphaned sessions (anything longer is clearly wrong data).
+ */
+
+const MAX_ORPHAN_DURATION_HOURS = 8;  // sanity cap — JIS standard work day
+
+// JIS: surface the ACTUAL PB error response, not just the JS Error.message wrapper
+async function _pbUpdateWithRawError(collection, id, body) {
+  const url = PB_API + '/collections/' + collection + '/records/' + id;
+  const res = await fetch(url, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    let detail = text;
+    try {
+      const json = JSON.parse(text);
+      // PB returns { code, message, data: { fieldName: { code, message } } }
+      if (json.data) {
+        const fieldErrors = Object.entries(json.data).map(([k, v]) => `${k}: ${v.message || JSON.stringify(v)}`).join('; ');
+        detail = (json.message || '') + (fieldErrors ? ' — Fields: ' + fieldErrors : '');
+      } else if (json.message) {
+        detail = json.message;
+      }
+    } catch (e) { /* leave as text */ }
+    const err = new Error('PB ' + res.status + ': ' + detail);
+    err.status = res.status;
+    err.rawDetail = detail;
+    throw err;
+  }
+  return await res.json();
+}
+
+// Try multi-strategy update — returns success record, or throws last error with details
+async function _tryEndSessionMultiStrategy(sess, now) {
+  const start = new Date(sess.start_time);
+  let durRaw = (now - start) / 3600000;
+  // CAP: orphaned sessions get capped at 8h (anything longer is bad data)
+  const dur = Math.min(durRaw, MAX_ORPHAN_DURATION_HOURS);
+  const cappedNotice = durRaw > MAX_ORPHAN_DURATION_HOURS ? ` (capped from ${durRaw.toFixed(1)}h)` : '';
+
+  // Strategy 1: Full body (preferred)
+  const fullBody = {
+    end_time: localPbDate(now),
+    duration_hours: parseFloat(dur.toFixed(2)),
+    status: 'done',
+    platform: sess.platform || 'Others',
+    sales_amount: sess.sales_amount || 0
+  };
+
+  // Strategy 2: Minimal (just close it)
+  const minimalBody = {
+    end_time: localPbDate(now),
+    duration_hours: parseFloat(dur.toFixed(2)),
+    status: 'done'
+  };
+
+  // Strategy 3: Status only (give up on time fields)
+  const statusOnlyBody = { status: 'done' };
+
+  // Strategy 4: Try alternative status values that some PB schemas use
+  const altStatusBodies = [
+    { status: 'completed' },
+    { status: 'ended' },
+    { status: 'closed' }
+  ];
+
+  const strategies = [
+    { name: 'full', body: fullBody },
+    { name: 'minimal', body: minimalBody },
+    { name: 'status-only', body: statusOnlyBody },
+    ...altStatusBodies.map((b, i) => ({ name: 'alt-status-' + b.status, body: b }))
+  ];
+
+  let lastErr = null;
+  for (const strat of strategies) {
+    try {
+      console.log('[ForceEnd] Trying strategy:', strat.name, 'for session', sess.id);
+      const result = await _pbUpdateWithRawError('live_sessions', sess.id, strat.body);
+      console.log('[ForceEnd] ✓ Success with strategy:', strat.name);
+      return { result, strategy: strat.name, cappedNotice };
+    } catch (e) {
+      console.warn('[ForceEnd] Strategy', strat.name, 'failed:', e.rawDetail || e.message);
+      lastErr = e;
+      // If 404, record is gone — return success-like result
+      if (e.status === 404) {
+        return { result: null, strategy: 'already-deleted', cappedNotice: '' };
+      }
+    }
+  }
+  throw lastErr || new Error('All strategies failed');
+}
+
 async function forceEndLiveSession(id) {
-  if (!confirm('🛑 Force-end this live session?\n\nUseful for orphaned/stuck sessions na hindi na-end ng employee. Will set status=done with current time as end_time.\n\nProceed?')) return;
+  if (!confirm('🛑 Force-end this live session?\n\nWill try multiple strategies to close it. If all updates fail, you can DELETE the record instead.\n\nDurations > 8h will be capped at 8h (clearly orphaned data).\n\nProceed?')) return;
   try {
-    // Fetch current session to compute duration
     const r = await fetch(PB_API + '/collections/live_sessions/records/' + id);
-    if (!r.ok) throw new Error('Session not found');
+    if (!r.ok) throw new Error('Session not found in PB (already deleted?)');
     const sess = await r.json();
     const now = new Date();
-    const start = new Date(sess.start_time);
-    const dur = (now - start) / 3600000;
 
-    const body = {
-      end_time: localPbDate(now),
-      duration_hours: parseFloat(dur.toFixed(2)),
-      status: 'done'
-    };
-    // Preserve existing sales/platform if any; don't overwrite with empty
-    if (!sess.platform) body.platform = 'Others';
-
-    await pbUpdate('live_sessions', id, body);
+    const { strategy, cappedNotice } = await _tryEndSessionMultiStrategy(sess, now);
 
     // Audit log
     const me = (kioskState.selectedUser && kioskState.selectedUser.name) || 'admin';
-    try {
-      await pbCreate('action_log', {
-        module: 'sales',
-        action: 'update',
-        collection: 'live_sessions',
-        new_value: JSON.stringify({ force_ended: true, by: me, original_start: sess.start_time, duration_hours: body.duration_hours })
-      });
-    } catch (e) { /* action_log optional */ }
+    pbCreate('action_log', {
+      module: 'sales', action: 'update', collection: 'live_sessions',
+      new_value: JSON.stringify({ force_ended: true, strategy, by: me, session_id: id, original_start: sess.start_time })
+    }).catch(()=>{});
 
-    toast(`✓ Session force-ended (${dur.toFixed(2)}h)`, 'ok');
+    toast(`✓ Session ended (${strategy})${cappedNotice}`, 'ok');
     loadBbSales();
   } catch (e) {
-    alert('Force-end failed: ' + e.message);
+    // ALL strategies failed — offer delete as nuclear option
+    console.error('[ForceEnd] All update strategies failed:', e);
+    const confirmDelete = confirm(
+      `❌ Force-end failed after trying multiple strategies.\n\n` +
+      `Real PB error:\n${e.rawDetail || e.message}\n\n` +
+      `🗑 Would you like to DELETE this stuck session instead?\n` +
+      `(This will completely remove the record. Useful kung corrupt o test data.)`
+    );
+    if (confirmDelete) {
+      try {
+        const res = await fetch(PB_API + '/collections/live_sessions/records/' + id, { method: 'DELETE' });
+        if (!res.ok) throw new Error(await res.text());
+        toast('✓ Session deleted', 'ok');
+        loadBbSales();
+      } catch (delErr) {
+        alert('Delete also failed: ' + delErr.message + '\n\nLast resort: delete sa PocketBase admin UI directly.');
+      }
+    }
   }
 }
 
 async function bulkForceEndStuckLives() {
-  if (!confirm('🛑 Force-end ALL stuck live sessions (>12h old)?\n\nThis is the bulk version of "Force End" — useful when may multiple orphaned sessions. Each will be marked done with computed duration.\n\nProceed?')) return;
+  const choice = confirm(
+    '🛑 BULK FORCE-END all stuck live sessions (>12h old)?\n\n' +
+    'JIS-aligned multi-strategy approach:\n' +
+    '  1. Try to close each session\n' +
+    '  2. Cap durations at 8h (orphans clearly bad data)\n' +
+    '  3. Show summary report kung ano ang failed\n\n' +
+    'After this, you can manually DELETE any remaining stuck sessions.\n\nProceed?'
+  );
+  if (!choice) return;
+
   try {
     const STUCK_THRESHOLD_HOURS = 12;
     const now = new Date();
-    const all = await pbGetList('live_sessions', { filter: 'status="active"', perPage: 200 });
+    const all = await pbGetList('live_sessions', { filter: 'status="active"', perPage: 500 });
     const stuck = all.filter(l => ((now - new Date(l.start_time)) / 3600000) > STUCK_THRESHOLD_HOURS);
-    if (!stuck.length) { toast('No stuck sessions found', 'ok'); return; }
+    if (!stuck.length) { toast('No stuck sessions found', 'ok'); loadBbSales(); return; }
 
     let ok = 0, fail = 0;
+    const failedIds = [];
     const me = (kioskState.selectedUser && kioskState.selectedUser.name) || 'admin';
+
     for (const sess of stuck) {
       try {
-        const start = new Date(sess.start_time);
-        const dur = (now - start) / 3600000;
-        const body = {
-          end_time: localPbDate(now),
-          duration_hours: parseFloat(dur.toFixed(2)),
-          status: 'done'
-        };
-        if (!sess.platform) body.platform = 'Others';
-        await pbUpdate('live_sessions', sess.id, body);
-        try {
-          await pbCreate('action_log', {
-            module: 'sales', action: 'update', collection: 'live_sessions',
-            new_value: JSON.stringify({ bulk_force_ended: true, by: me, session_id: sess.id, duration_hours: body.duration_hours })
-          });
-        } catch (e) {}
+        const { strategy } = await _tryEndSessionMultiStrategy(sess, now);
+        pbCreate('action_log', {
+          module: 'sales', action: 'update', collection: 'live_sessions',
+          new_value: JSON.stringify({ bulk_force_ended: true, strategy, by: me, session_id: sess.id })
+        }).catch(()=>{});
         ok++;
-      } catch (e) { fail++; console.warn('Force-end failed for', sess.id, e.message); }
+      } catch (e) {
+        fail++;
+        failedIds.push(sess.id);
+        console.warn('[BulkForceEnd] Failed for', sess.id, ':', e.rawDetail || e.message);
+      }
     }
-    toast(`✓ Force-ended ${ok} stuck sessions${fail ? ' (' + fail + ' failed)' : ''}`, ok > 0 ? 'ok' : 'err');
+
     loadBbSales();
+    if (fail === 0) {
+      toast(`✓ All ${ok} stuck sessions force-ended`, 'ok');
+    } else {
+      const msg = `✓ Force-ended: ${ok}\n❌ Failed: ${fail}\n\nWould you like to DELETE the ${fail} stuck sessions na hindi ma-close?\n(Nuclear option — fully removes the records)`;
+      if (confirm(msg)) {
+        let delOk = 0, delFail = 0;
+        for (const id of failedIds) {
+          try {
+            const res = await fetch(PB_API + '/collections/live_sessions/records/' + id, { method: 'DELETE' });
+            if (res.ok) delOk++; else delFail++;
+          } catch (e) { delFail++; }
+        }
+        toast(`✓ Deleted ${delOk}${delFail ? ' (' + delFail + ' failed)' : ''}`, delOk > 0 ? 'ok' : 'err');
+        loadBbSales();
+      }
+    }
   } catch (e) {
-    alert('Bulk force-end failed: ' + e.message);
+    alert('Bulk operation failed: ' + e.message);
   }
+}
+
+// Per-session quick delete (used by stuck-sessions table)
+async function deleteStuckLive(id) {
+  if (!confirm('🗑 Delete this stuck live session permanently?\n\nThis fully removes the record. Use if the session is corrupt/orphan data na hindi pwedeng i-close normally.')) return;
+  try {
+    const res = await fetch(PB_API + '/collections/live_sessions/records/' + id, { method: 'DELETE' });
+    if (!res.ok) throw new Error(await res.text());
+    toast('✓ Stuck session deleted', 'ok');
+    loadBbSales();
+  } catch (e) { alert('Delete failed: ' + e.message); }
+}
+
+// NUCLEAR: delete ALL active sessions (use only kapag totally corrupt data)
+async function deleteAllActiveLiveSessions() {
+  if (!confirm('☢️ NUCLEAR DELETE: Remove ALL active live sessions?\n\nThis will permanently delete every active session sa PB. Use only if data is totally corrupt at lahat ng active records ay garbage.\n\nThis is IRREVERSIBLE. Confirm?')) return;
+  if (!confirm('Final confirm — you sure you want to delete ALL active live_sessions records?')) return;
+  try {
+    const all = await pbGetList('live_sessions', { filter: 'status="active"', perPage: 500 });
+    if (!all.length) { toast('No active sessions to delete', 'ok'); return; }
+    let ok = 0, fail = 0;
+    for (const sess of all) {
+      try {
+        const res = await fetch(PB_API + '/collections/live_sessions/records/' + sess.id, { method: 'DELETE' });
+        if (res.ok) ok++; else fail++;
+      } catch (e) { fail++; }
+    }
+    const me = (kioskState.selectedUser && kioskState.selectedUser.name) || 'admin';
+    pbCreate('action_log', {
+      module: 'sales', action: 'delete', collection: 'live_sessions',
+      new_value: JSON.stringify({ nuclear_delete_all_active: true, by: me, count: ok })
+    }).catch(()=>{});
+    toast(`☢️ Deleted ${ok} active sessions${fail ? ' (' + fail + ' failed)' : ''}`, 'ok');
+    loadBbSales();
+  } catch (e) { alert('Nuclear delete failed: ' + e.message); }
 }
 
 async function openLiveSessionModal() {
