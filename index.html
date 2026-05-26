@@ -2814,6 +2814,55 @@
         </div>
       </div>
 
+      <!-- EDIT HOURS MODAL — direct override on payroll record -->
+      <div class="modal-bg" id="editPayrollHoursModal">
+        <div class="modal" style="max-width: 540px;">
+          <div class="modal-header" style="background: #FEF3C7; border-top: 4px solid var(--bb-honey);">
+            <h3 style="color: var(--bb-honey-dark);">✏️ Edit Payroll Hours</h3>
+            <button class="close-btn" onclick="closeModal('editPayrollHoursModal')">×</button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" id="ephId">
+            <div style="background: #EFF6FF; padding: 10px 14px; border-radius: 8px; margin-bottom: 14px; font-size: 12px; color: #1E40AF;">
+              💡 <strong>Direct hour override</strong> — sets values without recomputing from source data. Use when may bad live_sessions data na, or quick correction.
+              <br>For full recompute with current data, click <strong>🔄 Recompute</strong> instead.
+            </div>
+            <div id="ephContext" style="background: #F9FAFB; padding: 10px 14px; border-radius: 8px; margin-bottom: 14px; font-size: 12px;"></div>
+            <div class="form-row">
+              <div>
+                <label>Regular Hours</label>
+                <input type="number" id="ephRegHours" min="0" step="0.01" oninput="recalcEphPreview()">
+              </div>
+              <div>
+                <label>Live Selling Hours</label>
+                <input type="number" id="ephLiveHours" min="0" step="0.01" oninput="recalcEphPreview()">
+              </div>
+            </div>
+            <div class="form-row">
+              <div>
+                <label>OT Hours</label>
+                <input type="number" id="ephOtHours" min="0" step="0.01" oninput="recalcEphPreview()">
+              </div>
+              <div>
+                <label>Late Minutes (raw)</label>
+                <input type="number" id="ephLateMins" min="0" oninput="recalcEphPreview()">
+              </div>
+            </div>
+            <div style="background: #ECFDF5; padding: 14px; border-radius: 8px; margin-top: 14px;">
+              <div style="font-weight: 700; font-size: 13px; color: #047857; margin-bottom: 8px;">📊 Preview (auto-updated)</div>
+              <div id="ephPreviewBody" style="font-family: monospace; font-size: 12px; line-height: 1.7;"></div>
+            </div>
+            <div class="form-row single" style="margin-top: 10px;">
+              <div><label>Reason for override (audit log)</label><textarea id="ephReason" rows="2" placeholder="e.g., 'Live sessions deleted, manual correction'"></textarea></div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('editPayrollHoursModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="savePayrollHoursOverride()">Save Override</button>
+          </div>
+        </div>
+      </div>
+
       <!-- PAYSLIP VIEWER MODAL -->
       <div class="modal-bg" id="payslipModal">
         <div class="modal" style="max-width: 580px;">
@@ -4297,7 +4346,31 @@ Hi {{to_name}},
                 <div style="font-size:10px;color:var(--bb-gray);margin-top:4px;">Paid at OT rate (see App Config)</div>
               </div>
             </div>
-            <div class="form-row single">
+            <!-- LIVE SELLING HOURS — explicit, separate from DTR type -->
+            <div style="background: #EFF6FF; border-left: 4px solid #3B82F6; padding: 10px 14px; border-radius: 8px; margin-top: 10px;">
+              <div style="font-weight: 600; font-size: 12px; color: #1E40AF; margin-bottom: 8px;">📺 Live Selling Hours (auto-creates / updates live_session record)</div>
+              <div class="form-row">
+                <div>
+                  <label style="font-size: 12px;">Live Hours (within DTR window)</label>
+                  <input type="number" id="mdLiveHours" min="0" max="12" step="0.25" placeholder="e.g. 3.0 (out of 8h DTR)" title="Explicit live selling time. Will create/update a live_session record. Leave 0 if no live selling.">
+                  <div style="font-size:10px;color:var(--bb-gray);margin-top:4px;">⚠ Don't double-count with regular hours — this is a subset of DTR hrs</div>
+                </div>
+                <div>
+                  <label style="font-size: 12px;">Live Platform</label>
+                  <select id="mdLivePlatform" style="font-size: 13px;">
+                    <option value="">— Auto / Default —</option>
+                    <option value="FB Live">FB Live</option>
+                    <option value="TikTok">TikTok</option>
+                    <option value="Shopee Live">Shopee Live</option>
+                    <option value="Lazada Live">Lazada Live</option>
+                    <option value="IG Live">IG Live</option>
+                    <option value="Others">Others</option>
+                  </select>
+                  <div style="font-size:10px;color:var(--bb-gray);margin-top:4px;">Used when creating the live_session record</div>
+                </div>
+              </div>
+            </div>
+            <div class="form-row single" style="margin-top: 10px;">
               <div><label>Reason for manual entry (required for audit)</label><textarea id="mdReason" rows="2" placeholder="e.g., Kiosk down, late by 7 mins, OT approved by owner..."></textarea></div>
             </div>
           </div>
@@ -8098,7 +8171,11 @@ async function loadBbPayroll() {
         <td>₱${(p.gross_pay || 0).toLocaleString()}</td>
         <td><strong>₱${(p.net_pay || 0).toLocaleString()}</strong></td>
         <td><span class="bb-badge ${p.status === 'released' ? 'green' : 'honey'}">${p.status || 'draft'}</span></td>
-        <td><button class="btn btn-ghost btn-sm" onclick="viewBbPayslip('${p.id}')">View</button></td>
+        <td style="white-space:nowrap;">
+          <button class="btn btn-ghost btn-sm" onclick="viewBbPayslip('${p.id}')" title="View payslip">View</button>
+          <button class="btn btn-secondary btn-sm" onclick="openPayrollEditHours('${p.id}')" title="Edit hours directly" style="margin-left:4px;">✏️ Hours</button>
+          <button class="btn btn-primary btn-sm" onclick="recomputeOnePayroll('${p.id}')" title="Re-run computation with current live_sessions + DTR data" style="margin-left:4px;">🔄 Recompute</button>
+        </td>
       </tr>`;
     }).join('');
   } catch (e) {
@@ -8447,6 +8524,222 @@ async function runComputePayroll() {
     progressMsg.textContent = 'Failed: ' + e.message;
     addLog('✗ FATAL: ' + e.message, 'err');
     runBtn.disabled = false;
+  }
+}
+
+/* ===================== PAYROLL: Recompute one period =====================
+ * Re-runs computation for a single payroll row using current live_sessions + dtr_logs.
+ * Fixes the "I deleted live sessions but payroll still has the hours" problem.
+ * JIS: standardized work — same compute logic as bulk runComputePayroll, scoped to one record.
+ */
+async function recomputeOnePayroll(periodId) {
+  if (!confirm('🔄 Recompute this payroll period?\n\nWill re-read all current DTR + live_sessions data and update gross/net/hours.\n\nUseful kapag may na-edit / na-delete na source data after compute.\n\nProceed?')) return;
+  try {
+    const r = await fetch(PB_API + '/collections/payroll_periods/records/' + periodId + '?expand=employee_id');
+    if (!r.ok) throw new Error('Payroll record not found');
+    const p = await r.json();
+    const emp = p.expand && p.expand.employee_id;
+    if (!emp) throw new Error('Employee not found for this payroll');
+
+    const periodStart = (p.period_start || '').substring(0, 10);
+    const periodEnd = (p.period_end || '').substring(0, 10);
+    if (!periodStart || !periodEnd) throw new Error('Invalid period dates');
+
+    // Fetch fresh DTR + live_sessions for this period
+    const [dtrs, lives] = await Promise.all([
+      pbGetList('dtr_logs', { filter: `employee_id="${p.employee_id}" && date>="${periodStart} 00:00:00" && date<="${periodEnd} 23:59:59"`, sort: 'date', perPage: 200 }),
+      pbGetList('live_sessions', { filter: `employee_id="${p.employee_id}" && date>="${periodStart} 00:00:00" && date<="${periodEnd} 23:59:59" && status="done"`, sort: 'date', perPage: 200 })
+    ]);
+
+    // Group by date
+    const dayMap = {};
+    dtrs.forEach(d => {
+      const dk = (d.date || '').substring(0, 10);
+      if (!dayMap[dk]) dayMap[dk] = { dtrs: [], lives: [] };
+      dayMap[dk].dtrs.push(d);
+    });
+    lives.forEach(l => {
+      const dk = (l.date || '').substring(0, 10);
+      if (!dayMap[dk]) dayMap[dk] = { dtrs: [], lives: [] };
+      dayMap[dk].lives.push(l);
+    });
+
+    // Compute totals using same formula as main engine
+    const breakHrs = 1;  // 1h unpaid break per closed full-day shift
+    let totalDtrHrs = 0, totalLiveHrs = 0, totalOtHrs = 0, totalLateMins = 0;
+    let workDays = 0;
+    Object.keys(dayMap).forEach(dk => {
+      const day = dayMap[dk];
+      const dayDtrHrs = day.dtrs.reduce((s, d) => s + (d.total_hours || 0), 0);
+      const dayLiveHrs = day.lives.reduce((s, l) => s + (l.duration_hours || 0), 0);
+      const dayOtHrs = day.dtrs.reduce((s, d) => s + (d.ot_approved_hours || d.ot_hours || 0), 0);
+      const dayLateMins = day.dtrs.reduce((s, d) => s + (d.late_minutes || 0), 0);
+      // Cap: total worked can't be less than live (live is subset)
+      const cappedDtr = Math.max(dayDtrHrs, dayLiveHrs);
+      // Reg = DTR - Live - Break (only if shift >= 4 hours)
+      const effectiveBreak = cappedDtr >= 4 ? breakHrs : 0;
+      const dayReg = Math.max(0, cappedDtr - dayLiveHrs - effectiveBreak);
+      totalDtrHrs += dayReg;
+      totalLiveHrs += dayLiveHrs;
+      totalOtHrs += dayOtHrs;
+      totalLateMins += dayLateMins;
+      if (cappedDtr > 0) workDays++;
+    });
+
+    // Convert late minutes to hours deduction (JIS tier rule)
+    let lateHrsDeduct = 0;
+    if (totalLateMins > 0) {
+      // Re-tier per occurrence — but we only have totals here.
+      // Approximation: use raw minutes / 60 for deduction
+      lateHrsDeduct = totalLateMins / 60;
+    }
+
+    const regRate = emp.reg_rate || 62.50;
+    const liveRate = emp.live_rate || 83.33;
+    const regPay = Math.max(0, totalDtrHrs - lateHrsDeduct) * regRate;
+    const livePay = totalLiveHrs * liveRate;
+    const otPay = totalOtHrs * (regRate * 1.25);  // 1.25× OT rate
+    const grossPay = regPay + livePay + otPay;
+
+    // Preserve existing deductions (don't recompute CA/IC unless asked)
+    const totalDeductions = (p.sss || 0) + (p.philhealth || 0) + (p.pagibig || 0) + (p.ca_deduction || 0) + (p.ic_deduction || 0);
+    const netPay = grossPay - totalDeductions;
+
+    const updateBody = {
+      reg_hours: parseFloat(totalDtrHrs.toFixed(2)),
+      live_hours: parseFloat(totalLiveHrs.toFixed(2)),
+      ot_hours: parseFloat(totalOtHrs.toFixed(2)),
+      late_minutes: totalLateMins,
+      work_days: workDays,
+      gross_pay: parseFloat(grossPay.toFixed(2)),
+      net_pay: parseFloat(netPay.toFixed(2))
+    };
+
+    await pbUpdate('payroll_periods', periodId, updateBody);
+
+    // Audit log
+    const me = (kioskState.selectedUser && kioskState.selectedUser.name) || 'admin';
+    pbCreate('action_log', {
+      module: 'payroll', action: 'update', collection: 'payroll_periods',
+      record_id: periodId,
+      new_value: JSON.stringify({ recomputed: true, by: me, old: { live_hours: p.live_hours, gross: p.gross_pay, net: p.net_pay }, new: updateBody })
+    }).catch(() => {});
+
+    toast(`✓ Recomputed: ${totalLiveHrs.toFixed(2)}h live • ₱${grossPay.toFixed(2)} gross • ₱${netPay.toFixed(2)} net`, 'ok');
+    loadBbPayroll();
+  } catch (e) {
+    alert('Recompute failed: ' + e.message);
+    console.error('Recompute failed:', e);
+  }
+}
+
+/* ===================== PAYROLL: Edit hours directly ===================== */
+let _ephCurrentPayroll = null;  // cache the loaded payroll for preview math
+
+async function openPayrollEditHours(periodId) {
+  try {
+    const r = await fetch(PB_API + '/collections/payroll_periods/records/' + periodId + '?expand=employee_id');
+    if (!r.ok) throw new Error('Not found');
+    const p = await r.json();
+    _ephCurrentPayroll = p;
+    const e = p.expand && p.expand.employee_id;
+
+    document.getElementById('ephId').value = p.id;
+    document.getElementById('ephRegHours').value = (p.reg_hours || 0).toFixed(2);
+    document.getElementById('ephLiveHours').value = (p.live_hours || 0).toFixed(2);
+    document.getElementById('ephOtHours').value = (p.ot_hours || 0).toFixed(2);
+    document.getElementById('ephLateMins').value = p.late_minutes || 0;
+    document.getElementById('ephReason').value = '';
+
+    const ctx = document.getElementById('ephContext');
+    ctx.innerHTML = `
+      <strong>${e ? e.name : '(unknown)'}</strong><br>
+      Period: ${fmtDate(p.period_start)} → ${fmtDate(p.period_end)}<br>
+      Reg rate: ₱${(e ? e.reg_rate : 0).toFixed(2)}/h • Live rate: ₱${(e ? e.live_rate : 0).toFixed(2)}/h<br>
+      Current: ₱${(p.gross_pay || 0).toLocaleString()} gross • ₱${(p.net_pay || 0).toLocaleString()} net • Status: <strong>${p.status || 'draft'}</strong>
+    `;
+
+    recalcEphPreview();
+    document.getElementById('editPayrollHoursModal').classList.add('open');
+  } catch (e) { alert('Failed: ' + e.message); }
+}
+
+function recalcEphPreview() {
+  if (!_ephCurrentPayroll) return;
+  const p = _ephCurrentPayroll;
+  const e = p.expand && p.expand.employee_id;
+  const regHrs = parseFloat(document.getElementById('ephRegHours').value) || 0;
+  const liveHrs = parseFloat(document.getElementById('ephLiveHours').value) || 0;
+  const otHrs = parseFloat(document.getElementById('ephOtHours').value) || 0;
+  const lateMins = parseInt(document.getElementById('ephLateMins').value) || 0;
+
+  const regRate = e ? (e.reg_rate || 62.50) : 62.50;
+  const liveRate = e ? (e.live_rate || 83.33) : 83.33;
+  const lateHrsDeduct = lateMins / 60;
+  const regPay = Math.max(0, regHrs - lateHrsDeduct) * regRate;
+  const livePay = liveHrs * liveRate;
+  const otPay = otHrs * (regRate * 1.25);
+  const grossPay = regPay + livePay + otPay;
+
+  const totalDeductions = (p.sss || 0) + (p.philhealth || 0) + (p.pagibig || 0) + (p.ca_deduction || 0) + (p.ic_deduction || 0);
+  const netPay = grossPay - totalDeductions;
+
+  document.getElementById('ephPreviewBody').innerHTML = `
+    Reg pay:   ${regHrs.toFixed(2)}h × ₱${regRate.toFixed(2)} − ${lateHrsDeduct.toFixed(2)}h late = ₱${regPay.toFixed(2)}<br>
+    Live pay:  ${liveHrs.toFixed(2)}h × ₱${liveRate.toFixed(2)} = ₱${livePay.toFixed(2)}<br>
+    OT pay:    ${otHrs.toFixed(2)}h × ₱${(regRate * 1.25).toFixed(2)} = ₱${otPay.toFixed(2)}<br>
+    <strong style="color: #047857;">Gross:     ₱${grossPay.toFixed(2)}</strong><br>
+    Deductions: ₱${totalDeductions.toFixed(2)} (preserved)<br>
+    <strong style="color: #047857; font-size: 14px;">Net Pay:   ₱${netPay.toFixed(2)}</strong>
+  `;
+}
+
+async function savePayrollHoursOverride() {
+  const id = document.getElementById('ephId').value;
+  const reason = document.getElementById('ephReason').value.trim();
+  if (!reason) { toast('Reason required for audit', 'err'); return; }
+  if (!_ephCurrentPayroll) { toast('No payroll loaded', 'err'); return; }
+
+  const regHrs = parseFloat(document.getElementById('ephRegHours').value) || 0;
+  const liveHrs = parseFloat(document.getElementById('ephLiveHours').value) || 0;
+  const otHrs = parseFloat(document.getElementById('ephOtHours').value) || 0;
+  const lateMins = parseInt(document.getElementById('ephLateMins').value) || 0;
+
+  const p = _ephCurrentPayroll;
+  const e = p.expand && p.expand.employee_id;
+  const regRate = e ? (e.reg_rate || 62.50) : 62.50;
+  const liveRate = e ? (e.live_rate || 83.33) : 83.33;
+  const lateHrsDeduct = lateMins / 60;
+  const regPay = Math.max(0, regHrs - lateHrsDeduct) * regRate;
+  const livePay = liveHrs * liveRate;
+  const otPay = otHrs * (regRate * 1.25);
+  const grossPay = regPay + livePay + otPay;
+  const totalDeductions = (p.sss || 0) + (p.philhealth || 0) + (p.pagibig || 0) + (p.ca_deduction || 0) + (p.ic_deduction || 0);
+  const netPay = grossPay - totalDeductions;
+
+  const body = {
+    reg_hours: regHrs,
+    live_hours: liveHrs,
+    ot_hours: otHrs,
+    late_minutes: lateMins,
+    gross_pay: parseFloat(grossPay.toFixed(2)),
+    net_pay: parseFloat(netPay.toFixed(2))
+  };
+
+  try {
+    await pbUpdate('payroll_periods', id, body);
+    const me = (kioskState.selectedUser && kioskState.selectedUser.name) || 'admin';
+    pbCreate('action_log', {
+      module: 'payroll', action: 'update', collection: 'payroll_periods',
+      record_id: id,
+      new_value: JSON.stringify({ manual_override: true, by: me, reason, old: { reg_hours: p.reg_hours, live_hours: p.live_hours, gross: p.gross_pay }, new: body })
+    }).catch(() => {});
+
+    toast(`✓ Override saved: ₱${grossPay.toFixed(2)} gross / ₱${netPay.toFixed(2)} net`, 'ok');
+    closeModal('editPayrollHoursModal');
+    loadBbPayroll();
+  } catch (err) {
+    alert('Save failed: ' + err.message);
   }
 }
 
@@ -10737,7 +11030,7 @@ async function loadBbManualDtr() {
 
 async function openManualDtrModal() {
   document.getElementById('manualDtrModalTitle').textContent = 'Manual DTR Entry';
-  ['mdId','mdTimeIn','mdTimeOut','mdSales','mdReason','mdLateMins','mdOtHours'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  ['mdId','mdTimeIn','mdTimeOut','mdSales','mdReason','mdLateMins','mdOtHours','mdLiveHours','mdLivePlatform'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   // Poka-yoke: ensure dropdown is populated when modal opens
   await populateBbEmpSelect('mdEmp');
   document.getElementById('mdEmp').value = '';
@@ -10764,6 +11057,31 @@ async function editManualDtr(id) {
     document.getElementById('mdLateMins').value = d.late_minutes || '';
     document.getElementById('mdOtHours').value = d.ot_hours || '';
     document.getElementById('mdReason').value = '';
+
+    // JIS: load existing live_session for this date+employee (if any) so admin can see/edit live hours
+    document.getElementById('mdLiveHours').value = '';
+    document.getElementById('mdLivePlatform').value = '';
+    if (d.date && d.employee_id) {
+      try {
+        const dateStr = (d.date || '').substring(0, 10);
+        const existing = await pbGetList('live_sessions', {
+          filter: `employee_id="${d.employee_id}" && date>="${dateStr} 00:00:00" && date<="${dateStr} 23:59:59" && status="done"`,
+          sort: '-duration_hours',
+          perPage: 5
+        });
+        if (existing.length > 0) {
+          // Sum all done live sessions for this date — gives total live hours
+          const totalLive = existing.reduce((s, l) => s + (l.duration_hours || 0), 0);
+          document.getElementById('mdLiveHours').value = totalLive.toFixed(2);
+          document.getElementById('mdLivePlatform').value = existing[0].platform || '';
+          // Store IDs so save can update/delete properly
+          document.getElementById('mdLiveHours').dataset.existingIds = JSON.stringify(existing.map(l => l.id));
+        } else {
+          document.getElementById('mdLiveHours').dataset.existingIds = '[]';
+        }
+      } catch (e) { console.warn('Could not load existing live hours:', e.message); }
+    }
+
     document.getElementById('mdDelBtn').style.display = 'inline-flex';
     document.getElementById('manualDtrModal').classList.add('open');
   } catch (e) { alert('Failed: ' + e.message); }
@@ -10812,48 +11130,81 @@ async function saveManualDtr() {
     if (id) saved = await pbUpdate('dtr_logs', id, body);
     else saved = await pbCreate('dtr_logs', body);
 
-    // ALSO create or update a matching live_session if type='live_sell' and time_out is set
-    // This ensures payroll compute (which reads from live_sessions) sees the live hours
+    // EXPLICIT LIVE HOURS — JIS approach: admin types exact hours, app creates/updates live_session
+    // Works for ANY DTR type (regular, live_sell, ot) — separate concern from DTR window.
+    // Empty/0 = no live hours for this day (deletes existing if any).
     const dtrType = document.getElementById('mdType').value;
-    if (dtrType === 'live_sell' && timeOut) {
-      const tOutDate = new Date(`${date}T${timeOut}:00`);
-      const dur = parseFloat(((tOutDate - tInDate) / 3600000).toFixed(2));
-      const liveBody = {
-        employee_id: emp,
-        start_time: localPbDate(tInDate),
-        end_time: localPbDate(tOutDate),
-        duration_hours: dur,
-        status: 'done',
-        date: localPbDateOnly(date),
-        platform: 'FB Live',
-        sales_amount: document.getElementById('mdSales').value ? parseFloat(document.getElementById('mdSales').value) : 0
-      };
+    const explicitLiveHrsRaw = document.getElementById('mdLiveHours').value;
+    const explicitLiveHrs = explicitLiveHrsRaw === '' ? null : parseFloat(explicitLiveHrsRaw);
+    const livePlatform = document.getElementById('mdLivePlatform').value || 'FB Live';
+    let liveMsg = '';
+
+    if (explicitLiveHrs !== null && explicitLiveHrs >= 0) {
+      // Load existing live_session(s) for this date+employee
+      let existingIds = [];
       try {
-        if (id) {
-          // UPDATE mode: look for existing live_session for this emp+date and update it, else create
-          const existingLive = await pbGetList('live_sessions', {
-            filter: `employee_id="${emp}" && date>="${date} 00:00:00" && date<="${date} 23:59:59"`,
-            perPage: 5
+        const existingIdsRaw = document.getElementById('mdLiveHours').dataset.existingIds;
+        if (existingIdsRaw) existingIds = JSON.parse(existingIdsRaw);
+      } catch (e) { existingIds = []; }
+      // Fallback: query PB if existingIds wasn't set (e.g., direct save without edit)
+      if (id && existingIds.length === 0) {
+        try {
+          const list = await pbGetList('live_sessions', {
+            filter: `employee_id="${emp}" && date>="${date} 00:00:00" && date<="${date} 23:59:59" && status="done"`,
+            perPage: 10
           });
-          if (existingLive.length > 0) {
-            await pbUpdate('live_sessions', existingLive[0].id, liveBody);
-            console.log('[Manual Live] Updated existing live_session', existingLive[0].id);
+          existingIds = list.map(l => l.id);
+        } catch (e) {}
+      }
+
+      if (explicitLiveHrs === 0) {
+        // Zero = delete all existing live sessions for this date
+        if (existingIds.length > 0) {
+          let delCount = 0;
+          for (const lid of existingIds) {
+            try {
+              const res = await fetch(PB_API + '/collections/live_sessions/records/' + lid, { method: 'DELETE' });
+              if (res.ok) delCount++;
+            } catch (e) {}
+          }
+          liveMsg = ` + ${delCount} live_session(s) cleared`;
+        }
+      } else {
+        // > 0: create or update ONE consolidated live_session for this date
+        // (If multiple existed, keep the first, delete rest — JIS: one source of truth per day)
+        const liveBody = {
+          employee_id: emp,
+          start_time: localPbDate(tInDate),
+          // Synthetic end_time: tIn + explicitLiveHrs (used for sorting/display only; payroll only reads duration_hours)
+          end_time: localPbDate(new Date(tInDate.getTime() + explicitLiveHrs * 3600000)),
+          duration_hours: explicitLiveHrs,
+          status: 'done',
+          date: localPbDateOnly(date),
+          platform: livePlatform,
+          sales_amount: document.getElementById('mdSales').value ? parseFloat(document.getElementById('mdSales').value) : 0
+        };
+        try {
+          if (existingIds.length > 0) {
+            // Update the first existing, delete extras
+            await pbUpdate('live_sessions', existingIds[0], liveBody);
+            for (let i = 1; i < existingIds.length; i++) {
+              try { await fetch(PB_API + '/collections/live_sessions/records/' + existingIds[i], { method: 'DELETE' }); } catch (e) {}
+            }
+            liveMsg = ` + live_session updated to ${explicitLiveHrs}h`;
           } else {
             const created = await pbCreate('live_sessions', liveBody);
-            console.log('[Manual Live] Created new live_session', created.id, 'for', dur, 'hrs');
+            console.log('[Manual Live] Created live_session', created.id, 'for', explicitLiveHrs, 'hrs on', date);
+            liveMsg = ` + live_session created (${explicitLiveHrs}h)`;
           }
-        } else {
-          const created = await pbCreate('live_sessions', liveBody);
-          console.log('[Manual Live] Created live_session', created.id, 'for', dur, 'hrs on', date);
+        } catch (liveErr) {
+          console.error('[Manual Live] FAILED:', liveErr.message);
+          toast('⚠ DTR saved pero live_session FAILED: ' + liveErr.message, 'err');
+          liveMsg = ' (live_session FAILED — see console)';
         }
-        toast('✓ DTR + Live session saved (' + dur.toFixed(2) + ' live hrs)', 'ok');
-      } catch (liveErr) {
-        console.error('[Manual Live] FAILED:', liveErr.message);
-        toast('⚠ DTR saved pero live_session FAILED: ' + liveErr.message + ' — check live_sessions schema sa PB', 'err');
       }
-    } else {
-      toast('✓ DTR entry saved' + (dtrType === 'live_sell' && !timeOut ? ' (live_session not created — time_out required)' : ''), 'ok');
     }
+
+    toast('✓ DTR entry saved' + liveMsg, 'ok');
 
     // Log to action_log (non-blocking)
     try {
