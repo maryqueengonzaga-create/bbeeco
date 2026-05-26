@@ -1705,10 +1705,10 @@
         <div class="hold-bar" id="hbarEndlive"></div>
       </button>
 
-      <button class="kiosk-action-btn live-end" id="kioskBtnMyTasks" onclick="openEmpTasks()" style="background: var(--bb-honey); color: var(--bb-white); border: none; display: none;">
+      <button class="kiosk-action-btn live-end" id="kioskBtnMyTasks" onclick="openEmpTasks()" style="background: var(--bb-honey); color: var(--bb-white); border: none;">
         <div class="ka-icon">📋</div>
-        <div class="ka-title">My Tasks (<span id="kioskTaskCount">0</span>)</div>
-        <div class="ka-sub" id="kioskTasksSub">View and mark done</div>
+        <div class="ka-title">My Tasks Today (<span id="kioskTaskCount">0</span>)</div>
+        <div class="ka-sub" id="kioskTasksSub">View today's assigned tasks (read-only)</div>
       </button>
 
       <button class="kiosk-action-btn live-end" id="kioskBtnCheckin" onclick="openEmpCheckin()" style="background: var(--bb-blue); color: var(--bb-white); border: none;">
@@ -6065,17 +6065,22 @@ async function proceedToActions() {
 
     renderKioskStatusCard();
 
-    // Load this employee's pending tasks
+    // Load this employee's TODAY tasks (read-only view shows all statuses for today)
     try {
-      const empTasks = await pbGetList('tms_tasks', { filter: `assigned_to="${user.id}" && status!="done"`, sort: 'due_date', perPage: 100 });
+      const today2 = todayStr();
+      const empTasks = await pbGetList('tms_tasks', {
+        filter: `assigned_to="${user.id}" && due_date>="${today2} 00:00:00" && due_date<="${today2} 23:59:59"`,
+        sort: 'priority,title',
+        perPage: 100
+      });
       kioskState.empTasks = empTasks;
       showTaskBannerUpdate();
 
-      // Auto-popup tasks if there are new ones since last seen
+      // Auto-popup tasks if there are NEW ones since last seen (still useful as awareness)
       const lastSeen = localStorage.getItem('tasks_seen_' + user.id);
-      const hasNewTask = empTasks.some(t => !lastSeen || t.created > lastSeen);
-      if (empTasks.length > 0 && hasNewTask) {
-        // Auto-popup after short delay
+      const hasNewTask = empTasks.some(t => !lastSeen || (t.created || '') > lastSeen);
+      const hasPending = empTasks.some(t => !t.status || t.status === 'pending' || t.status === 'in_progress');
+      if (hasPending && hasNewTask) {
         setTimeout(() => {
           if (kioskState.step === 'kioskStepAction') openEmpTasks();
         }, 800);
@@ -12199,7 +12204,13 @@ async function openEmpTasks() {
   const user = kioskState.selectedUser;
   if (!user) return;
   try {
-    const tasks = await pbGetList('tms_tasks', { filter: `assigned_to="${user.id}" && status!="done"`, sort: 'due_date', perPage: 100 });
+    // READ-ONLY mode: fetch ALL of today's tasks (including done) — employee sees full picture
+    const today = todayStr();
+    const tasks = await pbGetList('tms_tasks', {
+      filter: `assigned_to="${user.id}" && due_date>="${today} 00:00:00" && due_date<="${today} 23:59:59"`,
+      sort: 'priority,title',
+      perPage: 100
+    });
     kioskState.empTasks = tasks;
     renderEmpTasks();
 
@@ -12215,55 +12226,68 @@ function renderEmpTasks() {
   const list = document.getElementById('kioskMyTasksList');
   const tasks = kioskState.empTasks || [];
   if (!tasks.length) {
-    list.innerHTML = '<div style="text-align: center; padding: 30px 20px; color: var(--bb-gray); background: var(--bb-green-light); border-radius: 12px;"><div style="font-size: 36px; margin-bottom: 8px;">🎉</div><div style="font-weight: 600; color: var(--bb-green);">All clear!</div><div style="font-size: 12px; margin-top: 4px;">Walang pending tasks ngayon.</div></div>';
-    document.getElementById('kioskMyTasksSub').textContent = 'Wala kang assigned tasks.';
+    list.innerHTML = '<div style="text-align: center; padding: 30px 20px; color: var(--bb-gray); background: var(--bb-green-light); border-radius: 12px;"><div style="font-size: 36px; margin-bottom: 8px;">📋</div><div style="font-weight: 600; color: var(--bb-green);">Walang tasks today!</div><div style="font-size: 12px; margin-top: 4px;">Walang assigned tasks ngayon. Hintayin lang kung may iaassign si admin.</div></div>';
+    document.getElementById('kioskMyTasksSub').textContent = 'Walang tasks today.';
     return;
   }
-  document.getElementById('kioskMyTasksSub').textContent = tasks.length + ' pending task(s). Tap "✓ Done" pag tapos.';
-  const today = todayStr();
-  list.innerHTML = tasks.map(t => {
-    const due = t.due_date ? t.due_date.substring(0, 10) : '';
-    const overdue = due && due < today;
-    const dueText = due ? fmtDate(due) : 'No deadline';
+
+  // Summary
+  const done = tasks.filter(t => t.status === 'done').length;
+  const inProgress = tasks.filter(t => t.status === 'in_progress').length;
+  const onHold = tasks.filter(t => t.status === 'blocked').length;
+  const pending = tasks.filter(t => !t.status || t.status === 'pending').length;
+  const totalMins = tasks.reduce((s, t) => s + (t.estimated_minutes || 0), 0);
+  const hours = Math.floor(totalMins / 60), mins = totalMins % 60;
+  const timeStr = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+  document.getElementById('kioskMyTasksSub').textContent = `${tasks.length} task(s) today • ${timeStr} total estimate • View-only — admin updates status`;
+
+  // Sort: pending → in_progress → blocked → done
+  const statusOrder = { pending: 0, undefined: 0, in_progress: 1, blocked: 2, done: 3 };
+  const sortedTasks = [...tasks].sort((a, b) => (statusOrder[a.status] || 0) - (statusOrder[b.status] || 0));
+
+  const summaryHtml = `
+    <div style="background: var(--bb-honey-light); padding: 12px; border-radius: 10px; margin-bottom: 12px; display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; font-size: 12px; font-weight: 600;">
+      ${done > 0 ? `<span style="color:#047857;">✓ ${done} Done</span>` : ''}
+      ${inProgress > 0 ? `<span style="color:#1E40AF;">⏳ ${inProgress} In Progress</span>` : ''}
+      ${onHold > 0 ? `<span style="color:#92400E;">⏸ ${onHold} On Hold</span>` : ''}
+      ${pending > 0 ? `<span style="color:#6B7280;">○ ${pending} Pending</span>` : ''}
+    </div>
+  `;
+
+  const tasksHtml = sortedTasks.map(t => {
+    const status = t.status || 'pending';
+    const statusInfo = {
+      pending: { label: '○ PENDING', bg: '#F3F4F6', color: '#6B7280', border: '#E5E7EB' },
+      in_progress: { label: '⏳ IN PROGRESS', bg: '#DBEAFE', color: '#1E40AF', border: '#3B82F6' },
+      blocked: { label: '⏸ ON HOLD', bg: '#FEF3C7', color: '#92400E', border: '#F59E0B' },
+      done: { label: '✓ DONE', bg: '#D1FAE5', color: '#047857', border: '#10B981' }
+    }[status] || { label: '○ PENDING', bg: '#F3F4F6', color: '#6B7280', border: '#E5E7EB' };
+
     const pri = t.priority || 'Medium';
-    const priColor = pri === 'High' ? 'var(--bb-red)' : pri === 'Low' ? 'var(--bb-gray)' : 'var(--bb-honey)';
-    const borderColor = overdue ? 'var(--bb-red)' : (pri === 'High' ? 'var(--bb-red)' : 'var(--bb-honey)');
-    return `<div style="background: white; border-left: 4px solid ${borderColor}; border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; box-shadow: var(--bb-shadow);">
-      <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
+    const priIcon = pri === 'High' ? '🔴' : pri === 'Low' ? '⚪' : '🟡';
+    const estMins = t.estimated_minutes || 0;
+    const estStr = estMins > 0 ? (estMins >= 60 ? `${Math.floor(estMins/60)}h ${estMins%60}m` : `${estMins}m`) : null;
+
+    return `<div style="background: white; border-left: 5px solid ${statusInfo.border}; border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; box-shadow: var(--bb-shadow); ${status === 'done' ? 'opacity: 0.7;' : ''}">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 6px;">
         <div style="flex: 1; min-width: 0;">
-          <div style="font-weight: 600; font-size: 14px; color: var(--bb-black); margin-bottom: 4px;">${t.title}</div>
-          ${t.description ? `<div style="font-size: 12px; color: var(--bb-gray); margin-bottom: 4px;">${t.description.substring(0, 100)}${t.description.length > 100 ? '...' : ''}</div>` : ''}
-          <div style="font-size: 11px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 4px;">
-            <span style="color: ${overdue ? 'var(--bb-red)' : 'var(--bb-gray)'}; font-weight: ${overdue ? '600' : '500'};">${overdue ? '⚠️ OVERDUE: ' : '📅 Due: '}${dueText}</span>
-            <span class="bb-badge" style="background: ${priColor}; color: white;">${pri}</span>
-          </div>
+          <div style="font-weight: 600; font-size: 14px; color: var(--bb-black); ${status === 'done' ? 'text-decoration: line-through;' : ''}">${t.title}</div>
+          ${t.notes ? `<div style="font-size: 11px; color: var(--bb-gray); margin-top: 4px;">${t.notes.substring(0, 100)}${t.notes.length > 100 ? '...' : ''}</div>` : ''}
         </div>
-        <button onclick="markTaskDone('${t.id}')" style="background: var(--bb-green); color: white; border: none; padding: 8px 14px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 12px; white-space: nowrap;">✓ Done</button>
+        <span style="background: ${statusInfo.bg}; color: ${statusInfo.color}; padding: 4px 10px; border-radius: 6px; font-size: 10px; font-weight: 700; white-space: nowrap;">${statusInfo.label}</span>
+      </div>
+      <div style="font-size: 11px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; color: var(--bb-gray);">
+        ${estStr ? `<span>⏱ <strong>${estStr}</strong></span>` : ''}
+        <span>${priIcon} ${pri}</span>
       </div>
     </div>`;
   }).join('');
-}
 
-async function markTaskDone(taskId) {
-  if (!confirm('Mark task as done?')) return;
-  try {
-    await pbUpdate('tms_tasks', taskId, {
-      status: 'done',
-      completed_at: localPbDateOnly(todayStr())
-    });
-    // Refresh task list
-    kioskState.empTasks = (kioskState.empTasks || []).filter(t => t.id !== taskId);
-    renderEmpTasks();
-    showTaskBannerUpdate();
-    // Subtle success message
-    const toastDiv = document.createElement('div');
-    toastDiv.textContent = '✓ Task done!';
-    toastDiv.style.cssText = 'position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:var(--bb-green);color:white;padding:10px 20px;border-radius:20px;z-index:99999;font-weight:600;';
-    document.body.appendChild(toastDiv);
-    setTimeout(() => toastDiv.remove(), 1500);
-  } catch (e) {
-    alert('Failed: ' + e.message);
-  }
+  list.innerHTML = summaryHtml + tasksHtml + `
+    <div style="margin-top: 14px; padding: 10px 12px; background: #EFF6FF; border-radius: 8px; font-size: 11px; color: #1E40AF; line-height: 1.5;">
+      💡 Read-only view — admin ang nag-update ng status. Kung tapos ka na sa task, sabihin sa admin para ma-mark Done.
+    </div>
+  `;
 }
 
 function showTaskBannerUpdate() {
@@ -12271,14 +12295,18 @@ function showTaskBannerUpdate() {
   const banner = document.getElementById('kioskTaskBanner');
   const myTasksBtn = document.getElementById('kioskBtnMyTasks');
   const counterEl = document.getElementById('kioskTaskCount');
+  // count = TODAY's task total; pending = still needing attention
+  const tasks = kioskState.empTasks || [];
+  const pendingCount = tasks.filter(t => !t.status || t.status === 'pending' || t.status === 'in_progress').length;
+  const doneCount = tasks.filter(t => t.status === 'done').length;
   if (counterEl) counterEl.textContent = count;
   if (count > 0) {
-    const overdueCount = (kioskState.empTasks || []).filter(t => {
-      const due = t.due_date ? t.due_date.substring(0, 10) : '';
-      return due && due < todayStr();
-    }).length;
     banner.style.display = '';
-    banner.innerHTML = `🔔 May <strong>${count}</strong> pending task${count === 1 ? '' : 's'} ka${overdueCount > 0 ? ` (<strong style="color: #FDECEA;">${overdueCount} overdue!</strong>)` : ''}. Tap to view →`;
+    if (pendingCount > 0) {
+      banner.innerHTML = `🔔 May <strong>${pendingCount}</strong> pending task${pendingCount === 1 ? '' : 's'} ka today (${doneCount}/${count} done). Tap to view →`;
+    } else {
+      banner.style.display = 'none';  // hide banner if all done
+    }
     if (myTasksBtn) myTasksBtn.style.display = '';
   } else {
     banner.style.display = 'none';
