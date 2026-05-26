@@ -1997,6 +1997,7 @@
       <div class="nav-item" data-view="bbTaskSummary" data-perm="view_task_summary"><span class="nav-icon">📊</span> Task Summary</div>
       <div class="nav-item" data-view="bbCashFlow" data-perm="view_cash_flow"><span class="nav-icon">💸</span> Cash Flow</div>
       <div class="nav-item" data-view="bbPayroll" data-perm="view_payroll"><span class="nav-icon">₱</span> Payroll</div>
+      <div class="nav-item" data-view="bbOtApproval" data-perm="view_payroll"><span class="nav-icon">⏰</span> OT Approvals <span id="navOtBadge" style="background:#EF4444;color:white;padding:1px 6px;border-radius:8px;font-size:10px;margin-left:4px;display:none;">0</span></div>
 
       <div class="nav-section" data-section-perm="create_schedules request_cash_advance view_payroll manage_item_charges view_deductions manage_admins owner edit_dtr view_action_log resolve_incidents">BbeeCo Settings</div>
       <div class="nav-item" data-view="bbSched" data-perm="create_schedules"><span class="nav-icon">📅</span> Schedules</div>
@@ -2803,12 +2804,84 @@
         <div class="card">
           <div class="table-wrap">
             <table class="bb-table">
-              <thead><tr><th>Employee</th><th>Period</th><th>Reg Hrs</th><th>Live Hrs</th><th>Gross</th><th>Net</th><th>Status</th><th>Action</th></tr></thead>
+              <thead><tr><th>Employee</th><th>Period</th><th>Reg Hrs</th><th>Live Hrs</th><th>OT Hrs</th><th>Gross</th><th>Net</th><th>Status</th><th>Action</th></tr></thead>
               <tbody id="bbPayrollBody"></tbody>
             </table>
           </div>
         </div>
       </section>
+
+      <!-- OT APPROVALS VIEW -->
+      <section class="view" id="view-bbOtApproval">
+        <div class="card" style="margin-bottom: 16px;">
+          <div class="card-h">
+            <h3>⏰ Overtime Approvals</h3>
+            <div style="display:flex; gap:8px;">
+              <select id="otFilter" onchange="loadBbOtApproval()" style="padding: 7px 11px; font-size: 12px; border: 1px solid var(--bb-border); border-radius: 6px;">
+                <option value="pending" selected>Pending Review</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+                <option value="all">All</option>
+              </select>
+              <button class="btn btn-secondary btn-sm" onclick="loadBbOtApproval()">⟳ Refresh</button>
+            </div>
+          </div>
+          <p style="font-size: 13px; color: var(--bb-gray); margin-bottom: 12px;">
+            <strong>JIS workflow:</strong> Employee logs OT sa kiosk after time-out → admin reviews here → approve (with adjustable hours) or reject. <strong>Payroll computation is blocked</strong> kapag may pending OT sa period — para walang OT na nakalusot or under-paid.
+          </p>
+          <div class="bb-stats-row">
+            <div class="bb-stat-card honey"><div class="label">⏳ Pending</div><div class="value" id="otStatPending">—</div></div>
+            <div class="bb-stat-card green"><div class="label">✓ Approved (Month)</div><div class="value" id="otStatApproved">—</div></div>
+            <div class="bb-stat-card red"><div class="label">✗ Rejected (Month)</div><div class="value" id="otStatRejected">—</div></div>
+            <div class="bb-stat-card blue"><div class="label">Total OT Hrs (Month)</div><div class="value" id="otStatHours">—</div></div>
+          </div>
+          <div class="table-wrap">
+            <table class="bb-table">
+              <thead><tr><th>Date</th><th>Employee</th><th>Worked</th><th>OT Requested</th><th>OT Approved</th><th>Status</th><th>Decision</th></tr></thead>
+              <tbody id="bbOtApprovalBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- OT REVIEW MODAL -->
+      <div class="modal-bg" id="otReviewModal">
+        <div class="modal" style="max-width: 540px;">
+          <div class="modal-header" style="background: #DBEAFE; border-top: 4px solid #3B82F6;">
+            <h3 style="color: #1E40AF;">⏰ Review OT Request</h3>
+            <button class="close-btn" onclick="closeModal('otReviewModal')">×</button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" id="otrDtrId">
+            <div id="otrSummary" style="background: var(--bb-honey-light); padding: 14px; border-radius: 10px; margin-bottom: 14px; font-size: 13px; line-height: 1.7;"></div>
+            <div style="background: #FEF3C7; padding: 12px 14px; border-radius: 8px; margin-bottom: 14px; font-size: 12px; color: #92400E; border-left: 4px solid #F59E0B;">
+              💡 <strong>JIS principle:</strong> Approve only ang actually-needed at authorized OT. You can adjust hours below if employee requested more than admin approves.
+            </div>
+            <div class="form-row">
+              <div>
+                <label>OT Hours Requested (by employee)</label>
+                <input type="number" id="otrRequestedHrs" readonly style="background: #F3F4F6;">
+              </div>
+              <div>
+                <label>OT Hours to APPROVE *</label>
+                <input type="number" id="otrApprovedHrs" min="0" max="6" step="0.25" placeholder="e.g., 1.0">
+                <div style="font-size: 10px; color: var(--bb-gray); margin-top: 4px;">Set 0 sa Approve to deny but record review. Or use Reject button.</div>
+              </div>
+            </div>
+            <div class="form-row single" style="margin-top: 10px;">
+              <div>
+                <label>Decision Notes (audit trail)</label>
+                <textarea id="otrNotes" rows="2" placeholder="e.g., 'Approved 1h for inventory closing. Excess not authorized.'"></textarea>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-danger" onclick="rejectOt()">✗ Reject</button>
+            <button class="btn btn-secondary" onclick="closeModal('otReviewModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="approveOt()" style="background:#10B981;">✓ Approve</button>
+          </div>
+        </div>
+      </div>
 
       <!-- COMPUTE PAYROLL MODAL -->
       <div class="modal-bg" id="computePayrollModal">
@@ -8307,11 +8380,13 @@ async function loadBbPayroll() {
     body.innerHTML = periods.map(p => {
       const e = (p.expand && p.expand.employee_id) || empMap[p.employee_id];
       const name = e ? e.name : '(unknown)';
+      const otHrs = (p.ot_hours || 0);
       return `<tr>
         <td><strong>${name}</strong></td>
         <td>${fmtDate(p.period_start)} → ${fmtDate(p.period_end)}</td>
         <td>${(p.reg_hours || 0).toFixed(2)}</td>
         <td>${(p.live_hours || 0).toFixed(2)}</td>
+        <td>${otHrs > 0 ? `<strong style="color:#1E40AF;">${otHrs.toFixed(2)}</strong>` : '<span style="color:#9CA3AF;">—</span>'}</td>
         <td>₱${(p.gross_pay || 0).toLocaleString()}</td>
         <td><strong>₱${(p.net_pay || 0).toLocaleString()}</strong></td>
         <td><span class="bb-badge ${p.status === 'released' ? 'green' : 'honey'}">${p.status || 'draft'}</span></td>
@@ -8325,6 +8400,186 @@ async function loadBbPayroll() {
   } catch (e) {
     console.error('Payroll load:', e);
   }
+}
+
+/* ===================== OT APPROVALS VIEW =====================
+ * JIS-aligned workflow: employees request OT sa kiosk → admin reviews here → approve/reject.
+ * Payroll computation is BLOCKED if there are pending OT in the period (forces admin to decide).
+ */
+async function loadBbOtApproval() {
+  try {
+    const filter = (document.getElementById('otFilter') && document.getElementById('otFilter').value) || 'pending';
+    let filterStr;
+    if (filter === 'pending') filterStr = 'ot_hours>0 && ot_status="pending"';
+    else if (filter === 'approved') filterStr = 'ot_status="approved"';
+    else if (filter === 'rejected') filterStr = 'ot_status="rejected"';
+    else filterStr = 'ot_hours>0';
+
+    const [records, emps] = await Promise.all([
+      pbGetList('dtr_logs', { filter: filterStr, sort: '-date', expand: 'employee_id', perPage: 500 }),
+      BB_EMPS_CACHE.length ? Promise.resolve(BB_EMPS_CACHE) : pbGetList('employees', { filter: 'is_active=true', sort: 'name', perPage: 500 }).catch(() => [])
+    ]);
+    const empMap = {}; (Array.isArray(emps) ? emps : BB_EMPS_CACHE).forEach(e => empMap[e.id] = e);
+
+    // Stats — current month
+    const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0,0,0,0);
+    const monthRecords = await pbGetList('dtr_logs', {
+      filter: `ot_hours>0 && date>="${monthStart.toISOString().substring(0,10)} 00:00:00"`,
+      perPage: 500
+    }).catch(() => []);
+
+    const pending = monthRecords.filter(r => r.ot_status === 'pending').length;
+    const approved = monthRecords.filter(r => r.ot_status === 'approved').length;
+    const rejected = monthRecords.filter(r => r.ot_status === 'rejected').length;
+    const totalApprovedHrs = monthRecords
+      .filter(r => r.ot_status === 'approved')
+      .reduce((s, r) => s + (r.ot_approved_hours || r.ot_hours || 0), 0);
+
+    document.getElementById('otStatPending').textContent = pending;
+    document.getElementById('otStatApproved').textContent = approved;
+    document.getElementById('otStatRejected').textContent = rejected;
+    document.getElementById('otStatHours').textContent = totalApprovedHrs.toFixed(2) + 'h';
+
+    // Update nav badge if pending > 0
+    const badge = document.getElementById('navOtBadge');
+    if (badge) {
+      const allPending = await pbGetList('dtr_logs', { filter: 'ot_hours>0 && ot_status="pending"', perPage: 1 }).catch(() => []);
+      const count = allPending.length > 0 ? '!' : '';  // just show indicator (full count slow)
+      if (count) { badge.textContent = '!'; badge.style.display = ''; }
+      else { badge.style.display = 'none'; }
+    }
+
+    const body = document.getElementById('bbOtApprovalBody');
+    if (!records.length) {
+      body.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:20px;color:#999;">Walang OT records sa filter na ito (${filter}).</td></tr>`;
+      return;
+    }
+
+    body.innerHTML = records.map(r => {
+      const e = (r.expand && r.expand.employee_id) || empMap[r.employee_id];
+      const worked = (r.total_hours || 0).toFixed(2);
+      const requested = (r.ot_hours || 0).toFixed(2);
+      const approvedHrs = r.ot_status === 'approved' ? (r.ot_approved_hours || r.ot_hours || 0).toFixed(2) : '—';
+      const statusBadge = r.ot_status === 'approved' ? '<span class="bb-badge green">✓ Approved</span>'
+        : r.ot_status === 'rejected' ? '<span class="bb-badge red">✗ Rejected</span>'
+        : '<span class="bb-badge honey">⏳ Pending</span>';
+      const actionBtn = r.ot_status === 'pending'
+        ? `<button class="btn btn-primary btn-sm" onclick="openOtReview('${r.id}')">Review</button>`
+        : `<button class="btn btn-ghost btn-sm" onclick="openOtReview('${r.id}')">Re-review</button>`;
+      return `<tr${r.ot_status === 'pending' ? ' style="background:#FFFBEB;"' : ''}>
+        <td>${fmtDate(r.date)}</td>
+        <td><strong>${e ? e.name : '—'}</strong></td>
+        <td>${worked}h</td>
+        <td><strong style="color:#1E40AF;">${requested}h</strong></td>
+        <td>${approvedHrs !== '—' ? '<strong style="color:#047857;">' + approvedHrs + 'h</strong>' : '<span style="color:#9CA3AF;">—</span>'}</td>
+        <td>${statusBadge}${r.ot_decision_notes ? '<br><small style="color:var(--bb-gray);">📝 ' + r.ot_decision_notes.substring(0,60) + (r.ot_decision_notes.length > 60 ? '...' : '') + '</small>' : ''}</td>
+        <td>${actionBtn}</td>
+      </tr>`;
+    }).join('');
+  } catch (e) {
+    console.error('OT Approval load:', e);
+    document.getElementById('bbOtApprovalBody').innerHTML = `<tr><td colspan="7" style="color:#B91C1C;padding:20px;text-align:center;">Failed: ${e.message}</td></tr>`;
+  }
+}
+
+async function openOtReview(dtrId) {
+  try {
+    const r = await fetch(PB_API + '/collections/dtr_logs/records/' + dtrId + '?expand=employee_id');
+    if (!r.ok) throw new Error('DTR not found');
+    const d = await r.json();
+    const e = d.expand && d.expand.employee_id;
+    const requested = d.ot_hours || 0;
+
+    document.getElementById('otrDtrId').value = d.id;
+    document.getElementById('otrRequestedHrs').value = requested.toFixed(2);
+    document.getElementById('otrApprovedHrs').value = d.ot_approved_hours || requested.toFixed(2);
+    document.getElementById('otrNotes').value = d.ot_decision_notes || '';
+
+    const tIn = d.time_in ? new Date(d.time_in).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' }) : '—';
+    const tOut = d.time_out ? new Date(d.time_out).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' }) : '(no time-out)';
+    const worked = (d.total_hours || 0).toFixed(2);
+    const scheduled = '8h (standard)';  // TODO: read from schedules
+    document.getElementById('otrSummary').innerHTML = `
+      <div><strong>👤 ${e ? e.name : '—'}</strong></div>
+      <div>📅 Date: <strong>${fmtDate(d.date)}</strong></div>
+      <div>⏱ Time In: ${tIn} &nbsp;•&nbsp; Time Out: ${tOut}</div>
+      <div>💼 Worked: <strong>${worked}h</strong> (scheduled ${scheduled})</div>
+      <div>📺 OT Requested by employee: <strong style="color:#1E40AF;">${requested.toFixed(2)}h</strong></div>
+      ${d.ot_requested_by ? '<div>📝 Submitted by: ' + d.ot_requested_by + '</div>' : ''}
+    `;
+
+    document.getElementById('otReviewModal').classList.add('open');
+  } catch (e) { alert('Failed: ' + e.message); }
+}
+
+async function approveOt() {
+  const id = document.getElementById('otrDtrId').value;
+  const approvedHrs = parseFloat(document.getElementById('otrApprovedHrs').value);
+  const notes = document.getElementById('otrNotes').value.trim();
+  if (isNaN(approvedHrs) || approvedHrs < 0) { toast('Invalid hours', 'err'); return; }
+  if (approvedHrs > 12) { toast('Approved hours seems too high (>12) — please verify', 'err'); return; }
+
+  const me = (kioskState.selectedUser && kioskState.selectedUser.name) || 'admin';
+  try {
+    await pbUpdate('dtr_logs', id, {
+      ot_status: 'approved',
+      ot_approved_hours: approvedHrs,
+      ot_approved_by: me,
+      ot_decision_notes: notes
+    });
+    pbCreate('action_log', {
+      module: 'payroll', action: 'update', collection: 'dtr_logs', record_id: id,
+      new_value: JSON.stringify({ ot_approved: true, approved_hours: approvedHrs, by: me, notes })
+    }).catch(()=>{});
+    toast(`✓ OT approved (${approvedHrs}h)`, 'ok');
+    closeModal('otReviewModal');
+    loadBbOtApproval();
+  } catch (e) { alert('Approve failed: ' + e.message); }
+}
+
+async function rejectOt() {
+  const id = document.getElementById('otrDtrId').value;
+  const notes = document.getElementById('otrNotes').value.trim();
+  if (!notes) {
+    if (!confirm('Reject OT without notes? Recommended to add reason for audit trail. Proceed?')) return;
+  }
+  const me = (kioskState.selectedUser && kioskState.selectedUser.name) || 'admin';
+  try {
+    await pbUpdate('dtr_logs', id, {
+      ot_status: 'rejected',
+      ot_approved_hours: 0,
+      ot_approved_by: me,
+      ot_decision_notes: notes || '(no reason given)'
+    });
+    pbCreate('action_log', {
+      module: 'payroll', action: 'update', collection: 'dtr_logs', record_id: id,
+      new_value: JSON.stringify({ ot_rejected: true, by: me, notes })
+    }).catch(()=>{});
+    toast('✗ OT rejected', 'warn');
+    closeModal('otReviewModal');
+    loadBbOtApproval();
+  } catch (e) { alert('Reject failed: ' + e.message); }
+}
+
+/* Programmatic view navigation — clicks the nav-item with given data-view */
+function navigateView(viewName) {
+  const item = document.querySelector(`.nav-item[data-view="${viewName}"]`);
+  if (item) {
+    item.click();
+  } else {
+    console.warn('navigateView: no nav-item with data-view=' + viewName);
+  }
+}
+
+/* Pre-check: block payroll compute if pending OT exists in period */
+async function _checkPendingOtForPeriod(periodStart, periodEnd) {
+  try {
+    const pending = await pbGetList('dtr_logs', {
+      filter: `ot_hours>0 && ot_status="pending" && date>="${periodStart} 00:00:00" && date<="${periodEnd} 23:59:59"`,
+      expand: 'employee_id', perPage: 500
+    });
+    return pending;
+  } catch (e) { console.warn('OT pre-check failed:', e.message); return []; }
 }
 
 /* ===================== PAYROLL COMPUTATION ENGINE ===================== */
@@ -8386,6 +8641,32 @@ async function runComputePayroll() {
   const end = document.getElementById('cpEnd').value;
   if (!start || !end) { alert('Period start at end required'); return; }
   if (start >= end) { alert('End date dapat lamang sa start'); return; }
+
+  // JIS PRE-CHECK: Block payroll compute if there are pending OT requests in this period
+  // Forces admin to approve/reject all OT first — para in order ang flow
+  try {
+    const pendingOt = await _checkPendingOtForPeriod(start, end);
+    if (pendingOt.length > 0) {
+      const list = pendingOt.slice(0, 10).map(d => {
+        const emp = d.expand && d.expand.employee_id;
+        return `• ${fmtDate(d.date)} — ${emp ? emp.name : d.employee_id}: ${(d.ot_hours || 0).toFixed(2)}h requested`;
+      }).join('\n');
+      const more = pendingOt.length > 10 ? `\n...at ${pendingOt.length - 10} pa` : '';
+      const choice = confirm(
+        `⛔ PAYROLL BLOCKED — ${pendingOt.length} pending OT requests sa period na ito:\n\n` +
+        list + more +
+        `\n\n🔧 Action required: Pumunta sa "⏰ OT Approvals" tab at i-approve o i-reject muna lahat.\n\n` +
+        `OK = go to OT Approvals view\nCancel = stay here`
+      );
+      if (choice) {
+        closeModal('computePayrollModal');
+        navigateView('bbOtApproval');
+      }
+      return;
+    }
+  } catch (e) {
+    console.warn('OT pre-check failed (non-blocking):', e.message);
+  }
 
   const progress = document.getElementById('cpProgress');
   const progressMsg = document.getElementById('cpProgressMsg');
@@ -8483,29 +8764,35 @@ async function runComputePayroll() {
         // Live hours = portion within DTR window spent doing live selling
         const liveHrs = dayLive.reduce((s, l) => s + (l.duration_hours || 0), 0);
 
-        // Regular hours = DTR total MINUS live hours (live is subset of DTR window)
-        let regHrs = Math.max(0, dtrHrs - liveHrs);
+        // === JIS-aligned daily compute with OT approval workflow ===
+        // 1. Determine if OT was approved (use ot_status, not type field — type is too fragile)
+        const otApprovedRecords = dayDTRs.filter(d => d.ot_status === 'approved');
+        const otApproved = otApprovedRecords.length > 0;
+        const otApprovedHrs = otApprovedRecords.reduce((s, d) =>
+          s + (d.ot_approved_hours || d.ot_hours || 0), 0);
 
-        // Break deduction based on total worked window (dtrHrs)
-        let breakHrs = 0;
-        if (dtrHrs >= 8) breakHrs = 1;
-        else if (dtrHrs >= 6) breakHrs = 0.5;
-        // Break is deducted from regular hours (employee takes break during regular work, not live)
-        regHrs = Math.max(0, regHrs - breakHrs);
-
-        // 8-HOUR DAILY CAP — trim if no OT approved
-        const isOtDay = dayDTRs.some(d => (d.type || '') === 'ot');
-        let otHrs = 0;
-        if (regHrs > 8) {
-          if (isOtDay) {
-            // Approved OT — hours beyond 8 are OT hours (paid at OT rate)
-            otHrs = regHrs - 8;
-            regHrs = 8;
-          } else {
-            // Not approved — trim excess (not paid)
-            regHrs = 8;
-          }
+        // 2. Compute compensable total hours — STRICT 8h cap if no OT approved
+        //    If OT approved, allow up to 8 + approved hours (anything beyond is unpaid waste)
+        let compensableTotal;
+        if (otApproved) {
+          compensableTotal = Math.min(dtrHrs, 8 + otApprovedHrs);
+        } else {
+          compensableTotal = Math.min(dtrHrs, 8);  // STRICT cap — no OT means max 8h paid
         }
+
+        // 3. Break deduction based on compensable shift length
+        let breakHrs = 0;
+        if (compensableTotal >= 8) breakHrs = 1;
+        else if (compensableTotal >= 6) breakHrs = 0.5;
+
+        // 4. OT hours portion = approved hours only (capped at compensable - 8)
+        let otHrs = otApproved
+          ? Math.max(0, Math.min(otApprovedHrs, compensableTotal - 8))
+          : 0;
+
+        // 5. Regular = compensable - live - OT - break (live is subset of work day)
+        let regHrs = Math.max(0, compensableTotal - liveHrs - otHrs - breakHrs);
+
         totalOtHrs += otHrs;
 
         // Late deduction — get RAW late minutes from any source (Excel import OR schedule comparison)
@@ -8733,26 +9020,38 @@ async function recomputeOnePayroll(periodId) {
       dayMap[dk].lives.push(l);
     });
 
-    // Compute totals using same formula as main engine
-    const breakHrs = 1;  // 1h unpaid break per closed full-day shift
+    // Compute totals using SAME OT-approval-aware logic as main engine
     let totalDtrHrs = 0, totalLiveHrs = 0, totalOtHrs = 0, totalLateMins = 0;
     let workDays = 0;
     Object.keys(dayMap).forEach(dk => {
       const day = dayMap[dk];
       const dayDtrHrs = day.dtrs.reduce((s, d) => s + (d.total_hours || 0), 0);
       const dayLiveHrs = day.lives.reduce((s, l) => s + (l.duration_hours || 0), 0);
-      const dayOtHrs = day.dtrs.reduce((s, d) => s + (d.ot_approved_hours || d.ot_hours || 0), 0);
       const dayLateMins = day.dtrs.reduce((s, d) => s + (d.late_minutes || 0), 0);
-      // Cap: total worked can't be less than live (live is subset)
-      const cappedDtr = Math.max(dayDtrHrs, dayLiveHrs);
-      // Reg = DTR - Live - Break (only if shift >= 4 hours)
-      const effectiveBreak = cappedDtr >= 4 ? breakHrs : 0;
-      const dayReg = Math.max(0, cappedDtr - dayLiveHrs - effectiveBreak);
+
+      // OT — only count if status='approved'
+      const approvedOtRecords = day.dtrs.filter(d => d.ot_status === 'approved');
+      const otApproved = approvedOtRecords.length > 0;
+      const otApprovedHrs = approvedOtRecords.reduce((s, d) =>
+        s + (d.ot_approved_hours || d.ot_hours || 0), 0);
+
+      // Strict 8h cap unless OT approved
+      const compensableTotal = otApproved
+        ? Math.min(dayDtrHrs, 8 + otApprovedHrs)
+        : Math.min(dayDtrHrs, 8);
+
+      let breakHrs = 0;
+      if (compensableTotal >= 8) breakHrs = 1;
+      else if (compensableTotal >= 6) breakHrs = 0.5;
+
+      const dayOt = otApproved ? Math.max(0, Math.min(otApprovedHrs, compensableTotal - 8)) : 0;
+      const dayReg = Math.max(0, compensableTotal - dayLiveHrs - dayOt - breakHrs);
+
       totalDtrHrs += dayReg;
       totalLiveHrs += dayLiveHrs;
-      totalOtHrs += dayOtHrs;
+      totalOtHrs += dayOt;
       totalLateMins += dayLateMins;
-      if (cappedDtr > 0) workDays++;
+      if (compensableTotal > 0) workDays++;
     });
 
     // Convert late minutes to hours deduction (JIS tier rule)
@@ -8986,27 +9285,29 @@ async function viewBbPayslip(periodId) {
           const dtrHrs = dayData.dtr.reduce((s, d) => s + (d.total_hours || 0), 0);
           const liveHrs = dayData.live.reduce((s, l) => s + (l.duration_hours || 0), 0);
 
-          // Apply break (same logic as compute)
+          // NEW: OT approval workflow (use ot_status, not type field)
+          const approvedOtRecs = dayData.dtr.filter(d => d.ot_status === 'approved');
+          const otApproved = approvedOtRecs.length > 0;
+          const otApprovedHrs = approvedOtRecs.reduce((s, d) => s + (d.ot_approved_hours || d.ot_hours || 0), 0);
+          // Track pending OT for display
+          const hasPendingOt = dayData.dtr.some(d => d.ot_status === 'pending' && (d.ot_hours || 0) > 0);
+          const pendingOtHrs = dayData.dtr.filter(d => d.ot_status === 'pending').reduce((s, d) => s + (d.ot_hours || 0), 0);
+
+          // Strict 8h cap if no OT approved
+          const compensableTotal = otApproved
+            ? Math.min(dtrHrs, 8 + otApprovedHrs)
+            : Math.min(dtrHrs, 8);
+
+          // Apply break
           let breakHrs = 0;
-          if (dtrHrs >= 8) breakHrs = 1;
-          else if (dtrHrs >= 6) breakHrs = 0.5;
+          if (compensableTotal >= 8) breakHrs = 1;
+          else if (compensableTotal >= 6) breakHrs = 0.5;
 
-          // Initial regular hours after break + live
-          let regHrs = Math.max(0, dtrHrs - liveHrs - breakHrs);
-
-          // 8-hr cap + OT logic
-          const isOtDay = dayData.dtr.some(d => (d.type || '') === 'ot');
-          let otHrs = 0;
-          let trimmedHrs = 0;
-          if (regHrs > 8) {
-            if (isOtDay) {
-              otHrs = regHrs - 8;
-              regHrs = 8;
-            } else {
-              trimmedHrs = regHrs - 8;
-              regHrs = 8;
-            }
-          }
+          // OT + Reg + Trim split
+          let otHrs = otApproved ? Math.max(0, Math.min(otApprovedHrs, compensableTotal - 8)) : 0;
+          let regHrs = Math.max(0, compensableTotal - liveHrs - otHrs - breakHrs);
+          let trimmedHrs = Math.max(0, dtrHrs - compensableTotal);  // hours beyond cap (not paid)
+          const isOtDay = otApproved;  // for legacy display logic below
 
           // Late tier
           const rawLate = dayData.dtr.reduce((s, d) => s + (d.late_minutes || 0), 0);
@@ -9030,7 +9331,9 @@ async function viewBbPayslip(periodId) {
           const types = [...new Set(dayData.dtr.map(d => d.type || 'regular'))].join(', ');
 
           const statusBadge = isOtDay
-            ? '<span style="background:#DBEAFE;color:#1E40AF;padding:1px 5px;border-radius:3px;font-size:9px;">✓ OT</span>'
+            ? `<span style="background:#DBEAFE;color:#1E40AF;padding:1px 5px;border-radius:3px;font-size:9px;" title="OT approved: ${otApprovedHrs.toFixed(2)}h">✓ OT ${otApprovedHrs.toFixed(2)}h</span>`
+            : hasPendingOt
+            ? `<span style="background:#FEF3C7;color:#92400E;padding:1px 5px;border-radius:3px;font-size:9px;" title="OT requested but pending approval (${pendingOtHrs.toFixed(2)}h). Approve sa OT Approvals tab.">⏳ OT PENDING</span>`
             : trimmedHrs > 0
             ? '<span style="background:#FEE2E2;color:#B91C1C;padding:1px 5px;border-radius:3px;font-size:9px;" title="Excess hours trimmed — no OT approval">⚠ TRIMMED</span>'
             : '<span style="color:#9CA3AF;font-size:10px;">regular</span>';
@@ -15227,6 +15530,7 @@ async function renderViewSpecific(view) {
   else if (view === 'bbTaskSummary') loadBbTaskSummary();
   else if (view === 'bbCashFlow') loadBbCashFlow();
   else if (view === 'bbPayroll') loadBbPayroll();
+  else if (view === 'bbOtApproval') loadBbOtApproval();
   else if (view === 'bbCheckins') loadBbCheckins();
   else if (view === 'bbSched') loadBbSchedules();
   else if (view === 'bbCA') loadBbCA();
