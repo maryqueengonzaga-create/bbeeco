@@ -8792,19 +8792,25 @@ async function runComputePayroll() {
         const liveHrs = dayLive.reduce((s, l) => s + (l.duration_hours || 0), 0);
 
         // === JIS-aligned daily compute with OT approval workflow ===
+        // BbeeCo standard: 8h paid work day + 1h unpaid break = 9h DTR cap
+        // (Worker time-in 8am, time-out 5pm = 9h DTR → 8h paid)
+        const PAID_HOURS = 8;
+        const STANDARD_BREAK = 1;
+        const DAY_CAP_DTR = PAID_HOURS + STANDARD_BREAK;  // 9 hours
+
         // 1. Determine if OT was approved (use ot_status, not type field — type is too fragile)
         const otApprovedRecords = dayDTRs.filter(d => d.ot_status === 'approved');
         const otApproved = otApprovedRecords.length > 0;
         const otApprovedHrs = otApprovedRecords.reduce((s, d) =>
           s + (d.ot_approved_hours || d.ot_hours || 0), 0);
 
-        // 2. Compute compensable total hours — STRICT 8h cap if no OT approved
-        //    If OT approved, allow up to 8 + approved hours (anything beyond is unpaid waste)
+        // 2. Compute compensable total hours — cap at 9h DTR (8 paid + 1 break) if no OT
+        //    If OT approved, allow up to 9 + approved OT (extra hours beyond are unpaid)
         let compensableTotal;
         if (otApproved) {
-          compensableTotal = Math.min(dtrHrs, 8 + otApprovedHrs);
+          compensableTotal = Math.min(dtrHrs, DAY_CAP_DTR + otApprovedHrs);
         } else {
-          compensableTotal = Math.min(dtrHrs, 8);  // STRICT cap — no OT means max 8h paid
+          compensableTotal = Math.min(dtrHrs, DAY_CAP_DTR);  // STRICT cap: 9h DTR max
         }
 
         // 3. Break deduction based on compensable shift length
@@ -8812,9 +8818,9 @@ async function runComputePayroll() {
         if (compensableTotal >= 8) breakHrs = 1;
         else if (compensableTotal >= 6) breakHrs = 0.5;
 
-        // 4. OT hours portion = approved hours only (capped at compensable - 8)
+        // 4. OT hours portion = approved hours only (anything beyond 9h DTR)
         let otHrs = otApproved
-          ? Math.max(0, Math.min(otApprovedHrs, compensableTotal - 8))
+          ? Math.max(0, Math.min(otApprovedHrs, compensableTotal - DAY_CAP_DTR))
           : 0;
 
         // 5. Regular = compensable - live - OT - break (live is subset of work day)
@@ -9062,16 +9068,17 @@ async function recomputeOnePayroll(periodId) {
       const otApprovedHrs = approvedOtRecords.reduce((s, d) =>
         s + (d.ot_approved_hours || d.ot_hours || 0), 0);
 
-      // Strict 8h cap unless OT approved
+      // BbeeCo cap: 9h DTR (8 paid + 1 break). With OT: 9 + approved OT.
+      const DAY_CAP_DTR = 9;
       const compensableTotal = otApproved
-        ? Math.min(dayDtrHrs, 8 + otApprovedHrs)
-        : Math.min(dayDtrHrs, 8);
+        ? Math.min(dayDtrHrs, DAY_CAP_DTR + otApprovedHrs)
+        : Math.min(dayDtrHrs, DAY_CAP_DTR);
 
       let breakHrs = 0;
       if (compensableTotal >= 8) breakHrs = 1;
       else if (compensableTotal >= 6) breakHrs = 0.5;
 
-      const dayOt = otApproved ? Math.max(0, Math.min(otApprovedHrs, compensableTotal - 8)) : 0;
+      const dayOt = otApproved ? Math.max(0, Math.min(otApprovedHrs, compensableTotal - DAY_CAP_DTR)) : 0;
       const dayReg = Math.max(0, compensableTotal - dayLiveHrs - dayOt - breakHrs);
 
       totalDtrHrs += dayReg;
@@ -9317,10 +9324,11 @@ async function viewBbPayslip(periodId) {
           const hasPendingOt = dayData.dtr.some(d => d.ot_status === 'pending' && (d.ot_hours || 0) > 0);
           const pendingOtHrs = dayData.dtr.filter(d => d.ot_status === 'pending').reduce((s, d) => s + (d.ot_hours || 0), 0);
 
-          // Strict 8h cap if no OT approved
+          // BbeeCo cap: 9h DTR (8 paid + 1 break). With OT: 9 + approved OT.
+          const DAY_CAP_DTR = 9;
           const compensableTotal = otApproved
-            ? Math.min(dtrHrs, 8 + otApprovedHrs)
-            : Math.min(dtrHrs, 8);
+            ? Math.min(dtrHrs, DAY_CAP_DTR + otApprovedHrs)
+            : Math.min(dtrHrs, DAY_CAP_DTR);
 
           // Apply break
           let breakHrs = 0;
@@ -9328,7 +9336,7 @@ async function viewBbPayslip(periodId) {
           else if (compensableTotal >= 6) breakHrs = 0.5;
 
           // OT + Reg + Trim split
-          let otHrs = otApproved ? Math.max(0, Math.min(otApprovedHrs, compensableTotal - 8)) : 0;
+          let otHrs = otApproved ? Math.max(0, Math.min(otApprovedHrs, compensableTotal - DAY_CAP_DTR)) : 0;
           let regHrs = Math.max(0, compensableTotal - liveHrs - otHrs - breakHrs);
           let trimmedHrs = Math.max(0, dtrHrs - compensableTotal);  // hours beyond cap (not paid)
           const isOtDay = otApproved;  // for legacy display logic below
@@ -9400,10 +9408,11 @@ async function viewBbPayslip(periodId) {
       breakdownHtml += `
       <div style="background: #EFF6FF; border-left: 3px solid #3B82F6; padding: 10px 14px; border-radius: 6px; margin-bottom: 14px; font-size: 11px; line-height: 1.6;">
         <div style="font-weight: 600; color: #1E40AF; margin-bottom: 4px;">📋 JIS Payroll Standard (BbeeCo)</div>
-        <div><strong>Daily cap:</strong> Max 8 hrs paid as regular per day. Excess <span style="color:#B91C1C;">TRIMMED</span> unless DTR.type='ot' (admin pre-approval).</div>
+        <div><strong>Daily cap:</strong> Max <strong>9h DTR</strong> (8h paid + 1h unpaid break) per day. Excess <span style="color:#B91C1C;">TRIMMED</span> unless OT approved (ot_status='approved').</div>
         <div><strong>Break rule:</strong> ≥8h DTR = 1h unpaid break · ≥6h DTR = 0.5h break · &lt;6h = no break</div>
         <div><strong>Late tier:</strong> 0-5m = grace · 6-15m → 15m · 16-30m → 30m · 31m+ → actual mins (deducted at reg rate)</div>
         <div><strong>OT rate:</strong> ot_hours × reg_rate × ot_multiplier (default 1.0× — set in App Config). Recommended PH standard = 1.25×.</div>
+        <div style="margin-top:6px;color:#92400E;"><strong>Example:</strong> Time-in 8AM, time-out 5PM (9h DTR) → 8h paid (1h break excluded). Same time-out 6PM (10h DTR) → if OT approved 1h: 8h reg + 1h OT. If not approved: 8h reg, 1h trimmed.</div>
       </div>`;
     }
 
