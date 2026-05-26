@@ -1974,8 +1974,10 @@
       <div class="nav-item" data-view="home" data-perm="any" style="background: linear-gradient(135deg, var(--bb-honey-light), var(--bb-honey)); color: var(--bb-honey-dark); font-weight: 700;"><span class="nav-icon">🏠</span> Home — Quick Actions</div>
       <div class="nav-section" data-section-perm="view_dashboard view_tasks view_matrix view_employees">Main</div>
       <div class="nav-item active" data-view="dashboard" data-perm="view_dashboard"><span class="nav-icon">▦</span> Dashboard</div>
-      <div class="nav-item" data-view="tasks" data-perm="view_tasks"><span class="nav-icon">◉</span> Task Manager</div>
-      <div class="nav-item" data-view="matrix" data-perm="view_matrix"><span class="nav-icon">◫</span> Priority Matrix</div>
+      <div class="nav-item" data-view="dailyTasks" data-perm="view_tasks"><span class="nav-icon">🎯</span> Tasks</div>
+      <!-- Legacy views (kept for power users, hidden by default) -->
+      <div class="nav-item" data-view="tasks" data-perm="view_tasks" style="display:none;" data-legacy="true"><span class="nav-icon">◉</span> Task Manager (legacy)</div>
+      <div class="nav-item" data-view="matrix" data-perm="view_matrix" style="display:none;" data-legacy="true"><span class="nav-icon">◫</span> Priority Matrix (legacy)</div>
       <div class="nav-item" data-view="employees" data-perm="view_employees"><span class="nav-icon">●</span> Employees</div>
 
       <div class="nav-section" data-section-perm="view_roles view_roster view_handover">Operations</div>
@@ -2130,6 +2132,146 @@
           </div>
         </div>
       </section>
+
+      <!-- ============= UNIFIED TASKS VIEW (employee-first) ============= -->
+      <section class="view" id="view-dailyTasks">
+        <!-- TEAM GRID MODE — default landing -->
+        <div id="dtTeamMode">
+          <div class="card" style="margin-bottom: 16px;">
+            <div class="card-h">
+              <h3>🎯 Daily Tasks <span id="dtDateLabel" style="font-size:12px;color:var(--bb-gray);font-weight:400;"></span></h3>
+              <div style="display:flex; gap:8px; flex-wrap: wrap; align-items:center;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="dtChangeDate(-1)">‹</button>
+                <input type="date" id="dtDate" onchange="loadDailyTasks()" style="padding: 7px 10px; border: 1px solid var(--bb-border); border-radius: 6px; font-size: 13px;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="dtChangeDate(1)">›</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="dtSetToday()">Today</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="openManageTaskTemplates()">⚙️ Templates</button>
+                <button type="button" class="btn btn-primary btn-sm" onclick="seedDefaultTaskTemplates()">🌱 Seed Defaults</button>
+              </div>
+            </div>
+            <p style="font-size: 12px; color: var(--bb-gray); margin-bottom: 12px;">
+              Pumili ng date sa taas, then click any employee card para mag-assign or i-update ang tasks nila. JIS — one pathway for daily task management.
+            </p>
+          </div>
+
+          <div id="dtTeamGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px;">
+            <div style="grid-column: 1/-1; text-align: center; padding: 30px; color: #999;">Loading team...</div>
+          </div>
+        </div>
+
+        <!-- EMPLOYEE DETAIL MODE — shown when card clicked -->
+        <div id="dtDetailMode" style="display: none;">
+          <div class="card" style="margin-bottom: 16px;">
+            <div class="card-h">
+              <h3 id="dtDetailHeader">— Tasks</h3>
+              <div style="display:flex; gap:8px;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="dtBackToTeam()">← Back to Team</button>
+              </div>
+            </div>
+            <div id="dtDetailSummary" style="background: var(--bb-honey-light); padding: 12px 14px; border-radius: 10px; font-size: 13px; margin-bottom: 12px;"></div>
+
+            <!-- Quick add -->
+            <div style="background: #F9FAFB; padding: 14px; border-radius: 10px; margin-bottom: 14px;">
+              <div style="font-weight: 700; font-size: 13px; margin-bottom: 8px; color: #1F2937;">➕ Add Task</div>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end;">
+                <div style="flex: 1; min-width: 200px;">
+                  <label style="font-size: 11px;">Task title *</label>
+                  <input type="text" id="dtNewTitle" placeholder="e.g., Pack 50 orders" style="font-size: 13px;">
+                </div>
+                <div style="width: 110px;">
+                  <label style="font-size: 11px;">Minutes *</label>
+                  <input type="number" id="dtNewMinutes" min="1" max="600" step="1" placeholder="30" style="font-size: 13px;">
+                </div>
+                <button class="btn btn-primary btn-sm" onclick="dtAddNewTask()">+ Add Task</button>
+              </div>
+              <div id="dtTemplateQuickAdd" style="margin-top: 10px;"></div>
+            </div>
+
+            <!-- Tasks list -->
+            <div id="dtTaskList"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TASK TEMPLATES MODAL -->
+      <div class="modal-bg" id="taskTemplatesModal">
+        <div class="modal" style="max-width: 760px;">
+          <div class="modal-header">
+            <h3>⚙️ Manage Task Templates</h3>
+            <button class="close-btn" onclick="closeModal('taskTemplatesModal')">×</button>
+          </div>
+          <div class="modal-body">
+            <p style="font-size: 12px; color: var(--bb-gray); margin-bottom: 12px;">
+              Define paulit-ulit na tasks. Tap a template sa employee detail view → instant added. Saves typing time.
+            </p>
+
+            <div style="background: var(--bb-honey-light); padding: 12px 14px; border-radius: 10px; margin-bottom: 14px;">
+              <div style="font-weight: 700; font-size: 13px; color: var(--bb-honey-dark); margin-bottom: 8px;" id="tmtFormTitle">➕ New Template</div>
+              <input type="hidden" id="tmtId">
+              <div class="form-row">
+                <div><label>Icon</label><input type="text" id="tmtIcon" maxlength="2" placeholder="📦" style="text-align:center;font-size:20px;"></div>
+                <div><label>Task Name *</label><input type="text" id="tmtName" placeholder="e.g., Pack orders"></div>
+                <div><label>Default Minutes *</label><input type="number" id="tmtMinutes" min="1" max="600" placeholder="30"></div>
+              </div>
+              <div class="form-row">
+                <div><label>Category</label><select id="tmtCategory"><option value="Daily">Daily</option><option value="Special">Special</option><option value="Scheduled">Scheduled</option></select></div>
+                <div><label>Priority</label><select id="tmtPriority"><option value="Medium">Medium</option><option value="High">High</option><option value="Low">Low</option></select></div>
+                <div><label>Sort Order</label><input type="number" id="tmtSort" min="0" max="999" value="10"></div>
+              </div>
+              <div class="form-row single">
+                <div><label>Default Notes</label><input type="text" id="tmtNotes" placeholder="Optional context/SOP link"></div>
+              </div>
+              <div style="margin-top: 10px; display: flex; gap: 8px; justify-content: flex-end;">
+                <button class="btn btn-ghost btn-sm" onclick="resetTaskTemplateForm()">Clear</button>
+                <button class="btn btn-danger btn-sm" id="tmtDelBtn" onclick="deleteTaskTemplate()" style="display:none;">Delete</button>
+                <button class="btn btn-primary btn-sm" onclick="saveTaskTemplate()">💾 Save Template</button>
+              </div>
+            </div>
+
+            <div class="table-wrap">
+              <table class="bb-table">
+                <thead><tr><th>Order</th><th>Icon</th><th>Name</th><th>Mins</th><th>Category</th><th>Uses</th><th>Action</th></tr></thead>
+                <tbody id="taskTemplatesBody"><tr><td colspan="7" style="text-align:center;padding:14px;color:#999;">Loading...</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('taskTemplatesModal')">Done</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TASK EDIT MODAL (for editing existing tasks via Daily Tasks view) -->
+      <div class="modal-bg" id="dtEditTaskModal">
+        <div class="modal" style="max-width: 500px;">
+          <div class="modal-header">
+            <h3>✏️ Edit Task</h3>
+            <button class="close-btn" onclick="closeModal('dtEditTaskModal')">×</button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" id="dteId">
+            <div class="form-row single">
+              <div><label>Task title *</label><input type="text" id="dteTitle"></div>
+            </div>
+            <div class="form-row">
+              <div><label>Estimated Minutes *</label><input type="number" id="dteMinutes" min="1" max="600"></div>
+              <div><label>Actual Minutes</label><input type="number" id="dteActual" min="0" max="600" placeholder="(optional)"></div>
+            </div>
+            <div class="form-row">
+              <div><label>Status</label><select id="dteStatus"><option value="pending">⏸ Pending</option><option value="in_progress">⏳ In Progress</option><option value="blocked">🚫 On Hold</option><option value="done">✓ Done</option></select></div>
+              <div><label>Priority</label><select id="dtePriority"><option value="Medium">Medium</option><option value="High">High</option><option value="Low">Low</option></select></div>
+            </div>
+            <div class="form-row single">
+              <div><label>Notes</label><textarea id="dteNotes" rows="2"></textarea></div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-danger" onclick="dtDeleteTask()">Delete</button>
+            <button class="btn btn-secondary" onclick="closeModal('dtEditTaskModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="dtSaveTaskEdit()">Save</button>
+          </div>
+        </div>
+      </div>
 
       <!-- TASK MANAGER VIEW -->
       <section class="view" id="view-tasks">
@@ -14153,6 +14295,515 @@ function clearLocalSampleTasks() {
   toast(`✓ Removed ${removed} local sample task(s). ${after} tasks remain (PB-synced).`, 'ok');
 }
 
+/* ============= UNIFIED DAILY TASKS VIEW (employee-first) =============
+ * JIS principle: single pathway, single source of truth (tms_tasks collection).
+ * Replaces Task Manager + Priority Matrix as the primary task interface.
+ */
+let DT_STATE = {
+  date: null,           // current date (YYYY-MM-DD)
+  mode: 'team',         // 'team' or 'detail'
+  selectedEmpId: null,  // when mode='detail'
+  tasks: [],            // tasks for selected date
+  templates: []         // task_templates cache
+};
+
+function dtFormatDate(d) {
+  // Format Date object to YYYY-MM-DD
+  return d.toISOString().substring(0, 10);
+}
+
+function dtSetToday() {
+  DT_STATE.date = todayStr();
+  document.getElementById('dtDate').value = DT_STATE.date;
+  loadDailyTasks();
+}
+
+function dtChangeDate(offset) {
+  if (!DT_STATE.date) DT_STATE.date = todayStr();
+  const d = new Date(DT_STATE.date + 'T00:00:00');
+  d.setDate(d.getDate() + offset);
+  DT_STATE.date = dtFormatDate(d);
+  document.getElementById('dtDate').value = DT_STATE.date;
+  loadDailyTasks();
+}
+
+async function loadDailyTasks() {
+  // Set date if not yet
+  if (!DT_STATE.date) {
+    DT_STATE.date = document.getElementById('dtDate').value || todayStr();
+    document.getElementById('dtDate').value = DT_STATE.date;
+  }
+  const date = DT_STATE.date;
+  // Display friendly date label
+  const dObj = new Date(date + 'T00:00:00');
+  const labelStr = dObj.toLocaleDateString('en-PH', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' });
+  document.getElementById('dtDateLabel').textContent = '— ' + labelStr;
+
+  try {
+    // Fetch tasks for this date + employees + templates
+    const [tasks, emps, templates] = await Promise.all([
+      pbGetList('tms_tasks', {
+        filter: `due_date>="${date} 00:00:00" && due_date<="${date} 23:59:59"`,
+        sort: 'priority,title',
+        expand: 'assigned_to',
+        perPage: 500
+      }).catch(e => { console.warn('Tasks fetch failed:', e.message); return []; }),
+      BB_EMPS_CACHE.length ? Promise.resolve(BB_EMPS_CACHE) : pbGetList('employees', { filter: 'is_active=true', sort: 'name', perPage: 500 }).catch(()=>[]),
+      pbGetList('task_templates', { filter: 'is_active=true', sort: 'sort_order,name', perPage: 100 }).catch(()=>[])
+    ]);
+
+    DT_STATE.tasks = tasks;
+    DT_STATE.templates = templates;
+    const empList = Array.isArray(emps) ? emps : BB_EMPS_CACHE;
+
+    // Group tasks by employee
+    const byEmp = {};
+    empList.forEach(e => { byEmp[e.id] = { emp: e, tasks: [] }; });
+    tasks.forEach(t => {
+      if (t.assigned_to && byEmp[t.assigned_to]) {
+        byEmp[t.assigned_to].tasks.push(t);
+      }
+    });
+
+    // Render based on current mode
+    if (DT_STATE.mode === 'detail' && DT_STATE.selectedEmpId) {
+      renderDtDetailMode(byEmp[DT_STATE.selectedEmpId]);
+    } else {
+      renderDtTeamGrid(empList, byEmp);
+    }
+  } catch (e) {
+    console.error('loadDailyTasks:', e);
+    document.getElementById('dtTeamGrid').innerHTML = `<div style="grid-column:1/-1;color:#B91C1C;padding:20px;text-align:center;">Failed: ${e.message}</div>`;
+  }
+}
+
+function renderDtTeamGrid(empList, byEmp) {
+  document.getElementById('dtTeamMode').style.display = '';
+  document.getElementById('dtDetailMode').style.display = 'none';
+
+  const grid = document.getElementById('dtTeamGrid');
+  if (!empList.length) {
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:30px;color:#999;">Walang active employees.</div>';
+    return;
+  }
+
+  grid.innerHTML = empList.map(emp => {
+    const data = byEmp[emp.id] || { tasks: [] };
+    const tasks = data.tasks;
+    const done = tasks.filter(t => t.status === 'done').length;
+    const inProgress = tasks.filter(t => t.status === 'in_progress').length;
+    const onHold = tasks.filter(t => t.status === 'blocked').length;
+    const pending = tasks.filter(t => t.status === 'pending' || (!t.status)).length;
+    const totalMins = tasks.reduce((s, t) => s + (t.estimated_minutes || 0), 0);
+    const hasNoTasks = tasks.length === 0;
+
+    const hours = Math.floor(totalMins / 60);
+    const mins = totalMins % 60;
+    const timeStr = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+
+    return `<div onclick="dtOpenEmployee('${emp.id}')" style="background: white; border: 2px solid ${hasNoTasks ? '#E5E7EB' : 'var(--bb-honey)'}; border-radius: 14px; padding: 16px; cursor: pointer; transition: all 0.15s;"
+      onmouseover="this.style.borderColor='#1F2937'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)';"
+      onmouseout="this.style.borderColor='${hasNoTasks ? '#E5E7EB' : 'var(--bb-honey)'}'; this.style.transform='translateY(0)'; this.style.boxShadow='none';">
+      <div style="display:flex; align-items:center; gap: 10px; margin-bottom: 12px;">
+        <div style="width: 40px; height: 40px; background: var(--bb-honey-light); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--bb-honey-dark); font-size: 16px;">${(emp.name || '?').charAt(0).toUpperCase()}</div>
+        <div style="flex: 1;">
+          <div style="font-weight: 700; font-size: 14px; color: #1F2937;">${emp.name}</div>
+          <div style="font-size: 10px; color: var(--bb-gray);">${emp.role === 'live_seller' ? 'Live Seller' : 'Regular Staff'}</div>
+        </div>
+      </div>
+      ${hasNoTasks ? `
+        <div style="text-align: center; padding: 18px 0; color: #9CA3AF; font-size: 12px; font-style: italic;">No tasks yet</div>
+        <div style="text-align: center; font-size: 11px; color: #6B7280; font-weight: 600;">Click to assign</div>
+      ` : `
+        <div style="font-size: 11px; line-height: 1.7;">
+          <div><span style="color: #047857;">✓ Done:</span> <strong>${done}</strong></div>
+          <div><span style="color: #1E40AF;">⏳ In Progress:</span> <strong>${inProgress}</strong></div>
+          <div><span style="color: #92400E;">⏸ On Hold:</span> <strong>${onHold}</strong></div>
+          ${pending > 0 ? `<div><span style="color: #6B7280;">○ Pending:</span> <strong>${pending}</strong></div>` : ''}
+        </div>
+        <div style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed #E5E7EB; display: flex; justify-content: space-between; font-size: 12px;">
+          <span style="color: var(--bb-gray);">Total: <strong style="color:#1F2937;">${tasks.length} tasks</strong></span>
+          <span style="color: var(--bb-honey-dark); font-weight: 700;">${timeStr}</span>
+        </div>
+      `}
+    </div>`;
+  }).join('');
+}
+
+function dtOpenEmployee(empId) {
+  DT_STATE.mode = 'detail';
+  DT_STATE.selectedEmpId = empId;
+  loadDailyTasks();
+}
+
+function dtBackToTeam() {
+  DT_STATE.mode = 'team';
+  DT_STATE.selectedEmpId = null;
+  loadDailyTasks();
+}
+
+function renderDtDetailMode(empData) {
+  if (!empData) { dtBackToTeam(); return; }
+  document.getElementById('dtTeamMode').style.display = 'none';
+  document.getElementById('dtDetailMode').style.display = '';
+
+  const emp = empData.emp;
+  const tasks = empData.tasks;
+  const dObj = new Date(DT_STATE.date + 'T00:00:00');
+  const dateLabel = dObj.toLocaleDateString('en-PH', { weekday: 'short', month: 'short', day: 'numeric' });
+  document.getElementById('dtDetailHeader').innerHTML = `${emp.name}'s Tasks <span style="font-size:13px;color:var(--bb-gray);font-weight:400;">— ${dateLabel}</span>`;
+
+  // Summary
+  const done = tasks.filter(t => t.status === 'done').length;
+  const inProgress = tasks.filter(t => t.status === 'in_progress').length;
+  const onHold = tasks.filter(t => t.status === 'blocked').length;
+  const pending = tasks.filter(t => t.status === 'pending' || !t.status).length;
+  const totalEst = tasks.reduce((s, t) => s + (t.estimated_minutes || 0), 0);
+  const totalActual = tasks.reduce((s, t) => s + (t.actual_minutes || 0), 0);
+  const fmtMins = m => m >= 60 ? `${Math.floor(m/60)}h ${m%60}m` : `${m}m`;
+
+  document.getElementById('dtDetailSummary').innerHTML = `
+    <div style="display: flex; gap: 18px; flex-wrap: wrap; align-items: center;">
+      <div><strong>Total:</strong> ${tasks.length} tasks</div>
+      <div style="color:#047857;">✓ Done: <strong>${done}</strong></div>
+      <div style="color:#1E40AF;">⏳ In Progress: <strong>${inProgress}</strong></div>
+      <div style="color:#92400E;">⏸ On Hold: <strong>${onHold}</strong></div>
+      ${pending > 0 ? `<div style="color:#6B7280;">○ Pending: <strong>${pending}</strong></div>` : ''}
+      <div style="margin-left:auto;"><strong>Estimated:</strong> ${fmtMins(totalEst)}${totalActual > 0 ? ' &nbsp; <strong>Actual:</strong> ' + fmtMins(totalActual) : ''}</div>
+    </div>
+  `;
+
+  // Template quick-add row
+  const tmplDiv = document.getElementById('dtTemplateQuickAdd');
+  if (DT_STATE.templates.length) {
+    tmplDiv.innerHTML = `
+      <div style="font-size: 11px; color: var(--bb-gray); margin-bottom: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px;">🌱 Quick-add from templates:</div>
+      <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+        ${DT_STATE.templates.map(t => `
+          <button onclick="dtAddFromTemplate('${t.id}')" style="padding: 6px 12px; background: white; border: 1.5px solid #E5E7EB; border-radius: 8px; cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 6px;"
+            onmouseover="this.style.borderColor='var(--bb-honey)';"
+            onmouseout="this.style.borderColor='#E5E7EB';">
+            <span>${t.icon || '📌'}</span>
+            <span>${t.name}</span>
+            <span style="color:var(--bb-gray);font-size:10px;">(${t.default_minutes}m)</span>
+          </button>
+        `).join('')}
+      </div>
+    `;
+  } else {
+    tmplDiv.innerHTML = '<div style="font-size: 11px; color: var(--bb-gray); font-style: italic;">No templates yet — click 🌱 Seed Defaults sa team view or ⚙️ Templates to add.</div>';
+  }
+
+  // Tasks list
+  const listEl = document.getElementById('dtTaskList');
+  if (!tasks.length) {
+    listEl.innerHTML = `<div style="text-align:center; padding: 30px; color:#999; background: #FAFAFA; border: 1px dashed #E5E7EB; border-radius: 10px;">📭 Walang tasks pa kay ${emp.name} para sa ${dateLabel}.<br><br>Type a task above or tap a template.</div>`;
+    return;
+  }
+
+  // Sort: pending → in_progress → blocked → done
+  const statusOrder = { pending: 0, undefined: 0, in_progress: 1, blocked: 2, done: 3 };
+  const sortedTasks = [...tasks].sort((a, b) => (statusOrder[a.status] || 0) - (statusOrder[b.status] || 0));
+
+  listEl.innerHTML = sortedTasks.map(t => {
+    const status = t.status || 'pending';
+    const statusInfo = {
+      pending: { label: '○ Pending', bg: '#F3F4F6', color: '#6B7280' },
+      in_progress: { label: '⏳ In Progress', bg: '#DBEAFE', color: '#1E40AF' },
+      blocked: { label: '⏸ On Hold', bg: '#FEF3C7', color: '#92400E' },
+      done: { label: '✓ Done', bg: '#D1FAE5', color: '#047857' }
+    }[status] || { label: '○ Pending', bg: '#F3F4F6', color: '#6B7280' };
+
+    return `<div style="background: white; border: 1px solid ${status === 'done' ? '#D1FAE5' : '#E5E7EB'}; border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; display: flex; align-items: center; gap: 12px; ${status === 'done' ? 'opacity: 0.7;' : ''}">
+      <button onclick="dtCycleStatus('${t.id}')" style="background:${statusInfo.bg}; color:${statusInfo.color}; padding: 6px 12px; border: none; border-radius: 8px; font-size: 11px; font-weight: 700; cursor: pointer; white-space: nowrap;" title="Click to cycle: Pending → In Progress → On Hold → Done">
+        ${statusInfo.label}
+      </button>
+      <div style="flex:1; min-width: 0;">
+        <div style="font-weight: 600; font-size: 14px; color: #1F2937; ${status === 'done' ? 'text-decoration: line-through;' : ''}">${t.title}</div>
+        ${t.notes ? `<div style="font-size:11px;color:var(--bb-gray);margin-top:2px;">${t.notes}</div>` : ''}
+      </div>
+      <div style="font-size: 12px; color: var(--bb-gray); white-space: nowrap;">
+        <strong>${t.estimated_minutes || 0}m</strong>
+        ${t.actual_minutes ? `<br><small>actual: ${t.actual_minutes}m</small>` : ''}
+      </div>
+      <button onclick="dtOpenEditTask('${t.id}')" title="Edit" style="background: none; border: 1px solid #E5E7EB; padding: 6px 10px; border-radius: 8px; cursor: pointer; font-size: 12px;">✏️</button>
+    </div>`;
+  }).join('');
+}
+
+async function dtAddNewTask() {
+  const title = document.getElementById('dtNewTitle').value.trim();
+  const mins = parseInt(document.getElementById('dtNewMinutes').value);
+  if (!title) { toast('Task title required', 'err'); return; }
+  if (!mins || mins < 1) { toast('Valid minutes required', 'err'); return; }
+  if (!DT_STATE.selectedEmpId || !DT_STATE.date) { toast('Pick employee + date first', 'err'); return; }
+  const me = (kioskState.selectedUser && kioskState.selectedUser.name) || 'admin';
+  try {
+    await pbCreate('tms_tasks', {
+      title,
+      estimated_minutes: mins,
+      assigned_to: DT_STATE.selectedEmpId,
+      due_date: DT_STATE.date,
+      status: 'pending',
+      category: 'Daily',
+      priority: 'Medium',
+      urgency: 'Not Urgent'
+    });
+    document.getElementById('dtNewTitle').value = '';
+    document.getElementById('dtNewMinutes').value = '';
+    document.getElementById('dtNewTitle').focus();
+    toast('✓ Task added', 'ok');
+    loadDailyTasks();
+  } catch (e) {
+    // Fallback: try minimal body if PB rejects fields
+    try {
+      await pbCreate('tms_tasks', {
+        title,
+        assigned_to: DT_STATE.selectedEmpId,
+        due_date: DT_STATE.date,
+        status: 'pending',
+        category: 'Daily',
+        priority: 'Medium',
+        urgency: 'Not Urgent'
+      });
+      document.getElementById('dtNewTitle').value = '';
+      document.getElementById('dtNewMinutes').value = '';
+      toast('✓ Task added (estimated_minutes not yet in schema — run setup tool)', 'warn');
+      loadDailyTasks();
+    } catch (e2) {
+      alert('Failed: ' + e2.message);
+    }
+  }
+}
+
+async function dtAddFromTemplate(templateId) {
+  const tmpl = DT_STATE.templates.find(t => t.id === templateId);
+  if (!tmpl) return;
+  if (!DT_STATE.selectedEmpId || !DT_STATE.date) return;
+  try {
+    const body = {
+      title: tmpl.name,
+      estimated_minutes: tmpl.default_minutes,
+      assigned_to: DT_STATE.selectedEmpId,
+      due_date: DT_STATE.date,
+      status: 'pending',
+      category: tmpl.category || 'Daily',
+      priority: tmpl.priority || 'Medium',
+      urgency: 'Not Urgent',
+      notes: tmpl.default_notes || ''
+    };
+    try {
+      await pbCreate('tms_tasks', body);
+    } catch (e) {
+      delete body.estimated_minutes;
+      await pbCreate('tms_tasks', body);
+    }
+    // Update use_count
+    pbUpdate('task_templates', tmpl.id, {
+      use_count: (tmpl.use_count || 0) + 1,
+      last_used: new Date().toISOString()
+    }).catch(()=>{});
+    toast(`✓ ${tmpl.icon || ''} ${tmpl.name} added (${tmpl.default_minutes}m)`, 'ok');
+    loadDailyTasks();
+  } catch (e) { alert('Failed: ' + e.message); }
+}
+
+async function dtCycleStatus(taskId) {
+  const task = DT_STATE.tasks.find(t => t.id === taskId);
+  if (!task) return;
+  // Cycle: pending → in_progress → blocked → done → pending
+  const cycle = { pending: 'in_progress', undefined: 'in_progress', in_progress: 'blocked', blocked: 'done', done: 'pending' };
+  const newStatus = cycle[task.status || 'pending'];
+  try {
+    const body = { status: newStatus };
+    if (newStatus === 'done') body.completed_at = new Date().toISOString();
+    await pbUpdate('tms_tasks', taskId, body);
+    loadDailyTasks();
+  } catch (e) { toast('Failed: ' + e.message, 'err'); }
+}
+
+async function dtOpenEditTask(taskId) {
+  const task = DT_STATE.tasks.find(t => t.id === taskId);
+  if (!task) return;
+  document.getElementById('dteId').value = task.id;
+  document.getElementById('dteTitle').value = task.title || '';
+  document.getElementById('dteMinutes').value = task.estimated_minutes || '';
+  document.getElementById('dteActual').value = task.actual_minutes || '';
+  document.getElementById('dteStatus').value = task.status || 'pending';
+  document.getElementById('dtePriority').value = task.priority || 'Medium';
+  document.getElementById('dteNotes').value = task.notes || '';
+  document.getElementById('dtEditTaskModal').classList.add('open');
+}
+
+async function dtSaveTaskEdit() {
+  const id = document.getElementById('dteId').value;
+  const title = document.getElementById('dteTitle').value.trim();
+  const mins = parseInt(document.getElementById('dteMinutes').value);
+  if (!title || !mins) { toast('Title + Minutes required', 'err'); return; }
+  const body = {
+    title,
+    estimated_minutes: mins,
+    status: document.getElementById('dteStatus').value,
+    priority: document.getElementById('dtePriority').value,
+    notes: document.getElementById('dteNotes').value || ''
+  };
+  const actual = parseInt(document.getElementById('dteActual').value);
+  if (!isNaN(actual) && actual >= 0) body.actual_minutes = actual;
+  if (body.status === 'done') body.completed_at = new Date().toISOString();
+  try {
+    await pbUpdate('tms_tasks', id, body);
+    closeModal('dtEditTaskModal');
+    toast('✓ Task updated', 'ok');
+    loadDailyTasks();
+  } catch (e) {
+    // Fallback without estimated_minutes/actual_minutes if schema not upgraded
+    try {
+      delete body.estimated_minutes;
+      delete body.actual_minutes;
+      await pbUpdate('tms_tasks', id, body);
+      closeModal('dtEditTaskModal');
+      toast('✓ Saved (minutes fields skipped — run setup)', 'warn');
+      loadDailyTasks();
+    } catch (e2) { alert('Failed: ' + e2.message); }
+  }
+}
+
+async function dtDeleteTask() {
+  const id = document.getElementById('dteId').value;
+  if (!confirm('Delete this task permanently?')) return;
+  try {
+    await fetch(PB_API + '/collections/tms_tasks/records/' + id, { method: 'DELETE' });
+    closeModal('dtEditTaskModal');
+    toast('✓ Task deleted', 'ok');
+    loadDailyTasks();
+  } catch (e) { alert('Failed: ' + e.message); }
+}
+
+/* ===== TASK TEMPLATES MANAGEMENT ===== */
+async function openManageTaskTemplates() {
+  resetTaskTemplateForm();
+  document.getElementById('taskTemplatesModal').classList.add('open');
+  refreshTaskTemplatesList();
+}
+
+function resetTaskTemplateForm() {
+  document.getElementById('tmtId').value = '';
+  document.getElementById('tmtFormTitle').textContent = '➕ New Template';
+  document.getElementById('tmtIcon').value = '';
+  document.getElementById('tmtName').value = '';
+  document.getElementById('tmtMinutes').value = '';
+  document.getElementById('tmtCategory').value = 'Daily';
+  document.getElementById('tmtPriority').value = 'Medium';
+  document.getElementById('tmtSort').value = '10';
+  document.getElementById('tmtNotes').value = '';
+  document.getElementById('tmtDelBtn').style.display = 'none';
+}
+
+async function refreshTaskTemplatesList() {
+  try {
+    const all = await pbGetList('task_templates', { sort: 'sort_order,name', perPage: 200 });
+    const body = document.getElementById('taskTemplatesBody');
+    if (!all.length) {
+      body.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:14px;color:#999;">Walang templates pa. Type sa form sa taas, o click "🌱 Seed Defaults" sa team view.</td></tr>';
+      return;
+    }
+    body.innerHTML = all.map(t => `<tr>
+      <td><strong>${t.sort_order || 0}</strong></td>
+      <td style="font-size: 22px; text-align: center;">${t.icon || '📌'}</td>
+      <td><strong>${t.name}</strong>${t.default_notes ? '<div style="font-size:10px;color:#888;">' + t.default_notes + '</div>' : ''}</td>
+      <td><strong>${t.default_minutes}m</strong></td>
+      <td><small>${t.category || '—'} · ${t.priority || '—'}</small></td>
+      <td><strong>${t.use_count || 0}</strong></td>
+      <td><button class="btn btn-ghost btn-sm" onclick="editTaskTemplate('${t.id}')">Edit</button></td>
+    </tr>`).join('');
+  } catch (e) {
+    document.getElementById('taskTemplatesBody').innerHTML = `<tr><td colspan="7" style="text-align:center;padding:14px;color:#B91C1C;">Failed: ${e.message}<br><small>Run setup_pb_collections.html para magawa ang task_templates collection.</small></td></tr>`;
+  }
+}
+
+async function editTaskTemplate(id) {
+  try {
+    const r = await fetch(PB_API + '/collections/task_templates/records/' + id);
+    if (!r.ok) throw new Error('Not found');
+    const t = await r.json();
+    document.getElementById('tmtId').value = t.id;
+    document.getElementById('tmtFormTitle').textContent = '✏️ Edit Template';
+    document.getElementById('tmtIcon').value = t.icon || '';
+    document.getElementById('tmtName').value = t.name || '';
+    document.getElementById('tmtMinutes').value = t.default_minutes || '';
+    document.getElementById('tmtCategory').value = t.category || 'Daily';
+    document.getElementById('tmtPriority').value = t.priority || 'Medium';
+    document.getElementById('tmtSort').value = t.sort_order || 10;
+    document.getElementById('tmtNotes').value = t.default_notes || '';
+    document.getElementById('tmtDelBtn').style.display = 'inline-flex';
+  } catch (e) { alert('Failed: ' + e.message); }
+}
+
+async function saveTaskTemplate() {
+  const id = document.getElementById('tmtId').value;
+  const name = document.getElementById('tmtName').value.trim();
+  const mins = parseInt(document.getElementById('tmtMinutes').value);
+  if (!name) { toast('Name required', 'err'); return; }
+  if (!mins || mins < 1) { toast('Valid minutes required', 'err'); return; }
+  const body = {
+    name,
+    icon: document.getElementById('tmtIcon').value.trim() || '📌',
+    default_minutes: mins,
+    category: document.getElementById('tmtCategory').value,
+    priority: document.getElementById('tmtPriority').value,
+    sort_order: parseInt(document.getElementById('tmtSort').value) || 10,
+    default_notes: document.getElementById('tmtNotes').value.trim() || '',
+    is_active: true
+  };
+  try {
+    if (id) { await pbUpdate('task_templates', id, body); toast('✓ Template updated', 'ok'); }
+    else { await pbCreate('task_templates', body); toast('✓ Template created', 'ok'); }
+    resetTaskTemplateForm();
+    await refreshTaskTemplatesList();
+  } catch (e) { toast('Failed: ' + e.message, 'err'); }
+}
+
+async function deleteTaskTemplate() {
+  const id = document.getElementById('tmtId').value;
+  if (!id || !confirm('Delete this template?')) return;
+  try {
+    await fetch(PB_API + '/collections/task_templates/records/' + id, { method: 'DELETE' });
+    toast('✓ Template deleted', 'ok');
+    resetTaskTemplateForm();
+    await refreshTaskTemplatesList();
+  } catch (e) { alert('Failed: ' + e.message); }
+}
+
+async function seedDefaultTaskTemplates() {
+  const defaults = [
+    { name: 'Pack orders', icon: '📦', default_minutes: 30, category: 'Daily', priority: 'Medium', sort_order: 10, default_notes: 'Standard order packing' },
+    { name: 'Live stream prep', icon: '📺', default_minutes: 60, category: 'Daily', priority: 'High', sort_order: 20, default_notes: 'Setup camera, lights, products' },
+    { name: 'Reply customer messages', icon: '💬', default_minutes: 30, category: 'Daily', priority: 'High', sort_order: 30, default_notes: '' },
+    { name: 'Inventory count', icon: '📊', default_minutes: 60, category: 'Daily', priority: 'Medium', sort_order: 40, default_notes: '' },
+    { name: 'Clean storage area', icon: '🧹', default_minutes: 30, category: 'Daily', priority: 'Low', sort_order: 50, default_notes: '5S cleanup' },
+    { name: 'Post on social media', icon: '📱', default_minutes: 20, category: 'Daily', priority: 'Medium', sort_order: 60, default_notes: '' },
+    { name: 'Process refunds', icon: '💸', default_minutes: 45, category: 'Special', priority: 'High', sort_order: 70, default_notes: '' },
+    { name: 'Weekly check-in', icon: '📝', default_minutes: 15, category: 'Scheduled', priority: 'Medium', sort_order: 80, default_notes: 'Hansei reflection' }
+  ];
+  if (!confirm(`Mag-add ng ${defaults.length} starter task templates? (Pwede mong i-edit kalaunan.)`)) return;
+  try {
+    const existing = await pbGetList('task_templates', { perPage: 200 }).catch(()=>[]);
+    const existingNames = new Set(existing.map(e => e.name.toLowerCase()));
+    let created = 0, skipped = 0;
+    for (const d of defaults) {
+      if (existingNames.has(d.name.toLowerCase())) { skipped++; continue; }
+      try {
+        await pbCreate('task_templates', { ...d, is_active: true, use_count: 0 });
+        created++;
+      } catch (e) { console.warn('Seed failed for', d.name, ':', e.message); }
+    }
+    toast(`✓ Seeded ${created} templates${skipped ? ' (' + skipped + ' already existed)' : ''}`, 'ok');
+    loadDailyTasks();
+  } catch (e) {
+    alert('Seed failed: ' + e.message + '\n\nMake sure task_templates collection exists — run setup_pb_collections.html.');
+  }
+}
+
 async function loadTmsTasksFromPB() {
   // Progressive fallback: try most-featured query first, then strip features one by one.
   // Some PB instances fail on sort=-created if any record has invalid timestamp.
@@ -15610,6 +16261,7 @@ async function renderViewSpecific(view) {
   else if (view === 'bbCashFlow') loadBbCashFlow();
   else if (view === 'bbPayroll') loadBbPayroll();
   else if (view === 'bbOtApproval') loadBbOtApproval();
+  else if (view === 'dailyTasks') loadDailyTasks();
   else if (view === 'bbCheckins') loadBbCheckins();
   else if (view === 'bbSched') loadBbSchedules();
   else if (view === 'bbCA') loadBbCA();
