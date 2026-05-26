@@ -8561,6 +8561,33 @@ async function rejectOt() {
   } catch (e) { alert('Reject failed: ' + e.message); }
 }
 
+/* Sync payroll record to recomputed values from the daily breakdown.
+ * Called from the yellow "Sync to Recomputed Values" button sa payslip when stored != breakdown.
+ */
+async function syncPayrollFromBreakdown(payrollId, regHrs, liveHrs, otHrs, lateMins, gross, net, lateDeduct) {
+  if (!confirm(`📌 Sync this payroll record to the recomputed values?\n\nNew values:\n• Regular: ${regHrs.toFixed(2)}h\n• Live: ${liveHrs.toFixed(2)}h\n• OT: ${otHrs.toFixed(2)}h\n• Late: ${lateMins}m\n• Gross: ₱${gross.toLocaleString()}\n• Net: ₱${net.toLocaleString()}\n\nProceed?`)) return;
+  try {
+    const body = {
+      reg_hours: parseFloat(regHrs.toFixed(2)),
+      live_hours: parseFloat(liveHrs.toFixed(2)),
+      ot_hours: parseFloat(otHrs.toFixed(2)),
+      late_minutes: parseInt(lateMins),
+      late_deduction: parseFloat(parseFloat(lateDeduct).toFixed(2)),
+      gross_pay: parseFloat(parseFloat(gross).toFixed(2)),
+      net_pay: parseFloat(parseFloat(net).toFixed(2))
+    };
+    await pbUpdate('payroll_periods', payrollId, body);
+    const me = (kioskState.selectedUser && kioskState.selectedUser.name) || 'admin';
+    pbCreate('action_log', {
+      module: 'payroll', action: 'update', collection: 'payroll_periods', record_id: payrollId,
+      new_value: JSON.stringify({ sync_from_breakdown: true, by: me, new: body })
+    }).catch(()=>{});
+    toast('✓ Payroll synced to recomputed values', 'ok');
+    closeModal('payslipModal');
+    loadBbPayroll();
+  } catch (e) { alert('Sync failed: ' + e.message); }
+}
+
 /* Programmatic view navigation — clicks the nav-item with given data-view */
 function navigateView(viewName) {
   const item = document.querySelector(`.nav-item[data-view="${viewName}"]`);
@@ -9246,11 +9273,8 @@ async function viewBbPayslip(periodId) {
     });
     const sortedDates = Object.keys(byDate).sort();
 
-    const regPay = (p.reg_hours || 0) * regRate;
-    const livePay = (p.live_hours || 0) * liveRate;
     const otMultiplier = await getAppConfig('ot_rate_multiplier', 1.0);
     const otRate = regRate * (otMultiplier || 1.0);
-    const otPay = (p.ot_hours || 0) * otRate;
     // break_deduction excluded — it's already removed from reg_hours (no double-deduction per JIS)
     const totalDed = (p.late_deduction || 0) + (p.sss_ee || 0) + (p.phic_ee || 0) + (p.pagibig_ee || 0) + (p.cash_advance || 0);
 
@@ -9258,7 +9282,7 @@ async function viewBbPayslip(periodId) {
 
     // Build per-day breakdown HTML — apply same logic as compute (break + 8-hr cap + OT)
     let breakdownHtml = '';
-    let sumPaidReg = 0, sumPaidOt = 0, sumTrimmed = 0, sumRawLate = 0, sumAppliedLate = 0, sumBreak = 0;
+    let sumPaidReg = 0, sumPaidOt = 0, sumPaidLive = 0, sumTrimmed = 0, sumRawLate = 0, sumAppliedLate = 0, sumBreak = 0;
     if (sortedDates.length) {
       breakdownHtml = `
       <div style="font-size: 11px; font-weight: 600; color: var(--bb-gray); text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 8px; display:flex; justify-content:space-between;">
@@ -9320,6 +9344,7 @@ async function viewBbPayslip(periodId) {
 
           sumPaidReg += regHrs;
           sumPaidOt += otHrs;
+          sumPaidLive += liveHrs;
           sumTrimmed += trimmedHrs;
           sumRawLate += rawLate;
           sumAppliedLate += appliedLate;
@@ -9382,6 +9407,36 @@ async function viewBbPayslip(periodId) {
       </div>`;
     }
 
+    // === EARNINGS: use SUMS from daily breakdown (JIS-consistent, OT-approval aware) ===
+    // This ensures the Earnings section always matches the Daily Breakdown totals.
+    const regPay = sumPaidReg * regRate;
+    const livePay = sumPaidLive * liveRate;
+    const otPay = sumPaidOt * otRate;
+    const lateDeductHrs = sumAppliedLate / 60;
+    const lateDeductPeso = lateDeductHrs * regRate;
+    const computedGross = regPay + livePay + otPay;
+    const computedNet = computedGross - lateDeductPeso - (p.sss_ee || 0) - (p.phic_ee || 0) - (p.pagibig_ee || 0) - (p.cash_advance || 0) + (p.allowance || 0);
+    const totalDedRecomputed = lateDeductPeso + (p.sss_ee || 0) + (p.phic_ee || 0) + (p.pagibig_ee || 0) + (p.cash_advance || 0);
+
+    // Detect mismatch between stored values and live recompute — show sync warning
+    const storedReg = p.reg_hours || 0;
+    const storedLive = p.live_hours || 0;
+    const storedOt = p.ot_hours || 0;
+    const isOutOfSync = (
+      Math.abs(storedReg - sumPaidReg) > 0.05 ||
+      Math.abs(storedLive - sumPaidLive) > 0.05 ||
+      Math.abs(storedOt - sumPaidOt) > 0.05
+    );
+
+    const syncWarning = isOutOfSync ? `
+      <div style="background: #FEF3C7; border-left: 4px solid #F59E0B; padding: 12px 14px; border-radius: 8px; margin-bottom: 14px; font-size: 12px; color: #92400E;">
+        ⚠ <strong>Out-of-sync detected</strong> — saved payroll record has OLD computed values. Daily breakdown below uses the new JIS-strict logic.
+        <br>📌 <strong>Stored:</strong> ${storedReg.toFixed(2)}h reg / ${storedLive.toFixed(2)}h live / ${storedOt.toFixed(2)}h OT
+        &nbsp;|&nbsp; <strong>Should be:</strong> ${sumPaidReg.toFixed(2)}h reg / ${sumPaidLive.toFixed(2)}h live / ${sumPaidOt.toFixed(2)}h OT
+        <br><button class="btn btn-primary btn-sm" onclick="syncPayrollFromBreakdown('${p.id}', ${sumPaidReg}, ${sumPaidLive}, ${sumPaidOt}, ${sumAppliedLate}, ${computedGross.toFixed(2)}, ${computedNet.toFixed(2)}, ${lateDeductPeso.toFixed(2)})" style="margin-top: 8px;">🔄 Sync to Recomputed Values</button>
+      </div>
+    ` : '';
+
     document.getElementById('payslipBody').innerHTML = `
       <div style="background: var(--bb-honey-light); padding: 14px 16px; border-radius: 10px; margin-bottom: 16px;">
         <div style="font-weight: 700; font-size: 16px;">${e ? e.name : 'Unknown Employee'}</div>
@@ -9389,29 +9444,31 @@ async function viewBbPayslip(periodId) {
         <div style="font-size: 11px; color: var(--bb-gray); margin-top: 4px;">Cutoff: ${fmtDate(p.period_start)} → ${fmtDate(p.period_end)}</div>
       </div>
 
+      ${syncWarning}
       ${breakdownHtml}
 
-      <div style="font-size: 11px; font-weight: 600; color: var(--bb-gray); text-transform: uppercase; letter-spacing: 0.5px; margin: 14px 0 4px;">Earnings</div>
-      ${row(`Regular (${(p.reg_hours || 0).toFixed(2)}h × ₱${regRate.toFixed(2)})`, '₱' + regPay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }))}
-      ${row(`Live Selling (${(p.live_hours || 0).toFixed(2)}h × ₱${liveRate.toFixed(2)})`, '₱' + livePay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }))}
-      ${(p.ot_hours || 0) > 0 ? row(`Overtime (${(p.ot_hours || 0).toFixed(2)}h × ₱${otRate.toFixed(2)}, ${otMultiplier}×)`, '₱' + otPay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })) : ''}
+      <div style="font-size: 11px; font-weight: 600; color: var(--bb-gray); text-transform: uppercase; letter-spacing: 0.5px; margin: 14px 0 4px;">Earnings (from Daily Breakdown — JIS-consistent)</div>
+      ${row(`Regular (${sumPaidReg.toFixed(2)}h × ₱${regRate.toFixed(2)})`, '₱' + regPay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }))}
+      ${row(`Live Selling (${sumPaidLive.toFixed(2)}h × ₱${liveRate.toFixed(2)})`, '₱' + livePay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }))}
+      ${sumPaidOt > 0 ? row(`Overtime (${sumPaidOt.toFixed(2)}h × ₱${otRate.toFixed(2)}, ${otMultiplier}×)`, '₱' + otPay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })) : ''}
       ${row('Allowance', '₱' + (p.allowance || 0).toLocaleString(undefined, { minimumFractionDigits: 2 }))}
-      ${row('<strong>Gross Pay</strong>', '<strong>₱' + (p.gross_pay || 0).toLocaleString(undefined, { minimumFractionDigits: 2 }) + '</strong>', true)}
+      ${row('<strong>Gross Pay (recomputed)</strong>', '<strong>₱' + computedGross.toLocaleString(undefined, { minimumFractionDigits: 2 }) + '</strong>', true)}
 
       <div style="font-size: 11px; font-weight: 600; color: var(--bb-gray); text-transform: uppercase; letter-spacing: 0.5px; margin: 14px 0 4px;">Deductions</div>
-      ${row(`Late (${p.late_minutes || 0} mins)`, '-₱' + (p.late_deduction || 0).toLocaleString(undefined, { minimumFractionDigits: 2 }))}
+      ${row(`Late (${sumAppliedLate} mins, ${lateDeductHrs.toFixed(2)}h)`, '-₱' + lateDeductPeso.toLocaleString(undefined, { minimumFractionDigits: 2 }))}
       ${row('SSS', '-₱' + (p.sss_ee || 0).toLocaleString(undefined, { minimumFractionDigits: 2 }))}
       ${row('PhilHealth', '-₱' + (p.phic_ee || 0).toLocaleString(undefined, { minimumFractionDigits: 2 }))}
       ${row('Pag-IBIG', '-₱' + (p.pagibig_ee || 0).toLocaleString(undefined, { minimumFractionDigits: 2 }))}
       ${row('Cash Advance', '-₱' + (p.cash_advance || 0).toLocaleString(undefined, { minimumFractionDigits: 2 }))}
-      ${row('<strong>Total Deductions</strong>', '<strong>-₱' + totalDed.toLocaleString(undefined, { minimumFractionDigits: 2 }) + '</strong>', true)}
+      ${row('<strong>Total Deductions</strong>', '<strong>-₱' + totalDedRecomputed.toLocaleString(undefined, { minimumFractionDigits: 2 }) + '</strong>', true)}
       <div style="font-size: 10px; color: var(--bb-gray); margin-top: 4px; font-style: italic;">Note: Break hours (1h/day for ≥8h shifts) ay nakatanggal na sa Regular hours sa taas — hindi na bawasin ulit dito (JIS standard, no double-deduction).</div>
 
       <div style="background: var(--bb-green-light); padding: 14px 16px; border-radius: 10px; margin-top: 14px;">
         <div style="display:flex; justify-content: space-between; align-items: center;">
-          <div style="font-weight: 700; font-size: 16px; color: var(--bb-green);">NET PAY</div>
-          <div style="font-weight: 800; font-size: 22px; color: var(--bb-green);">₱${(p.net_pay || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+          <div style="font-weight: 700; font-size: 16px; color: var(--bb-green);">NET PAY (recomputed)</div>
+          <div style="font-weight: 800; font-size: 22px; color: var(--bb-green);">₱${computedNet.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
         </div>
+        ${isOutOfSync ? '<div style="font-size: 10px; color: var(--bb-gray); margin-top: 6px;">Stored value: ₱' + (p.net_pay || 0).toLocaleString() + ' — click "Sync" above to update record.</div>' : ''}
       </div>
 
       <div style="margin-top: 14px; font-size: 11px; color: var(--bb-gray); text-align: center;">
@@ -11601,10 +11658,23 @@ async function saveManualDtr() {
     const rawLate = parseInt(lateMinsInput) || 0;
     body.late_minutes = rawLate;
   }
-  // Manual OT hours (only meaningful if type='ot')
+  // Manual OT hours — JIS: admin-entered OT = pre-approved (admin is the source of truth)
+  // Works for ANY type (not just 'ot') since admin can correct DTR + add OT in one go
   const otHoursInput = document.getElementById('mdOtHours').value;
-  if (otHoursInput !== '' && body.type === 'ot') {
-    body.ot_hours = parseFloat(otHoursInput) || 0;
+  if (otHoursInput !== '') {
+    const otHrs = parseFloat(otHoursInput) || 0;
+    if (otHrs > 0) {
+      body.ot_hours = otHrs;
+      // AUTO-APPROVE manual entries — no need to also approve via OT Approvals tab
+      body.ot_status = 'approved';
+      body.ot_approved_hours = otHrs;
+      body.ot_approved_by = (kioskState.selectedUser && kioskState.selectedUser.name) || 'admin';
+      body.ot_decision_notes = 'Auto-approved (manual DTR entry by admin)';
+    } else {
+      // 0 OT — clear any prior values
+      body.ot_hours = 0;
+      body.ot_approved_hours = 0;
+    }
   }
   try {
     let saved;
