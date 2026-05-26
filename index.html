@@ -2670,19 +2670,59 @@
 
         <div class="card">
           <div class="card-h">
-            <h3>Recent Live Sessions</h3>
-            <div style="display:flex; gap:8px;">
+            <h3>Live Sessions <span id="bbLiveSessionsCount" style="font-size: 12px; color: var(--bb-gray); font-weight: 400;"></span></h3>
+            <div style="display:flex; gap:8px; flex-wrap: wrap;">
               <button class="btn btn-secondary btn-sm" onclick="exportToCsv('live_sessions')">⬇ CSV</button>
               <button class="btn btn-secondary btn-sm" onclick="loadBbSales()">⟳ Refresh</button>
               <button class="btn btn-primary btn-sm" data-extra-perm="edit_dtr" onclick="openLiveSessionModal()">+ Manual Live Session</button>
             </div>
           </div>
+
+          <!-- FILTER ROW: date range + employee -->
+          <div style="background: #F9FAFB; padding: 12px 14px; border-radius: 8px; margin-bottom: 12px; display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end;">
+            <div>
+              <label style="font-size: 10px; color: var(--bb-gray); text-transform: uppercase; font-weight: 600; letter-spacing: 0.4px; display:block; margin-bottom:3px;">Date Range</label>
+              <select id="bbLiveFilter" onchange="onBbLiveFilterChange()" style="padding: 7px 10px; border: 1px solid var(--bb-border); border-radius: 6px; font-size: 13px;">
+                <option value="today">Today</option>
+                <option value="week" selected>This Week</option>
+                <option value="month">This Month</option>
+                <option value="last_month">Last Month</option>
+                <option value="all">All Time</option>
+                <option value="custom">Custom...</option>
+              </select>
+            </div>
+            <div id="bbLiveCustomRange" style="display: none; gap: 8px;">
+              <div>
+                <label style="font-size: 10px; color: var(--bb-gray); text-transform: uppercase; font-weight: 600; letter-spacing: 0.4px; display:block; margin-bottom:3px;">From</label>
+                <input type="date" id="bbLiveDateFrom" style="padding: 7px 10px; border: 1px solid var(--bb-border); border-radius: 6px; font-size: 13px;" onchange="loadBbSales()">
+              </div>
+              <div>
+                <label style="font-size: 10px; color: var(--bb-gray); text-transform: uppercase; font-weight: 600; letter-spacing: 0.4px; display:block; margin-bottom:3px;">To</label>
+                <input type="date" id="bbLiveDateTo" style="padding: 7px 10px; border: 1px solid var(--bb-border); border-radius: 6px; font-size: 13px;" onchange="loadBbSales()">
+              </div>
+            </div>
+            <div>
+              <label style="font-size: 10px; color: var(--bb-gray); text-transform: uppercase; font-weight: 600; letter-spacing: 0.4px; display:block; margin-bottom:3px;">Seller</label>
+              <select id="bbLiveEmpFilter" onchange="loadBbSales()" style="padding: 7px 10px; border: 1px solid var(--bb-border); border-radius: 6px; font-size: 13px; min-width: 160px;">
+                <option value="">All sellers</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size: 10px; color: var(--bb-gray); text-transform: uppercase; font-weight: 600; letter-spacing: 0.4px; display:block; margin-bottom:3px;">Status</label>
+              <select id="bbLiveStatusFilter" onchange="loadBbSales()" style="padding: 7px 10px; border: 1px solid var(--bb-border); border-radius: 6px; font-size: 13px;">
+                <option value="">All status</option>
+                <option value="done">Done</option>
+                <option value="active">Active</option>
+              </select>
+            </div>
+          </div>
+
           <p style="font-size: 12px; color: var(--bb-gray); margin-bottom: 8px;">
-            Admin can force-end active sessions, edit completed ones, or add a retroactive session. JIS-aligned: every change leaves audit trail in action_log.
+            Full CRUD on live sessions — Edit / Delete / Force-end (active). Past sessions editable for retroactive corrections. JIS-aligned: every change logged to action_log.
           </p>
-          <div class="table-wrap">
+          <div class="table-wrap" style="max-height: 60vh; overflow-y: auto;">
             <table class="bb-table">
-              <thead><tr><th>Seller</th><th>Start</th><th>End</th><th>Duration</th><th>Platform</th><th>Sales</th><th>Status</th><th>Action</th></tr></thead>
+              <thead><tr><th>Seller</th><th>Date</th><th>Start</th><th>End</th><th>Duration</th><th>Platform</th><th>Sales</th><th>Status</th><th>Action</th></tr></thead>
               <tbody id="bbLiveSessionsBody"></tbody>
             </table>
           </div>
@@ -7669,6 +7709,50 @@ async function resolveBbIncident(id, empName) {
   } catch (e) { alert('Failed: ' + e.message); }
 }
 
+/* Helper: compute date range from filter selector */
+function _getBbLiveDateRange() {
+  const filter = document.getElementById('bbLiveFilter')?.value || 'week';
+  const now = new Date();
+  const today = todayStr();
+  if (filter === 'today') return { start: today, end: today, label: 'Today' };
+  if (filter === 'week') {
+    const weekAgo = new Date(now.getTime() - 7 * 86400000);
+    return { start: weekAgo.toISOString().substring(0,10), end: today, label: 'Last 7 Days' };
+  }
+  if (filter === 'month') {
+    const m = new Date(now.getFullYear(), now.getMonth(), 1);
+    return { start: m.toISOString().substring(0,10), end: today, label: 'This Month' };
+  }
+  if (filter === 'last_month') {
+    const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lmEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+    return { start: lm.toISOString().substring(0,10), end: lmEnd.toISOString().substring(0,10), label: 'Last Month' };
+  }
+  if (filter === 'custom') {
+    return {
+      start: document.getElementById('bbLiveDateFrom')?.value || '2020-01-01',
+      end: document.getElementById('bbLiveDateTo')?.value || today,
+      label: 'Custom'
+    };
+  }
+  // all
+  return { start: '2020-01-01', end: today, label: 'All Time' };
+}
+
+function onBbLiveFilterChange() {
+  const filter = document.getElementById('bbLiveFilter').value;
+  document.getElementById('bbLiveCustomRange').style.display = filter === 'custom' ? 'flex' : 'none';
+  if (filter === 'custom') {
+    // Pre-fill with last 30 days as a reasonable default
+    if (!document.getElementById('bbLiveDateFrom').value) {
+      const d = new Date(); d.setDate(d.getDate() - 30);
+      document.getElementById('bbLiveDateFrom').value = d.toISOString().substring(0,10);
+      document.getElementById('bbLiveDateTo').value = todayStr();
+    }
+  }
+  loadBbSales();
+}
+
 async function loadBbSales() {
   try {
     const today = todayStr();
@@ -7679,6 +7763,17 @@ async function loadBbSales() {
       pbGetList('live_sessions', { filter: `date>="${dayStart}"`, sort: '-start_time', expand: 'employee_id', perPage: 200 }),
       pbGetList('live_sessions', { filter: `date>="${weekFilter}"`, sort: '-start_time', expand: 'employee_id', perPage: 500 })
     ]);
+
+    // Populate seller filter dropdown if empty (poka-yoke: also re-populate on each load to catch new employees)
+    try {
+      const empFilter = document.getElementById('bbLiveEmpFilter');
+      if (empFilter) {
+        const currentVal = empFilter.value;
+        const emps = BB_EMPS_CACHE.length ? BB_EMPS_CACHE : await pbGetList('employees', { filter: 'is_active=true', sort: 'name', perPage: 500 }).catch(() => []);
+        empFilter.innerHTML = '<option value="">All sellers</option>' + emps.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+        empFilter.value = currentVal;
+      }
+    } catch (e) { /* non-blocking */ }
 
     // Stats
     const totalToday = todaySessions.reduce((s, l) => s + (l.sales_amount || 0), 0);
@@ -7766,31 +7861,79 @@ async function loadBbSales() {
       stuckCard.style.display = 'none';
     }
 
-    // Recent sessions with action buttons
-    document.getElementById('bbLiveSessionsBody').innerHTML = todaySessions.length
-      ? todaySessions.slice(0, 20).map(l => {
+    // === FILTERED LIVE SESSIONS TABLE (respects date/employee/status filters) ===
+    const range = _getBbLiveDateRange();
+    const empFilterVal = document.getElementById('bbLiveEmpFilter')?.value || '';
+    const statusFilterVal = document.getElementById('bbLiveStatusFilter')?.value || '';
+
+    // Build PB filter string
+    const filterParts = [`date>="${range.start} 00:00:00"`, `date<="${range.end} 23:59:59"`];
+    if (empFilterVal) filterParts.push(`employee_id="${empFilterVal}"`);
+    if (statusFilterVal) filterParts.push(`status="${statusFilterVal}"`);
+    const filterStr = filterParts.join(' && ');
+
+    let filteredSessions = [];
+    try {
+      filteredSessions = await pbGetList('live_sessions', { filter: filterStr, sort: '-start_time', expand: 'employee_id', perPage: 500 });
+    } catch (filterErr) {
+      console.error('Filter query failed:', filterErr);
+    }
+
+    // Update count badge
+    const countEl = document.getElementById('bbLiveSessionsCount');
+    if (countEl) {
+      const totalFilteredSales = filteredSessions.reduce((s, l) => s + (l.sales_amount || 0), 0);
+      countEl.textContent = `— ${filteredSessions.length} sessions (${range.label}) • ₱${totalFilteredSales.toLocaleString()} total sales`;
+    }
+
+    document.getElementById('bbLiveSessionsBody').innerHTML = filteredSessions.length
+      ? filteredSessions.map(l => {
         const e = l.expand && l.expand.employee_id;
         const start = new Date(l.start_time);
         const end = l.end_time ? new Date(l.end_time) : null;
         const isActive = l.status === 'active';
-        const actionBtn = isActive
-          ? `<button class="btn btn-danger btn-sm" onclick="forceEndLiveSession('${l.id}')" style="margin-right:4px;">🛑 End</button><button class="btn btn-ghost btn-sm" onclick="editLiveSession('${l.id}')">Edit</button>`
-          : `<button class="btn btn-ghost btn-sm" onclick="editLiveSession('${l.id}')">Edit</button>`;
+        const dateStr = l.date ? fmtDate(l.date) : fmtDate(start.toISOString());
+        const actionBtns = isActive
+          ? `<button class="btn btn-danger btn-sm" onclick="forceEndLiveSession('${l.id}')" title="Force end this active session">🛑 End</button>
+             <button class="btn btn-ghost btn-sm" onclick="editLiveSession('${l.id}')" style="margin-left:3px;" title="Edit details">✏️</button>
+             <button class="btn btn-secondary btn-sm" onclick="quickDeleteLive('${l.id}')" style="margin-left:3px;background:#7C2D12;color:white;border-color:#7C2D12;" title="Delete">🗑</button>`
+          : `<button class="btn btn-ghost btn-sm" onclick="editLiveSession('${l.id}')" title="Edit hours/platform/sales">✏️ Edit</button>
+             <button class="btn btn-secondary btn-sm" onclick="quickDeleteLive('${l.id}')" style="margin-left:3px;background:#7C2D12;color:white;border-color:#7C2D12;" title="Delete this session">🗑</button>`;
         return `<tr${isActive ? ' style="background:#FFFBEB;"' : ''}>
           <td><strong>${e ? e.name : '—'}</strong></td>
+          <td><small>${dateStr}</small></td>
           <td>${start.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })}</td>
           <td>${end ? end.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' }) : '<strong style="color:var(--bb-green);">ONGOING</strong>'}</td>
-          <td>${l.duration_hours ? l.duration_hours.toFixed(2) + 'h' : '—'}</td>
+          <td><strong>${l.duration_hours ? l.duration_hours.toFixed(2) + 'h' : '—'}</strong></td>
           <td>${l.platform || '<em style="color:#999;">not set</em>'}</td>
           <td>${l.sales_amount ? '₱' + l.sales_amount.toLocaleString() : '—'}</td>
           <td><span class="bb-badge ${l.status === 'done' ? 'green' : 'honey'}">${l.status}</span></td>
-          <td style="white-space: nowrap;">${actionBtn}</td>
+          <td style="white-space: nowrap;">${actionBtns}</td>
         </tr>`;
       }).join('')
-      : '<tr><td colspan="8" style="text-align:center;padding:20px;color:#999;">Walang sessions today.</td></tr>';
+      : `<tr><td colspan="9" style="text-align:center;padding:20px;color:#999;">Walang sessions sa range na ito (${range.label}). Pwedeng baguhin ang filter sa taas.</td></tr>`;
   } catch (e) {
     console.error('Sales load:', e);
+    const body = document.getElementById('bbLiveSessionsBody');
+    if (body) body.innerHTML = `<tr><td colspan="9" style="color:#B91C1C;padding:20px;text-align:center;">Failed to load: ${e.message}</td></tr>`;
   }
+}
+
+// Quick delete from the live sessions table — works for done or active sessions
+async function quickDeleteLive(id) {
+  if (!confirm('🗑 Delete this live session permanently?\n\nThis fully removes the record. Will affect payroll calculations for that period — click "🔄 Recompute" on affected payroll rows after.\n\nProceed?')) return;
+  try {
+    const res = await fetch(PB_API + '/collections/live_sessions/records/' + id, { method: 'DELETE' });
+    if (!res.ok) throw new Error(await res.text());
+    const me = (kioskState.selectedUser && kioskState.selectedUser.name) || 'admin';
+    pbCreate('action_log', {
+      module: 'sales', action: 'delete', collection: 'live_sessions',
+      record_id: id,
+      new_value: JSON.stringify({ deleted_from_admin_table: true, by: me })
+    }).catch(() => {});
+    toast('✓ Live session deleted', 'ok');
+    loadBbSales();
+  } catch (e) { alert('Delete failed: ' + e.message); }
 }
 
 /* ===================== ADMIN LIVE SESSION MANAGEMENT =====================
