@@ -3645,6 +3645,7 @@
               </select>
               <button class="btn btn-secondary btn-sm" onclick="exportToCsv('cash_advances')">⬇ CSV</button>
               <button class="btn btn-secondary btn-sm" onclick="loadBbCA()">⟳ Refresh</button>
+              <button class="btn btn-secondary btn-sm" data-extra-perm="approve_cash_advance" onclick="autoClosePaidCAs()" title="Scan active CAs and mark fully_paid kung balance is 0">🔄 Auto-Close Paid</button>
               <button class="btn btn-primary btn-sm" onclick="openCAModal()">+ Request CA</button>
             </div>
           </div>
@@ -8618,13 +8619,38 @@ async function runComputePayroll() {
         continue;
       }
 
-      // Decrement cash advances
+      // Decrement cash advances — JIS: update BOTH status + approval_status (view filter uses approval_status)
+      // Multi-strategy: PB sometimes rejects 0 balance as "Cannot be blank"
       for (const ca of empCA) {
         const newBal = Math.max(0, (ca.remaining_balance || 0) - (ca.deduct_per_cutoff || 0));
-        const newStatus = newBal <= 0 ? 'fully_paid' : 'active';
-        try {
-          await pbUpdate('cash_advances', ca.id, { remaining_balance: newBal, status: newStatus });
-        } catch (e) {}
+        const isPaidOff = newBal <= 0;
+        const newStatus = isPaidOff ? 'fully_paid' : 'active';
+
+        // Try strategies in order: 0 balance → 0.01 sentinel → status-only
+        const strategies = isPaidOff
+          ? [
+              { remaining_balance: 0, status: newStatus, approval_status: newStatus },
+              { remaining_balance: 0.01, status: newStatus, approval_status: newStatus },
+              { status: newStatus, approval_status: newStatus }
+            ]
+          : [
+              { remaining_balance: newBal, status: newStatus, approval_status: newStatus }
+            ];
+
+        let updated = false;
+        for (const body of strategies) {
+          try {
+            await pbUpdate('cash_advances', ca.id, body);
+            updated = true;
+            break;
+          } catch (e) {
+            console.warn('[Payroll CA deduct] Strategy failed for', ca.id, ':', e.message);
+          }
+        }
+        if (!updated) {
+          console.error('[Payroll CA deduct] ALL strategies failed for', ca.id, '— CA may stay marked active');
+          addLog && addLog(`⚠ ${emp.name}: CA ${ca.id.substring(0,8)} deduct may have left status stale — use 🔄 Auto-Close Paid after`, 'warn');
+        }
       }
 
       // Mark item charges as deducted (skip payroll_period_id if no existing — empty relation can cause 400)
@@ -9717,9 +9743,14 @@ async function loadBbCA() {
       const e = (c.expand && c.expand.employee_id) || empMap[c.employee_id];
       const approvalStatus = getApprovalStatus(c);
       const isActive = (approvalStatus === 'active' || c.status === 'active');
+      const balance = c.remaining_balance || 0;
+      // Andon: visual signal for CAs that SHOULD be fully_paid but aren't (orphan state)
+      const isOrphanPaid = isActive && balance <= 1;
       const paidBtn = isActive
         ? `<button class="btn btn-secondary btn-sm" style="margin-left:4px;" onclick="markCAPaid('${c.id}')" title="Manually mark as fully paid">✓ Paid</button>`
         : '';
+      // Always show Delete button (CRUD) — owner can clean up wrong/test entries
+      const delBtn = `<button class="btn btn-secondary btn-sm" style="margin-left:4px;background:#7C2D12;color:white;border-color:#7C2D12;" onclick="deleteCAPermanent('${c.id}')" title="Delete permanently">🗑</button>`;
       const badgeClass = approvalStatus === 'fully_paid' ? 'green'
         : approvalStatus === 'pending_approval' ? 'honey'
         : approvalStatus === 'rejected' ? 'red'
@@ -9730,15 +9761,19 @@ async function loadBbCA() {
         : approvalStatus === 'rejected' ? '✗ Rejected'
         : approvalStatus === 'fully_paid' ? '✓ Paid'
         : '● Active';
-      return `<tr>
+      // Highlight orphan-paid rows so user sees "this should be closed but isn't"
+      const orphanIndicator = isOrphanPaid
+        ? ' <span style="background:#FEF3C7;color:#92400E;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;" title="Balance is 0 but status still active — click Auto-Close button or ✓ Paid">⚠ Should be closed</span>'
+        : '';
+      return `<tr${isOrphanPaid ? ' style="background:#FFFBEB;"' : ''}>
         <td><strong>${e ? e.name : '—'}</strong></td>
         <td>${fmtDate(c.date)}</td>
         <td>₱${(c.amount || 0).toLocaleString()}${c.max_approved_amount && c.max_approved_amount !== c.amount ? `<br><small style="color:#3B82F6;">approved ₱${c.max_approved_amount.toLocaleString()}</small>` : ''}</td>
         <td>₱${(c.deduct_per_cutoff || 0).toLocaleString()}</td>
-        <td><strong>₱${(c.remaining_balance || 0).toLocaleString()}</strong></td>
+        <td><strong>₱${balance.toLocaleString()}</strong>${orphanIndicator}</td>
         <td><small>${c.requested_by || '—'}</small>${c.approved_by ? `<br><small style="color:var(--bb-gray);">✓ ${c.approved_by}</small>` : ''}</td>
         <td><span class="bb-badge ${badgeClass}">${statusLabel}</span></td>
-        <td><button class="btn btn-ghost btn-sm" onclick="editCA('${c.id}')">${isOwner && approvalStatus === 'pending_approval' ? 'Review' : 'Edit'}</button>${paidBtn}</td>
+        <td style="white-space:nowrap;"><button class="btn btn-ghost btn-sm" onclick="editCA('${c.id}')">${isOwner && approvalStatus === 'pending_approval' ? 'Review' : 'Edit'}</button>${paidBtn}${delBtn}</td>
       </tr>`;
     }).join('');
   } catch (e) { console.error(e); }
@@ -12242,22 +12277,116 @@ async function bulkReleasePayroll() {
 
 /* ===================== BULK CA PAYOFF ===================== */
 async function markCAPaid(caId) {
-  if (!confirm('Manually mark this cash advance as fully paid? Balance becomes 0.')) return;
+  if (!confirm('Manually mark this cash advance as fully paid?\n\nBalance becomes 0 (or set "remaining" pa rin if di pa fully paid pero close lang).')) return;
   try {
-    await pbUpdate('cash_advances', caId, { remaining_balance: 0, status: 'fully_paid' });
-    if (kioskState.selectedUser) {
+    // JIS FIX: Fetch current record first, then PATCH with a complete body
+    // (PB validation_required treats 0 as "blank" sa some field configs — workaround = use 0.01 as sentinel "essentially paid")
+    const r = await fetch(PB_API + '/collections/cash_advances/records/' + caId);
+    if (!r.ok) throw new Error('CA record not found');
+    const ca = await r.json();
+
+    // Strategy 1: Try the clean approach (status flag + 0 balance)
+    // Strategy 2: If PB rejects 0 balance, use 0.01 (effectively zero for ops, satisfies validation)
+    // Strategy 3: Use approval_status='fully_paid' only (don't touch remaining_balance)
+    const strategies = [
+      { remaining_balance: 0, status: 'fully_paid', approval_status: 'fully_paid' },
+      { remaining_balance: 0.01, status: 'fully_paid', approval_status: 'fully_paid' },
+      { status: 'fully_paid', approval_status: 'fully_paid' }
+    ];
+
+    let success = false, lastErr = null, usedStrategy = null;
+    for (let i = 0; i < strategies.length; i++) {
       try {
-        await pbCreate('action_log', {
-          module: 'admin',
-          action: 'update',
-          collection: 'cash_advances',
-          record_id: caId,
-          new_value: JSON.stringify({ manual_payoff: true, by: kioskState.selectedUser.name })
-        });
-      } catch (e) {}
+        await pbUpdate('cash_advances', caId, strategies[i]);
+        success = true;
+        usedStrategy = i + 1;
+        break;
+      } catch (e) {
+        lastErr = e;
+        console.warn(`[markCAPaid] Strategy ${i+1} failed:`, e.message);
+      }
     }
+    if (!success) throw lastErr || new Error('All strategies failed');
+
+    // Audit log
+    if (kioskState.selectedUser) {
+      pbCreate('action_log', {
+        module: 'admin', action: 'update', collection: 'cash_advances', record_id: caId,
+        new_value: JSON.stringify({ manual_payoff: true, by: kioskState.selectedUser.name, strategy: usedStrategy, original_balance: ca.remaining_balance })
+      }).catch(()=>{});
+    }
+    toast(`✓ ${ca.id.substring(0,8)} marked fully paid (strategy ${usedStrategy})`, 'ok');
     loadBbCA();
-  } catch (e) { alert('Failed: ' + e.message); }
+  } catch (e) {
+    alert('Mark Paid failed: ' + e.message + '\n\nIf PB error mentions "Cannot be blank" sa other fields, sabihin mo at i-fix natin schema-side.');
+  }
+}
+
+// CRUD: DELETE a cash advance permanently
+async function deleteCAPermanent(caId) {
+  if (!confirm('🗑 Delete this cash advance permanently?\n\nThis fully removes the record (and any pending deductions). Use lang kapag wrong entry o test data.\n\nProceed?')) return;
+  try {
+    const r = await fetch(PB_API + '/collections/cash_advances/records/' + caId);
+    if (!r.ok) throw new Error('CA not found');
+    const ca = await r.json();
+
+    const res = await fetch(PB_API + '/collections/cash_advances/records/' + caId, { method: 'DELETE' });
+    if (!res.ok) throw new Error(await res.text());
+
+    const me = (kioskState.selectedUser && kioskState.selectedUser.name) || 'admin';
+    pbCreate('action_log', {
+      module: 'admin', action: 'delete', collection: 'cash_advances', record_id: caId,
+      new_value: JSON.stringify({ deleted: true, by: me, snapshot: { amount: ca.amount, remaining: ca.remaining_balance, employee_id: ca.employee_id } })
+    }).catch(()=>{});
+    toast('✓ CA deleted', 'ok');
+    loadBbCA();
+  } catch (e) { alert('Delete failed: ' + e.message); }
+}
+
+/* ===================== AUTO-CLOSE FULLY-PAID CAs =====================
+ * JIS: scan all "active" CAs, auto-mark fully_paid if remaining_balance <= 0.
+ * Fixes the "still showing as active even after fully paid" problem.
+ */
+async function autoClosePaidCAs() {
+  if (!confirm('🔄 Auto-close fully-paid CAs?\n\nWill scan all active cash advances and mark any with remaining_balance ≤ 0 (or essentially zero ≤ 1.00) as fully_paid.\n\nUseful kapag payroll deducted but CA status didn\'t update.\n\nProceed?')) return;
+  try {
+    const actives = await pbGetList('cash_advances', { perPage: 500 });
+    const toClose = actives.filter(c => {
+      const status = c.approval_status || c.status;
+      const isActive = (status === 'active' || status === 'approved');
+      const balance = c.remaining_balance || 0;
+      return isActive && balance <= 1;  // 1 peso threshold — effectively paid off
+    });
+
+    if (!toClose.length) { toast('No CAs needed closing', 'ok'); return; }
+
+    let ok = 0, fail = 0;
+    const me = (kioskState.selectedUser && kioskState.selectedUser.name) || 'admin';
+    for (const ca of toClose) {
+      // Use multi-strategy like markCAPaid
+      const strategies = [
+        { remaining_balance: 0, status: 'fully_paid', approval_status: 'fully_paid' },
+        { remaining_balance: 0.01, status: 'fully_paid', approval_status: 'fully_paid' },
+        { status: 'fully_paid', approval_status: 'fully_paid' }
+      ];
+      let closed = false;
+      for (const body of strategies) {
+        try { await pbUpdate('cash_advances', ca.id, body); closed = true; break; }
+        catch (e) { console.warn('[autoClose] strategy failed for', ca.id, e.message); }
+      }
+      if (closed) {
+        ok++;
+        pbCreate('action_log', {
+          module: 'admin', action: 'update', collection: 'cash_advances', record_id: ca.id,
+          new_value: JSON.stringify({ auto_closed: true, by: me, prior_balance: ca.remaining_balance })
+        }).catch(()=>{});
+      } else {
+        fail++;
+      }
+    }
+    toast(`✓ Auto-closed ${ok} CAs${fail ? ' (' + fail + ' failed)' : ''}`, ok > 0 ? 'ok' : 'err');
+    loadBbCA();
+  } catch (e) { alert('Auto-close failed: ' + e.message); }
 }
 
 /* ===================== EMAIL & NOTIFICATIONS (EmailJS) ===================== */
