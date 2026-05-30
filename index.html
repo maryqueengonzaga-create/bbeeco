@@ -10818,12 +10818,26 @@ async function editAa(id) {
 async function saveAa() {
   const name = document.getElementById('aaName').value.trim();
   const pin = document.getElementById('aaPin').value.trim();
+  const email = document.getElementById('aaEmail').value.trim();
   if (!name || !pin) { alert('Name + PIN required'); return; }
   if (!/^[0-9]{6}$/.test(pin)) { alert('Admin PIN must be exactly 6 digits'); return; }
+  if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { alert('Email format mali. Iwanan blangko o ilagay ang valid email.'); return; }
   const id = document.getElementById('aaId').value;
+
+  // Pre-flight uniqueness check — PocketBase 400s on duplicate PIN/email, and the
+  // generic error is confusing. Catch it here with a clear Taglish message instead.
+  try {
+    const existing = await pbGetList('admin_accounts', { perPage: 200 });
+    const dupPin = existing.find(a => a.id !== id && String(a.pin) === pin);
+    if (dupPin) { alert(`PIN ${pin} ginagamit na ni "${dupPin.name}". Pumili ng ibang 6-digit PIN.`); return; }
+    if (email) {
+      const dupEmail = existing.find(a => a.id !== id && (a.email || '').trim().toLowerCase() === email.toLowerCase());
+      if (dupEmail) { alert(`Email "${email}" ginagamit na ni "${dupEmail.name}". Iba ang ilagay o iwanan blangko.`); return; }
+    }
+  } catch (preErr) { console.warn('Admin uniqueness pre-check skipped:', preErr.message); }
+
   const body = {
     name,
-    email: document.getElementById('aaEmail').value,
     pin,
     role: document.getElementById('aaRole').value,
     is_active: document.getElementById('aaActive').value === 'true',
@@ -10834,6 +10848,10 @@ async function saveAa() {
     perm_view_sales: document.getElementById('aaPermSales').checked,
     perm_lock_emp: document.getElementById('aaPermLock').checked
   };
+  // Only send email when non-blank — an empty string collides with PocketBase's
+  // unique-email constraint (every blank-email subadmin would clash with the first).
+  if (email) body.email = email;
+
   try {
     let saved;
     if (id) {
@@ -10841,16 +10859,37 @@ async function saveAa() {
     } else {
       saved = await pbCreate('admin_accounts', body);
     }
-    // Save extra perms to app_config
+    // Save extra perms to app_config (non-fatal — account already saved if this fails)
     const extraPerms = {};
     document.querySelectorAll('#aaExtraPermsGrid input[data-perm]').forEach(cb => {
       if (cb.checked) extraPerms[cb.dataset.perm] = true;
     });
-    await setAdminExtraPerms(saved.id, extraPerms);
+    const permsOk = await setAdminExtraPerms(saved.id, extraPerms);
     closeModal('adminAcctModal');
     loadBbAdmins();
-    toast('✓ Admin saved with permissions', 'ok');
-  } catch (e) { toast('Failed: ' + e.message, 'err'); }
+    toast(permsOk ? '✓ Admin saved with permissions' : '✓ Admin saved (extra perms hindi na-save — i-retry sa Edit)', permsOk ? 'ok' : 'warn');
+  } catch (e) {
+    toast('Failed: ' + parsePbError(e), 'err');
+  }
+}
+
+/* Turn a raw PocketBase error ("PB 400: {json}") into a readable per-field message. */
+function parsePbError(e) {
+  const msg = (e && e.message) || String(e);
+  const jsonStart = msg.indexOf('{');
+  if (jsonStart === -1) return msg;
+  try {
+    const obj = JSON.parse(msg.substring(jsonStart));
+    const parts = [];
+    if (obj.data && typeof obj.data === 'object') {
+      for (const [field, info] of Object.entries(obj.data)) {
+        const fm = (info && info.message) ? info.message : JSON.stringify(info);
+        parts.push(`${field}: ${fm}`);
+      }
+    }
+    if (parts.length) return `${obj.message || 'Validation error'} → ${parts.join('; ')}`;
+    return obj.message || msg;
+  } catch (_) { return msg; }
 }
 
 async function deleteAa() {
