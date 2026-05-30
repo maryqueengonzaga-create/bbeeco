@@ -4553,7 +4553,25 @@ Hi {{to_name}},
             Manual entry para sa instances na hindi gumagana ang kiosk (e.g., power outage, mobile issue, retroactive correction). Admin lang ang pwedeng gumawa.
             <strong>Maa-log lahat sa action_log audit trail.</strong>
           </p>
-          <div class="table-wrap">
+          <!-- FILTER BAR — full attendance history for tracing -->
+          <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; margin-bottom:12px; padding:12px 14px; background:var(--bb-gray-light); border-radius:8px;">
+            <div>
+              <label style="font-size:11px; font-weight:600; color:var(--bb-gray); display:block; margin-bottom:3px;">Employee</label>
+              <select id="mdFilterEmp" onchange="loadBbManualDtr()" style="min-width:160px;"></select>
+            </div>
+            <div>
+              <label style="font-size:11px; font-weight:600; color:var(--bb-gray); display:block; margin-bottom:3px;">From</label>
+              <input type="date" id="mdFilterFrom" onchange="loadBbManualDtr()">
+            </div>
+            <div>
+              <label style="font-size:11px; font-weight:600; color:var(--bb-gray); display:block; margin-bottom:3px;">To</label>
+              <input type="date" id="mdFilterTo" onchange="loadBbManualDtr()">
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="loadBbManualDtr()">🔍 Apply</button>
+            <button class="btn btn-ghost btn-sm" onclick="clearManualDtrFilter()">Clear (show all)</button>
+            <span id="mdFilterCount" style="margin-left:auto; font-size:12px; color:var(--bb-gray); align-self:center;"></span>
+          </div>
+          <div class="table-wrap" style="max-height:60vh; overflow-y:auto;">
             <table class="bb-table">
               <thead><tr><th>Employee</th><th>Date</th><th>Time In</th><th>Time Out</th><th>Hours</th><th>Type</th><th>Manual?</th><th>Action</th></tr></thead>
               <tbody id="bbManualDtrBody"></tbody>
@@ -11735,26 +11753,84 @@ async function seedDefaultExpenseTemplates() {
 }
 
 /* ===================== MANUAL DTR ENTRY ===================== */
+
+/* Fetch ALL dtr_logs across pages (PB caps each page) — needed for full attendance
+ * history / tracing. Bounded by a safety cap so a runaway dataset can't hang the UI. */
+async function fetchAllDtrLogs() {
+  const all = [];
+  let page = 1;
+  const PER_PAGE = 500;
+  const MAX_PAGES = 40; // safety cap = up to 20,000 records
+  while (page <= MAX_PAGES) {
+    const params = new URLSearchParams();
+    params.set('perPage', PER_PAGE);
+    params.set('page', page);
+    params.set('sort', '-date,-time_in');
+    params.set('expand', 'employee_id');
+    const data = await pbFetch('/collections/dtr_logs/records?' + params);
+    const items = data.items || [];
+    all.push(...items);
+    if (items.length < PER_PAGE || page >= (data.totalPages || 1)) break;
+    page++;
+  }
+  return all;
+}
+
+function clearManualDtrFilter() {
+  const emp = document.getElementById('mdFilterEmp');
+  const from = document.getElementById('mdFilterFrom');
+  const to = document.getElementById('mdFilterTo');
+  if (emp) emp.value = '';
+  if (from) from.value = '';
+  if (to) to.value = '';
+  loadBbManualDtr();
+}
+
 async function loadBbManualDtr() {
+  const body = document.getElementById('bbManualDtrBody');
+  const countEl = document.getElementById('mdFilterCount');
   try {
-    // Populate dropdown via centralized helper (multi-layer fallback)
-    await populateBbEmpSelect('mdEmp');
-    const dtrs = await pbGetList('dtr_logs', { sort: '-time_in', expand: 'employee_id', perPage: 200 });
+    // Populate both the entry-modal dropdown and the filter dropdown
+    await Promise.all([
+      populateBbEmpSelect('mdEmp'),
+      populateBbEmpSelect('mdFilterEmp', { placeholder: '— All employees —' })
+    ]);
+
+    if (body) body.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;color:#999;">Loading full history…</td></tr>';
+
+    // Pull the COMPLETE history (paginated), then filter client-side. Client-side filtering
+    // on (date || time_in) ensures records with an empty `date` field are never hidden —
+    // older rows were getting cut off by the previous 50-row slice + 200 perPage limit.
+    const dtrs = await fetchAllDtrLogs();
     const empMap = {}; BB_EMPS_CACHE.forEach(e => empMap[e.id] = e);
 
-    const body = document.getElementById('bbManualDtrBody');
-    if (!dtrs.length) {
-      body.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;color:#999;">Walang DTR entries pa.</td></tr>';
+    const fEmp = (document.getElementById('mdFilterEmp') || {}).value || '';
+    const fFrom = (document.getElementById('mdFilterFrom') || {}).value || '';
+    const fTo = (document.getElementById('mdFilterTo') || {}).value || '';
+
+    const rowDate = d => (d.date || d.time_in || '').substring(0, 10);
+    let rows = dtrs;
+    if (fEmp) rows = rows.filter(d => d.employee_id === fEmp);
+    if (fFrom) rows = rows.filter(d => rowDate(d) && rowDate(d) >= fFrom);
+    if (fTo) rows = rows.filter(d => rowDate(d) && rowDate(d) <= fTo);
+
+    if (countEl) {
+      const scope = (fEmp || fFrom || fTo) ? 'filtered' : 'total';
+      countEl.textContent = `${rows.length} of ${dtrs.length} records (${scope})`;
+    }
+
+    if (!rows.length) {
+      body.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:20px;color:#999;">${dtrs.length ? 'Walang tumugma sa filter. I-click ang "Clear (show all)".' : 'Walang DTR entries pa.'}</td></tr>`;
       return;
     }
-    body.innerHTML = dtrs.slice(0, 50).map(d => {
+    body.innerHTML = rows.map(d => {
       const e = (d.expand && d.expand.employee_id) || empMap[d.employee_id];
       const tIn = d.time_in ? new Date(d.time_in).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' }) : '—';
       const tOut = d.time_out ? new Date(d.time_out).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' }) : '<span style="color:var(--bb-green);">ongoing</span>';
       const isManual = !d.time_in_photo && !d.time_out_photo; // heuristic: no photo = manual
       return `<tr>
         <td><strong>${e ? e.name : '—'}</strong></td>
-        <td>${fmtDate(d.date)}</td>
+        <td>${fmtDate(d.date || d.time_in)}</td>
         <td>${tIn}</td>
         <td>${tOut}</td>
         <td>${d.total_hours ? d.total_hours.toFixed(2) + 'h' : '—'}</td>
@@ -11766,7 +11842,10 @@ async function loadBbManualDtr() {
         </td>
       </tr>`;
     }).join('');
-  } catch (e) { console.error(e); }
+  } catch (e) {
+    console.error(e);
+    if (body) body.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--bb-red);">Failed to load: ' + e.message + '</td></tr>';
+  }
 }
 
 async function openManualDtrModal() {
