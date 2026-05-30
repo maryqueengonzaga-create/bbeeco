@@ -9406,10 +9406,16 @@ async function viewBbPayslip(periodId) {
     // Fetch per-day DTR + live for the breakdown — MUST USE SAME FILTER AS COMPUTE
     const periodStart = p.period_start.substring(0, 10);
     const periodEnd = p.period_end.substring(0, 10);
-    const [dayDtrsRaw, dayLives] = await Promise.all([
+    const [dayDtrsRaw, dayLives, periodICs] = await Promise.all([
       pbGetList('dtr_logs', { filter: `employee_id="${p.employee_id}" && time_in>="${periodStart} 00:00:00" && time_in<="${periodEnd} 23:59:59"`, sort: 'time_in', perPage: 200 }),
-      pbGetList('live_sessions', { filter: `employee_id="${p.employee_id}" && date>="${periodStart} 00:00:00" && date<="${periodEnd} 23:59:59"`, sort: 'date', perPage: 200 })
+      pbGetList('live_sessions', { filter: `employee_id="${p.employee_id}" && date>="${periodStart} 00:00:00" && date<="${periodEnd} 23:59:59"`, sort: 'date', perPage: 200 }),
+      // Item charges for this employee+period — match compute's date logic, include both
+      // pending (not yet run through compute) and deducted (already applied to a period).
+      pbGetList('item_charges', { filter: `employee_id="${p.employee_id}" && date>="${periodStart} 00:00:00" && date<="${periodEnd} 23:59:59" && (status="pending" || status="deducted")`, sort: 'date', perPage: 200 }).catch(() => [])
     ]);
+    // Sum item charges and flag any still "pending" (won't be marked deducted until payroll is recomputed)
+    const icDeductLive = periodICs.reduce((s, ic) => s + (ic.amount || 0), 0);
+    const icPendingCount = periodICs.filter(ic => ic.status === 'pending').length;
     // Match compute: only include records that have time_out (completed work day)
     const dayDtrs = dayDtrsRaw.filter(d => d.time_out);
 
@@ -9571,8 +9577,8 @@ async function viewBbPayslip(periodId) {
     const lateDeductHrs = sumAppliedLate / 60;
     const lateDeductPeso = lateDeductHrs * regRate;
     const computedGross = regPay + livePay + otPay;
-    const computedNet = computedGross - lateDeductPeso - (p.sss_ee || 0) - (p.phic_ee || 0) - (p.pagibig_ee || 0) - (p.cash_advance || 0) + (p.allowance || 0);
-    const totalDedRecomputed = lateDeductPeso + (p.sss_ee || 0) + (p.phic_ee || 0) + (p.pagibig_ee || 0) + (p.cash_advance || 0);
+    const computedNet = computedGross - lateDeductPeso - (p.sss_ee || 0) - (p.phic_ee || 0) - (p.pagibig_ee || 0) - (p.cash_advance || 0) - icDeductLive + (p.allowance || 0);
+    const totalDedRecomputed = lateDeductPeso + (p.sss_ee || 0) + (p.phic_ee || 0) + (p.pagibig_ee || 0) + (p.cash_advance || 0) + icDeductLive;
 
     // Detect mismatch between stored values and live recompute — show sync warning
     const storedReg = p.reg_hours || 0;
@@ -9616,7 +9622,9 @@ async function viewBbPayslip(periodId) {
       ${row('PhilHealth', '-₱' + (p.phic_ee || 0).toLocaleString(undefined, { minimumFractionDigits: 2 }))}
       ${row('Pag-IBIG', '-₱' + (p.pagibig_ee || 0).toLocaleString(undefined, { minimumFractionDigits: 2 }))}
       ${row('Cash Advance', '-₱' + (p.cash_advance || 0).toLocaleString(undefined, { minimumFractionDigits: 2 }))}
+      ${periodICs.map(ic => row(`Item Charge: ${ic.item_description || 'item'}${ic.status === 'pending' ? ' <span style="background:#FEF3C7;color:#92400E;padding:0 5px;border-radius:3px;font-size:9px;">PENDING</span>' : ''}`, '-₱' + (ic.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 }))).join('')}
       ${row('<strong>Total Deductions</strong>', '<strong>-₱' + totalDedRecomputed.toLocaleString(undefined, { minimumFractionDigits: 2 }) + '</strong>', true)}
+      ${icPendingCount > 0 ? '<div style="font-size: 10px; color: #92400E; margin-top: 4px; font-style: italic;">⚠ May ' + icPendingCount + ' item charge(s) na PENDING pa — i-recompute ang payroll para ma-mark na "deducted" sa Item Charges list. Nakabawas na sila sa net dito.</div>' : ''}
       <div style="font-size: 10px; color: var(--bb-gray); margin-top: 4px; font-style: italic;">Note: Break hours (1h/day for ≥8h shifts) ay nakatanggal na sa Regular hours sa taas — hindi na bawasin ulit dito (JIS standard, no double-deduction).</div>
 
       <div style="background: var(--bb-green-light); padding: 14px 16px; border-radius: 10px; margin-top: 14px;">
