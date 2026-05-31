@@ -8890,17 +8890,18 @@ async function runComputePayroll() {
     // Previous filters (status="closed" only, then status != "open") caused MISMATCH between
     // daily breakdown (no filter) and Earnings (filtered) — daily showed 88h, Earnings showed 64h
     // because some records had status="" or other non-standard values.
-    const dtrsRaw = await pbGetList('dtr_logs', { filter: `time_in>="${start} 00:00:00" && time_in<="${end} 23:59:59"`, perPage: 500 });
-    // Filter client-side: include records that have time_out (completed work day)
-    const dtrs = dtrsRaw.filter(d => d.time_out);
-    addLog(`Loaded ${dtrsRaw.length} DTR records, ${dtrs.length} completed (with time_out)`);
-    if (dtrsRaw.length !== dtrs.length) {
-      addLog(`Skipped ${dtrsRaw.length - dtrs.length} records with no time_out (still active)`, 'warn');
-    }
+    // Widen the fetch window ±1 day (UTC) so early-morning-PH punches stored on the previous
+    // UTC day are still captured, then attribute by Manila calendar date (phDateStr).
+    const fStart = shiftDateStr(start, -1), fEnd = shiftDateStr(end, 1);
+    const dtrsRaw = await pbGetList('dtr_logs', { filter: `time_in>="${fStart} 00:00:00" && time_in<="${fEnd} 23:59:59"`, perPage: 500 });
+    // Keep completed records (with time_out) whose PH work-date falls within the cutoff.
+    const dtrs = dtrsRaw.filter(d => d.time_out && phDateStr(d.time_in) >= start && phDateStr(d.time_in) <= end);
+    addLog(`Loaded ${dtrsRaw.length} DTR records (±1d window), ${dtrs.length} completed within PH cutoff`);
 
     progressMsg.textContent = 'Fetching live sessions...';
     progressBar.style.width = '25%';
-    const liveSessions = await pbGetList('live_sessions', { filter: `start_time>="${start} 00:00:00" && start_time<="${end} 23:59:59" && status="done"`, perPage: 500 });
+    const liveRaw = await pbGetList('live_sessions', { filter: `start_time>="${fStart} 00:00:00" && start_time<="${fEnd} 23:59:59" && status="done"`, perPage: 500 });
+    const liveSessions = liveRaw.filter(l => { const k = phDateStr(l.start_time || l.date); return k >= start && k <= end; });
     addLog(`Loaded ${liveSessions.length} completed live sessions`);
 
     progressMsg.textContent = 'Fetching schedules...';
@@ -8933,14 +8934,14 @@ async function runComputePayroll() {
       // Manila time-ins before 8 AM = previous UTC day, which would group to wrong day if using time_in
       const dtrByDate = {};
       empDTRs.forEach(d => {
-        // Prefer the 'date' field (PH calendar date set during import/save), fallback to time_in
-        const date = (d.date || d.time_in || '').substring(0, 10);
+        // Authoritative: Manila calendar date of the punch (fixes UTC day-shift for <8AM PH).
+        const date = phDateStr(d.time_in);
         if (!dtrByDate[date]) dtrByDate[date] = [];
         dtrByDate[date].push(d);
       });
       const liveByDate = {};
       empLive.forEach(l => {
-        const date = (l.date || l.start_time || '').substring(0, 10);
+        const date = phDateStr(l.start_time || l.date);
         if (!liveByDate[date]) liveByDate[date] = [];
         liveByDate[date].push(l);
       });
@@ -9424,28 +9425,32 @@ async function viewBbPayslip(periodId) {
     // Fetch per-day DTR + live for the breakdown — MUST USE SAME FILTER AS COMPUTE
     const periodStart = p.period_start.substring(0, 10);
     const periodEnd = p.period_end.substring(0, 10);
-    const [dayDtrsRaw, dayLives, periodICs] = await Promise.all([
-      pbGetList('dtr_logs', { filter: `employee_id="${p.employee_id}" && time_in>="${periodStart} 00:00:00" && time_in<="${periodEnd} 23:59:59"`, sort: 'time_in', perPage: 200 }),
-      pbGetList('live_sessions', { filter: `employee_id="${p.employee_id}" && date>="${periodStart} 00:00:00" && date<="${periodEnd} 23:59:59"`, sort: 'date', perPage: 200 }),
+    // Widen ±1 day (UTC) then attribute by Manila date — same fix as the payroll compute, so
+    // the payslip breakdown and the computed totals agree on which PH day each punch belongs to.
+    const fStart = shiftDateStr(periodStart, -1), fEnd = shiftDateStr(periodEnd, 1);
+    const [dayDtrsRaw, dayLivesRaw, periodICs] = await Promise.all([
+      pbGetList('dtr_logs', { filter: `employee_id="${p.employee_id}" && time_in>="${fStart} 00:00:00" && time_in<="${fEnd} 23:59:59"`, sort: 'time_in', perPage: 200 }),
+      pbGetList('live_sessions', { filter: `employee_id="${p.employee_id}" && start_time>="${fStart} 00:00:00" && start_time<="${fEnd} 23:59:59"`, sort: 'start_time', perPage: 200 }).catch(() => []),
       // Item charges for this employee+period — match compute's date logic, include both
       // pending (not yet run through compute) and deducted (already applied to a period).
       pbGetList('item_charges', { filter: `employee_id="${p.employee_id}" && date>="${periodStart} 00:00:00" && date<="${periodEnd} 23:59:59" && (status="pending" || status="deducted")`, sort: 'date', perPage: 200 }).catch(() => [])
     ]);
+    const dayLives = dayLivesRaw.filter(l => { const k = phDateStr(l.start_time || l.date); return k >= periodStart && k <= periodEnd; });
     // Sum item charges and flag any still "pending" (won't be marked deducted until payroll is recomputed)
     const icDeductLive = periodICs.reduce((s, ic) => s + (ic.amount || 0), 0);
     const icPendingCount = periodICs.filter(ic => ic.status === 'pending').length;
-    // Match compute: only include records that have time_out (completed work day)
-    const dayDtrs = dayDtrsRaw.filter(d => d.time_out);
+    // Match compute: completed records (with time_out) whose PH work-date is within the cutoff.
+    const dayDtrs = dayDtrsRaw.filter(d => d.time_out && phDateStr(d.time_in) >= periodStart && phDateStr(d.time_in) <= periodEnd);
 
-    // Group by date — use date field if available, else derive from time_in
+    // Group by Manila calendar date of the punch (authoritative — fixes UTC day-shift).
     const byDate = {};
     dayDtrs.forEach(d => {
-      const k = (d.date || d.time_in || '').substring(0, 10);
+      const k = phDateStr(d.time_in);
       if (!byDate[k]) byDate[k] = { dtr: [], live: [] };
       byDate[k].dtr.push(d);
     });
     dayLives.forEach(l => {
-      const k = (l.date || l.start_time || '').substring(0, 10);
+      const k = phDateStr(l.start_time || l.date);
       if (!byDate[k]) byDate[k] = { dtr: [], live: [] };
       byDate[k].live.push(l);
     });
@@ -15068,6 +15073,27 @@ function localPbDateOnly(dateStr) {
   if (!dateStr) dateStr = todayStr();
   return dateStr + 'T00:00:00.000Z';
 }
+
+/* PH calendar date (YYYY-MM-DD) of a timestamp, in Asia/Manila.
+ * AUTHORITATIVE work-date anchor for payroll. time_in is stored as a UTC instant; a punch
+ * before 8AM PH falls on the PREVIOUS UTC day, so a raw `.substring(0,10)` of time_in shifts
+ * the record back a day (e.g. May 18 7AM PH → 2026-05-17Z). Converting to Manila fixes that
+ * and reproduces the correct `date` field exactly. */
+function phDateStr(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return String(ts).substring(0, 10);
+  return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' }); // en-CA → YYYY-MM-DD
+}
+
+/* Shift a YYYY-MM-DD string by N days (used to widen fetch windows so early-morning-PH
+ * punches stored on the previous UTC day are still captured, then filtered by phDateStr). */
+function shiftDateStr(dateStr, days) {
+  const d = new Date(dateStr + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().substring(0, 10);
+}
+
 function uid(prefix) { return prefix + Date.now() + Math.random().toString(36).substr(2, 5); }
 
 /* ===================== NAVIGATION ===================== */
