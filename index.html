@@ -8892,8 +8892,18 @@ function openComputePayrollModal() {
   document.getElementById('cpEnd').value = end;
   document.getElementById('cpProgress').style.display = 'none';
   document.getElementById('cpProgressLog').innerHTML = '';
-  document.getElementById('cpRunBtn').disabled = false;
+  resetCpRunBtn();
   document.getElementById('computePayrollModal').classList.add('open');
+}
+
+/* Restore the Compute button to a clean, runnable state (label + handler + enabled).
+ * Must run every time the modal opens — a prior successful run could have left it stale. */
+function resetCpRunBtn() {
+  const b = document.getElementById('cpRunBtn');
+  if (!b) return;
+  b.disabled = false;
+  b.textContent = 'Compute Payroll';
+  b.onclick = runComputePayroll;
 }
 
 // Quick preset for payroll cutoff dates (BbeeCo semi-monthly: 1-15 & 16-end)
@@ -9264,8 +9274,9 @@ async function runComputePayroll() {
     progressMsg.textContent = `Done — ${created} created, ${updated} updated, ${skipped} skipped.`;
     addLog(`✓ FINISHED: ${created} new, ${updated} updated, ${skipped} skipped`, 'ok');
     runBtn.disabled = false;
-    runBtn.textContent = 'Close';
-    runBtn.onclick = () => { closeModal('computePayrollModal'); loadBbPayroll(); };
+    runBtn.textContent = 'Compute Payroll';   // keep it re-runnable — do NOT hijack onclick
+    // (Bug fix: previously this overwrote onclick to a close-only handler, so every compute
+    //  AFTER the first one in a session silently did nothing. The modal auto-closes below.)
     toast(`✓ Payroll computed for ${created + updated} employees`, 'ok');
     setTimeout(() => {
       // Auto-close after 3 seconds
@@ -9297,7 +9308,7 @@ async function recomputeCutoff(startStr, endStr) {
   const e = document.getElementById('cpEnd'); if (e) e.value = endStr;
   const prog = document.getElementById('cpProgress'); if (prog) prog.style.display = 'none';
   const logEl = document.getElementById('cpProgressLog'); if (logEl) logEl.innerHTML = '';
-  const runBtn = document.getElementById('cpRunBtn'); if (runBtn) runBtn.disabled = false;
+  resetCpRunBtn();
   const hint = document.getElementById('cpPresetHint');
   if (hint) hint.textContent = `↻ Recomputing cutoff ${startStr} → ${endStr} — i-click ang Run para i-update lahat ng payslip dito. (Babalik sa draft ang status; i-release ulit pagkatapos i-double-check.)`;
   document.getElementById('computePayrollModal').classList.add('open');
