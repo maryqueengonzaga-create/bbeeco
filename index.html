@@ -8598,9 +8598,10 @@ async function loadBbPayroll() {
         const statusBadge = stKeys.length === 1
           ? `<span class="bb-badge ${stKeys[0] === 'released' ? 'green' : 'honey'}">${stKeys[0]}</span>`
           : `<span class="bb-badge gray" title="${stKeys.map(k => k+': '+c.statuses[k]).join(', ')}">mixed</span>`;
+        const recomputeBtn = `<button class="btn btn-secondary btn-sm" data-extra-perm="run_payroll" onclick="recomputeCutoff('${c.start.substring(0,10)}','${c.end.substring(0,10)}')" title="Re-run the payroll engine for this whole cutoff (all employees)">🔄 Recompute</button>`;
         const relBtn = c.draftIds.length
-          ? `<button class="btn btn-primary btn-sm" data-extra-perm="release_payroll" onclick="releaseCutoffDrafts('${c.start.substring(0,10)}','${c.end.substring(0,10)}')" title="Release ${c.draftIds.length} draft payslip(s) in this cutoff">📤 Release (${c.draftIds.length})</button>`
-          : '<span style="color:#9CA3AF;font-size:11px;">all released</span>';
+          ? `<button class="btn btn-primary btn-sm" data-extra-perm="release_payroll" onclick="releaseCutoffDrafts('${c.start.substring(0,10)}','${c.end.substring(0,10)}')" title="Release ${c.draftIds.length} draft payslip(s) in this cutoff" style="margin-left:4px;">📤 Release (${c.draftIds.length})</button>`
+          : ' <span style="color:#9CA3AF;font-size:11px;">all released</span>';
         return `<tr>
           <td><strong>${fmtDate(c.start)} → ${fmtDate(c.end)}</strong></td>
           <td>${c.count}</td>
@@ -8610,7 +8611,7 @@ async function loadBbPayroll() {
           <td style="text-align:right;color:var(--bb-red);">${c.ic ? '−' + peso(c.ic) : '—'}</td>
           <td style="text-align:right;"><strong style="color:var(--bb-honey-dark);">${peso(c.net)}</strong></td>
           <td>${statusBadge}</td>
-          <td style="white-space:nowrap;">${relBtn}</td>
+          <td style="white-space:nowrap;">${recomputeBtn}${relBtn}</td>
         </tr>`;
       }).join('') : '<tr><td colspan="9" style="text-align:center;padding:14px;color:#999;">Walang payroll periods pa.</td></tr>';
     }
@@ -9285,118 +9286,31 @@ async function runComputePayroll() {
  * Fixes the "I deleted live sessions but payroll still has the hours" problem.
  * JIS: standardized work — same compute logic as bulk runComputePayroll, scoped to one record.
  */
+/* Recompute a whole cutoff via the REAL payroll engine (runComputePayroll), pre-filled with the
+ * cutoff's own dates. This replaces the old divergent per-row recompute, which used wrong field
+ * names (p.sss / p.ca_deduction don't exist → it wiped deductions, net=gross), fetched by the
+ * unreliable `date` field, and hardcoded OT — producing numbers that never matched the payslip.
+ * Routing through the engine guarantees per-employee + totals + payslip all agree. */
+async function recomputeCutoff(startStr, endStr) {
+  if (!startStr || !endStr) { toast('Invalid cutoff dates', 'err'); return; }
+  const s = document.getElementById('cpStart'); if (s) s.value = startStr;
+  const e = document.getElementById('cpEnd'); if (e) e.value = endStr;
+  const prog = document.getElementById('cpProgress'); if (prog) prog.style.display = 'none';
+  const logEl = document.getElementById('cpProgressLog'); if (logEl) logEl.innerHTML = '';
+  const runBtn = document.getElementById('cpRunBtn'); if (runBtn) runBtn.disabled = false;
+  const hint = document.getElementById('cpPresetHint');
+  if (hint) hint.textContent = `↻ Recomputing cutoff ${startStr} → ${endStr} — i-click ang Run para i-update lahat ng payslip dito. (Babalik sa draft ang status; i-release ulit pagkatapos i-double-check.)`;
+  document.getElementById('computePayrollModal').classList.add('open');
+}
+
+/* Per-row recompute → recompute that record's whole cutoff through the real engine. */
 async function recomputeOnePayroll(periodId) {
-  if (!confirm('🔄 Recompute this payroll period?\n\nWill re-read all current DTR + live_sessions data and update gross/net/hours.\n\nUseful kapag may na-edit / na-delete na source data after compute.\n\nProceed?')) return;
   try {
-    const r = await fetch(PB_API + '/collections/payroll_periods/records/' + periodId + '?expand=employee_id');
+    const r = await fetch(PB_API + '/collections/payroll_periods/records/' + periodId);
     if (!r.ok) throw new Error('Payroll record not found');
     const p = await r.json();
-    const emp = p.expand && p.expand.employee_id;
-    if (!emp) throw new Error('Employee not found for this payroll');
-
-    const periodStart = (p.period_start || '').substring(0, 10);
-    const periodEnd = (p.period_end || '').substring(0, 10);
-    if (!periodStart || !periodEnd) throw new Error('Invalid period dates');
-
-    // Fetch fresh DTR + live_sessions for this period
-    const [dtrs, lives] = await Promise.all([
-      pbGetList('dtr_logs', { filter: `employee_id="${p.employee_id}" && date>="${periodStart} 00:00:00" && date<="${periodEnd} 23:59:59"`, sort: 'date', perPage: 200 }),
-      pbGetList('live_sessions', { filter: `employee_id="${p.employee_id}" && date>="${periodStart} 00:00:00" && date<="${periodEnd} 23:59:59" && status="done"`, sort: 'date', perPage: 200 })
-    ]);
-
-    // Group by date
-    const dayMap = {};
-    dtrs.forEach(d => {
-      const dk = (d.date || '').substring(0, 10);
-      if (!dayMap[dk]) dayMap[dk] = { dtrs: [], lives: [] };
-      dayMap[dk].dtrs.push(d);
-    });
-    lives.forEach(l => {
-      const dk = (l.date || '').substring(0, 10);
-      if (!dayMap[dk]) dayMap[dk] = { dtrs: [], lives: [] };
-      dayMap[dk].lives.push(l);
-    });
-
-    // Compute totals using SAME OT-approval-aware logic as main engine
-    let totalDtrHrs = 0, totalLiveHrs = 0, totalOtHrs = 0, totalLateMins = 0;
-    let workDays = 0;
-    Object.keys(dayMap).forEach(dk => {
-      const day = dayMap[dk];
-      const dayDtrHrs = day.dtrs.reduce((s, d) => s + (d.total_hours || 0), 0);
-      const dayLiveHrs = day.lives.reduce((s, l) => s + (l.duration_hours || 0), 0);
-      const dayLateMins = day.dtrs.reduce((s, d) => s + (d.late_minutes || 0), 0);
-
-      // OT — only count if status='approved'
-      const approvedOtRecords = day.dtrs.filter(d => d.ot_status === 'approved');
-      const otApproved = approvedOtRecords.length > 0;
-      const otApprovedHrs = approvedOtRecords.reduce((s, d) =>
-        s + (d.ot_approved_hours || d.ot_hours || 0), 0);
-
-      // BbeeCo cap: 9h DTR (8 paid + 1 break). With OT: 9 + approved OT.
-      const DAY_CAP_DTR = 9;
-      const compensableTotal = otApproved
-        ? Math.min(dayDtrHrs, DAY_CAP_DTR + otApprovedHrs)
-        : Math.min(dayDtrHrs, DAY_CAP_DTR);
-
-      let breakHrs = 0;
-      if (compensableTotal >= 8) breakHrs = 1;
-      else if (compensableTotal >= 6) breakHrs = 0.5;
-
-      const dayOt = otApproved ? Math.max(0, Math.min(otApprovedHrs, compensableTotal - DAY_CAP_DTR)) : 0;
-      const dayReg = Math.max(0, compensableTotal - dayLiveHrs - dayOt - breakHrs);
-
-      totalDtrHrs += dayReg;
-      totalLiveHrs += dayLiveHrs;
-      totalOtHrs += dayOt;
-      totalLateMins += dayLateMins;
-      if (compensableTotal > 0) workDays++;
-    });
-
-    // Convert late minutes to hours deduction (JIS tier rule)
-    let lateHrsDeduct = 0;
-    if (totalLateMins > 0) {
-      // Re-tier per occurrence — but we only have totals here.
-      // Approximation: use raw minutes / 60 for deduction
-      lateHrsDeduct = totalLateMins / 60;
-    }
-
-    const regRate = emp.reg_rate || 62.50;
-    const liveRate = emp.live_rate || 83.33;
-    const regPay = Math.max(0, totalDtrHrs - lateHrsDeduct) * regRate;
-    const livePay = totalLiveHrs * liveRate;
-    const otPay = totalOtHrs * (regRate * 1.25);  // 1.25× OT rate
-    const grossPay = regPay + livePay + otPay;
-
-    // Preserve existing deductions (don't recompute CA/IC unless asked)
-    const totalDeductions = (p.sss || 0) + (p.philhealth || 0) + (p.pagibig || 0) + (p.ca_deduction || 0) + (p.ic_deduction || 0);
-    const netPay = grossPay - totalDeductions;
-
-    const updateBody = {
-      reg_hours: parseFloat(totalDtrHrs.toFixed(2)),
-      live_hours: parseFloat(totalLiveHrs.toFixed(2)),
-      ot_hours: parseFloat(totalOtHrs.toFixed(2)),
-      late_minutes: totalLateMins,
-      work_days: workDays,
-      gross_pay: parseFloat(grossPay.toFixed(2)),
-      net_pay: parseFloat(netPay.toFixed(2))
-    };
-
-    await pbUpdate('payroll_periods', periodId, updateBody);
-
-    // Audit log
-    const me = (kioskState.selectedUser && kioskState.selectedUser.name) || 'admin';
-    pbCreate('action_log', {
-      module: 'payroll', action: 'update', collection: 'payroll_periods',
-      record_id: periodId,
-      new_value: JSON.stringify({ recomputed: true, by: me, old: { live_hours: p.live_hours, gross: p.gross_pay, net: p.net_pay }, new: updateBody })
-    }).catch(() => {});
-
-    toast(`✓ Recomputed: ${totalLiveHrs.toFixed(2)}h live • ₱${grossPay.toFixed(2)} gross • ₱${netPay.toFixed(2)} net`, 'ok');
-    loadBbPayroll();
-  } catch (e) {
-    alert('Recompute failed: ' + e.message);
-    console.error('Recompute failed:', e);
-  }
+    return recomputeCutoff((p.period_start || '').substring(0, 10), (p.period_end || '').substring(0, 10));
+  } catch (e) { alert('Recompute failed: ' + e.message); }
 }
 
 /* ===================== PAYROLL: Edit hours directly ===================== */
@@ -9441,21 +9355,26 @@ function recalcEphPreview() {
 
   const regRate = e ? (e.reg_rate || 62.50) : 62.50;
   const liveRate = e ? (e.live_rate || 83.33) : 83.33;
-  const lateHrsDeduct = lateMins / 60;
-  const regPay = Math.max(0, regHrs - lateHrsDeduct) * regRate;
+  const otRate = regRate * 1.25;
+  const lateDeductPeso = (lateMins / 60) * regRate;
+  const regPay = regHrs * regRate;             // engine model: reg hours NOT reduced by late
   const livePay = liveHrs * liveRate;
-  const otPay = otHrs * (regRate * 1.25);
+  const otPay = otHrs * otRate;
   const grossPay = regPay + livePay + otPay;
 
-  const totalDeductions = (p.sss || 0) + (p.philhealth || 0) + (p.pagibig || 0) + (p.ca_deduction || 0) + (p.ic_deduction || 0);
-  const netPay = grossPay - totalDeductions;
+  // Preserve the REAL stored deductions + allowance + (derived) item charges.
+  const b = payrollBreakdown(p);
+  const totalDeductions = lateDeductPeso + b.stat + b.ca + b.brk + b.ic;
+  const netPay = grossPay - totalDeductions + b.allowance;
 
   document.getElementById('ephPreviewBody').innerHTML = `
-    Reg pay:   ${regHrs.toFixed(2)}h × ₱${regRate.toFixed(2)} − ${lateHrsDeduct.toFixed(2)}h late = ₱${regPay.toFixed(2)}<br>
+    Reg pay:   ${regHrs.toFixed(2)}h × ₱${regRate.toFixed(2)} = ₱${regPay.toFixed(2)}<br>
     Live pay:  ${liveHrs.toFixed(2)}h × ₱${liveRate.toFixed(2)} = ₱${livePay.toFixed(2)}<br>
-    OT pay:    ${otHrs.toFixed(2)}h × ₱${(regRate * 1.25).toFixed(2)} = ₱${otPay.toFixed(2)}<br>
+    OT pay:    ${otHrs.toFixed(2)}h × ₱${otRate.toFixed(2)} = ₱${otPay.toFixed(2)}<br>
     <strong style="color: #047857;">Gross:     ₱${grossPay.toFixed(2)}</strong><br>
-    Deductions: ₱${totalDeductions.toFixed(2)} (preserved)<br>
+    Late:      −₱${lateDeductPeso.toFixed(2)} (${lateMins}m)<br>
+    SSS/PHIC/Pag-IBIG: −₱${b.stat.toFixed(2)} · Cash Advance: −₱${b.ca.toFixed(2)} · Item Charges: −₱${b.ic.toFixed(2)}<br>
+    Allowance: +₱${b.allowance.toFixed(2)}<br>
     <strong style="color: #047857; font-size: 14px;">Net Pay:   ₱${netPay.toFixed(2)}</strong>
   `;
 }
@@ -9475,19 +9394,23 @@ async function savePayrollHoursOverride() {
   const e = p.expand && p.expand.employee_id;
   const regRate = e ? (e.reg_rate || 62.50) : 62.50;
   const liveRate = e ? (e.live_rate || 83.33) : 83.33;
-  const lateHrsDeduct = lateMins / 60;
-  const regPay = Math.max(0, regHrs - lateHrsDeduct) * regRate;
+  const otRate = regRate * 1.25;
+  const lateDeductPeso = (lateMins / 60) * regRate;
+  const regPay = regHrs * regRate;
   const livePay = liveHrs * liveRate;
-  const otPay = otHrs * (regRate * 1.25);
+  const otPay = otHrs * otRate;
   const grossPay = regPay + livePay + otPay;
-  const totalDeductions = (p.sss || 0) + (p.philhealth || 0) + (p.pagibig || 0) + (p.ca_deduction || 0) + (p.ic_deduction || 0);
-  const netPay = grossPay - totalDeductions;
+  // Preserve real stored deductions + allowance + (derived) item charges (NOT the old zeroed bug).
+  const b = payrollBreakdown(p);
+  const totalDeductions = lateDeductPeso + b.stat + b.ca + b.brk + b.ic;
+  const netPay = grossPay - totalDeductions + b.allowance;
 
   const body = {
     reg_hours: regHrs,
     live_hours: liveHrs,
     ot_hours: otHrs,
     late_minutes: lateMins,
+    late_deduction: parseFloat(lateDeductPeso.toFixed(2)), // persist so payslip/summary reconcile
     gross_pay: parseFloat(grossPay.toFixed(2)),
     net_pay: parseFloat(netPay.toFixed(2))
   };
