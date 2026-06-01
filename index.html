@@ -8634,7 +8634,7 @@ async function loadBbPayroll() {
         <td>${(p.live_hours || 0).toFixed(2)}</td>
         <td>${otHrs > 0 ? `<strong style="color:#1E40AF;">${otHrs.toFixed(2)}</strong>` : '<span style="color:#9CA3AF;">—</span>'}</td>
         <td style="text-align:right;">${peso(b.gross)}${b.allowance ? `<div style="font-size:10px;color:var(--bb-green);">+${peso(b.allowance)} allow</div>` : ''}</td>
-        <td style="text-align:right;color:var(--bb-red);">${b.deductions ? '−' + peso(b.deductions) : '—'}</td>
+        <td style="text-align:right;color:var(--bb-red);" title="SSS+PhilHealth+Pag-IBIG: ${peso(b.stat)}\nLate: ${peso(b.late)}\nCash Advance: ${peso(b.ca)}\nBreak (deprecated): ${peso(b.brk)}">${b.deductions ? '−' + peso(b.deductions) : '—'}${b.deductions ? `<div style="font-size:10px;color:var(--bb-gray);font-weight:400;">${[b.stat?'stat '+peso(b.stat):'', b.late?('<span style="color:var(--bb-red);">late '+peso(b.late)+'</span>'):'', b.ca?'CA '+peso(b.ca):'', b.brk?'brk '+peso(b.brk):''].filter(Boolean).join(' · ')}</div>` : ''}</td>
         <td style="text-align:right;color:var(--bb-red);">${b.ic ? '−' + peso(b.ic) : '<span style="color:#9CA3AF;">—</span>'}</td>
         <td style="text-align:right;"><strong>${peso(b.net)}</strong></td>
         <td><span class="bb-badge ${p.status === 'released' ? 'green' : 'honey'}">${p.status || 'draft'}</span></td>
