@@ -2936,17 +2936,42 @@
             Pay formula: <code>regPay = max(0, regHrs - lateHrs) × reg_rate</code> • <code>livePay = liveHrs × live_rate</code> • Gross = reg + live • Deductions: SSS / PhilHealth / Pag-IBIG / CA / IC / late / break
           </p>
           <div class="bb-stats-row">
-            <div class="bb-stat-card green"><div class="label">Total Gross (Released)</div><div class="value" id="bbPayGross">—</div></div>
-            <div class="bb-stat-card red"><div class="label">Total Deductions</div><div class="value" id="bbPayDed">—</div></div>
-            <div class="bb-stat-card honey"><div class="label">Total Net Pay</div><div class="value" id="bbPayNet">—</div></div>
+            <div class="bb-stat-card green"><div class="label">Total Gross (Released only)</div><div class="value" id="bbPayGross">—</div></div>
+            <div class="bb-stat-card red"><div class="label">Total Deductions (Released only)</div><div class="value" id="bbPayDed">—</div></div>
+            <div class="bb-stat-card honey"><div class="label">Total Net Pay (Released only)</div><div class="value" id="bbPayNet">—</div></div>
             <div class="bb-stat-card blue"><div class="label">Periods on Record</div><div class="value" id="bbPayCount">—</div></div>
           </div>
+          <p style="font-size:11px;color:var(--bb-gray);margin-top:8px;">↑ Buong-history totals ng <strong>released</strong> payrolls lang. Para sa bawat cutoff (kasama drafts), tingnan ang breakdown sa baba.</p>
+        </div>
+
+        <!-- PER-CUTOFF SUMMARY — fully specified: Gross, Allowance, Deductions, Item Charges, Net to Release -->
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-h"><h3>📊 Summary per Cutoff</h3></div>
+          <div class="table-wrap">
+            <table class="bb-table">
+              <thead><tr>
+                <th>Cutoff</th><th>Emp</th>
+                <th style="text-align:right;">Gross</th>
+                <th style="text-align:right;">+ Allowance</th>
+                <th style="text-align:right;">− Deductions</th>
+                <th style="text-align:right;">− Item Charges</th>
+                <th style="text-align:right;">= NET (To Release)</th>
+                <th>Status</th><th>Action</th>
+              </tr></thead>
+              <tbody id="bbPayCutoffSummary"><tr><td colspan="9" style="text-align:center;padding:14px;color:#999;">Loading…</td></tr></tbody>
+            </table>
+          </div>
+          <p style="font-size:11px;color:var(--bb-gray);margin-top:8px;">
+            <strong>Deductions</strong> = SSS + PhilHealth + Pag-IBIG + Late + Cash Advance. <strong>Item Charges</strong> hiwalay na nakalista.
+            Net = Gross + Allowance − Deductions − Item Charges. Mga figures = naka-store (last computed) values — i-<strong>Recompute</strong> ang cutoff kung kakaayos lang ng DTR/item charges para tumugma sa payslip.
+          </p>
         </div>
 
         <div class="card">
+          <div class="card-h"><h3>Per-Employee Detail</h3></div>
           <div class="table-wrap">
             <table class="bb-table">
-              <thead><tr><th>Employee</th><th>Period</th><th>Reg Hrs</th><th>Live Hrs</th><th>OT Hrs</th><th>Gross</th><th>Net</th><th>Status</th><th>Action</th></tr></thead>
+              <thead><tr><th>Employee</th><th>Period</th><th>Reg Hrs</th><th>Live Hrs</th><th>OT Hrs</th><th style="text-align:right;">Gross</th><th style="text-align:right;">Deductions</th><th style="text-align:right;">Item Chg</th><th style="text-align:right;">Net</th><th>Status</th><th>Action</th></tr></thead>
               <tbody id="bbPayrollBody"></tbody>
             </table>
           </div>
@@ -8517,6 +8542,25 @@ async function deleteLiveSession() {
   } catch (e) { alert('Delete failed: ' + e.message); }
 }
 
+/* Reconciled breakdown of one stored payroll period.
+ * Net = Gross + Allowance − Deductions − ItemCharges, where Deductions = stat + late + CA.
+ * Item charge isn't stored as its own field, so we DERIVE it from the stored net (exact per the
+ * compute formula): ic = gross − net − late − stat − ca + allowance. */
+function payrollBreakdown(p) {
+  const gross = p.gross_pay || 0;
+  const net = p.net_pay || 0;
+  const allowance = p.allowance || 0;
+  const stat = (p.sss_ee || 0) + (p.phic_ee || 0) + (p.pagibig_ee || 0);
+  const late = p.late_deduction || 0;
+  const ca = p.cash_advance || 0;
+  const brk = p.break_deduction || 0; // deprecated on new records (0) but old released ones may carry it
+  let ic = Math.round((gross - net - late - stat - ca - brk + allowance) * 100) / 100;
+  if (Math.abs(ic) < 0.5) ic = 0; // swallow rounding noise
+  const deductions = late + stat + ca + brk;
+  return { gross, net, allowance, stat, late, ca, brk, ic, deductions };
+}
+const peso = n => '₱' + (n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
 async function loadBbPayroll() {
   try {
     const [periods, emps] = await Promise.all([
@@ -8526,34 +8570,72 @@ async function loadBbPayroll() {
     const empMap = {};
     emps.forEach(e => { empMap[e.id] = e; });
 
-    // Stats
+    // Top cards — RELEASED-only, all-history (clearly labeled in the UI).
     const released = periods.filter(p => p.status === 'released');
     const totalGross = released.reduce((s,p) => s + (p.gross_pay || 0), 0);
     const totalNet = released.reduce((s,p) => s + (p.net_pay || 0), 0);
-    const totalDed = totalGross - totalNet;
-    document.getElementById('bbPayGross').textContent = '₱' + totalGross.toLocaleString();
-    document.getElementById('bbPayDed').textContent = '₱' + totalDed.toLocaleString();
-    document.getElementById('bbPayNet').textContent = '₱' + totalNet.toLocaleString();
+    document.getElementById('bbPayGross').textContent = peso(totalGross);
+    document.getElementById('bbPayDed').textContent = peso(totalGross - totalNet);
+    document.getElementById('bbPayNet').textContent = peso(totalNet);
     document.getElementById('bbPayCount').textContent = periods.length;
 
-    // Table
+    // ===== PER-CUTOFF SUMMARY — group periods by cutoff, sum the reconciled breakdown =====
+    const cutoffs = {};
+    periods.forEach(p => {
+      const key = (p.period_start || '').substring(0,10) + '|' + (p.period_end || '').substring(0,10);
+      if (!cutoffs[key]) cutoffs[key] = { start: p.period_start, end: p.period_end, count: 0, gross:0, allowance:0, deductions:0, ic:0, net:0, statuses: {}, draftIds: [] };
+      const b = payrollBreakdown(p);
+      const c = cutoffs[key];
+      c.count++; c.gross += b.gross; c.allowance += b.allowance; c.deductions += b.deductions; c.ic += b.ic; c.net += b.net;
+      c.statuses[p.status || 'draft'] = (c.statuses[p.status || 'draft'] || 0) + 1;
+      if ((p.status || 'draft') === 'draft') c.draftIds.push(p.id);
+    });
+    const cutoffRows = Object.values(cutoffs).sort((a,b) => (b.end || '').localeCompare(a.end || ''));
+    const sumEl = document.getElementById('bbPayCutoffSummary');
+    if (sumEl) {
+      sumEl.innerHTML = cutoffRows.length ? cutoffRows.map(c => {
+        const stKeys = Object.keys(c.statuses);
+        const statusBadge = stKeys.length === 1
+          ? `<span class="bb-badge ${stKeys[0] === 'released' ? 'green' : 'honey'}">${stKeys[0]}</span>`
+          : `<span class="bb-badge gray" title="${stKeys.map(k => k+': '+c.statuses[k]).join(', ')}">mixed</span>`;
+        const relBtn = c.draftIds.length
+          ? `<button class="btn btn-primary btn-sm" data-extra-perm="release_payroll" onclick="releaseCutoffDrafts('${c.start.substring(0,10)}','${c.end.substring(0,10)}')" title="Release ${c.draftIds.length} draft payslip(s) in this cutoff">📤 Release (${c.draftIds.length})</button>`
+          : '<span style="color:#9CA3AF;font-size:11px;">all released</span>';
+        return `<tr>
+          <td><strong>${fmtDate(c.start)} → ${fmtDate(c.end)}</strong></td>
+          <td>${c.count}</td>
+          <td style="text-align:right;">${peso(c.gross)}</td>
+          <td style="text-align:right;color:var(--bb-green);">${c.allowance ? '+' + peso(c.allowance) : '—'}</td>
+          <td style="text-align:right;color:var(--bb-red);">${c.deductions ? '−' + peso(c.deductions) : '—'}</td>
+          <td style="text-align:right;color:var(--bb-red);">${c.ic ? '−' + peso(c.ic) : '—'}</td>
+          <td style="text-align:right;"><strong style="color:var(--bb-honey-dark);">${peso(c.net)}</strong></td>
+          <td>${statusBadge}</td>
+          <td style="white-space:nowrap;">${relBtn}</td>
+        </tr>`;
+      }).join('') : '<tr><td colspan="9" style="text-align:center;padding:14px;color:#999;">Walang payroll periods pa.</td></tr>';
+    }
+
+    // ===== PER-EMPLOYEE DETAIL TABLE =====
     const body = document.getElementById('bbPayrollBody');
     if (!periods.length) {
-      body.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;color:#999;">Walang payroll periods pa. Click "+ Compute New Cutoff" para mag-generate.</td></tr>';
+      body.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:20px;color:#999;">Walang payroll periods pa. Click "+ Compute New Cutoff" para mag-generate.</td></tr>';
       return;
     }
     body.innerHTML = periods.map(p => {
       const e = (p.expand && p.expand.employee_id) || empMap[p.employee_id];
       const name = e ? e.name : '(unknown)';
       const otHrs = (p.ot_hours || 0);
+      const b = payrollBreakdown(p);
       return `<tr>
         <td><strong>${name}</strong></td>
         <td>${fmtDate(p.period_start)} → ${fmtDate(p.period_end)}</td>
         <td>${(p.reg_hours || 0).toFixed(2)}</td>
         <td>${(p.live_hours || 0).toFixed(2)}</td>
         <td>${otHrs > 0 ? `<strong style="color:#1E40AF;">${otHrs.toFixed(2)}</strong>` : '<span style="color:#9CA3AF;">—</span>'}</td>
-        <td>₱${(p.gross_pay || 0).toLocaleString()}</td>
-        <td><strong>₱${(p.net_pay || 0).toLocaleString()}</strong></td>
+        <td style="text-align:right;">${peso(b.gross)}${b.allowance ? `<div style="font-size:10px;color:var(--bb-green);">+${peso(b.allowance)} allow</div>` : ''}</td>
+        <td style="text-align:right;color:var(--bb-red);">${b.deductions ? '−' + peso(b.deductions) : '—'}</td>
+        <td style="text-align:right;color:var(--bb-red);">${b.ic ? '−' + peso(b.ic) : '<span style="color:#9CA3AF;">—</span>'}</td>
+        <td style="text-align:right;"><strong>${peso(b.net)}</strong></td>
         <td><span class="bb-badge ${p.status === 'released' ? 'green' : 'honey'}">${p.status || 'draft'}</span></td>
         <td style="white-space:nowrap;">
           <button class="btn btn-ghost btn-sm" onclick="viewBbPayslip('${p.id}')" title="View payslip">View</button>
@@ -8565,6 +8647,22 @@ async function loadBbPayroll() {
   } catch (e) {
     console.error('Payroll load:', e);
   }
+}
+
+/* Release all DRAFT payslips within a cutoff (per-cutoff release button). */
+async function releaseCutoffDrafts(startStr, endStr) {
+  try {
+    const periods = await pbGetList('payroll_periods', { filter: `period_start>="${startStr} 00:00:00" && period_end<="${endStr} 23:59:59" && status="draft"`, perPage: 200 });
+    if (!periods.length) { toast('Walang draft sa cutoff na ito', 'warn'); return; }
+    if (!confirm(`I-release ang ${periods.length} draft payslip(s) sa cutoff ${startStr} → ${endStr}?\n\nMarkahan bilang final.`)) return;
+    let ok = 0;
+    for (const p of periods) {
+      try { await pbUpdate('payroll_periods', p.id, { status: 'released' }); ok++; }
+      catch (e) { console.warn('Release failed for', p.id, e.message); }
+    }
+    toast(`✓ Released ${ok}/${periods.length} payslip(s)`, ok === periods.length ? 'ok' : 'warn');
+    loadBbPayroll();
+  } catch (e) { toast('Release failed: ' + e.message, 'err'); }
 }
 
 /* ===================== OT APPROVALS VIEW =====================
