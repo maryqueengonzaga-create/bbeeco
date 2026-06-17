@@ -7,6 +7,8 @@
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 80'%3E%3Cg%3E%3Cpath d='M 30 8 Q 30 14 32 18' stroke='%231a1a1a' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3Ccircle cx='30' cy='6' r='2' fill='%231a1a1a'/%3E%3Ccircle cx='32' cy='32' r='20' fill='white' stroke='%231a1a1a' stroke-width='2.5'/%3E%3Ccircle cx='25' cy='32' r='2' fill='%231a1a1a'/%3E%3Ccircle cx='38' cy='32' r='2' fill='%231a1a1a'/%3E%3Cpath d='M 26 38 Q 32 44 38 38' stroke='%231a1a1a' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3C/g%3E%3Cg%3E%3Cpath d='M 68 4 Q 68 10 70 14' stroke='%231a1a1a' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3Ccircle cx='68' cy='2' r='2' fill='%231a1a1a'/%3E%3Ccircle cx='70' cy='28' r='20' fill='white' stroke='%231a1a1a' stroke-width='2.5'/%3E%3Ccircle cx='63' cy='28' r='2' fill='%231a1a1a'/%3E%3Ccircle cx='76' cy='28' r='2' fill='%231a1a1a'/%3E%3Cpath d='M 64 34 Q 70 40 76 34' stroke='%231a1a1a' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -8599,6 +8601,7 @@ async function loadBbPayroll() {
           ? `<span class="bb-badge ${stKeys[0] === 'released' ? 'green' : 'honey'}">${stKeys[0]}</span>`
           : `<span class="bb-badge gray" title="${stKeys.map(k => k+': '+c.statuses[k]).join(', ')}">mixed</span>`;
         const recomputeBtn = `<button class="btn btn-secondary btn-sm" data-extra-perm="run_payroll" onclick="recomputeCutoff('${c.start.substring(0,10)}','${c.end.substring(0,10)}')" title="Re-run the payroll engine for this whole cutoff (all employees)">🔄 Recompute</button>`;
+        const dlBtn = `<button class="btn btn-secondary btn-sm" onclick="downloadCutoffPayslips('${c.start.substring(0,10)}','${c.end.substring(0,10)}')" title="Download a PDF payslip (with daily breakdown) for every employee in this cutoff, named after them" style="margin-left:4px;">⬇ Payslips PDF</button>`;
         const relBtn = c.draftIds.length
           ? `<button class="btn btn-primary btn-sm" data-extra-perm="release_payroll" onclick="releaseCutoffDrafts('${c.start.substring(0,10)}','${c.end.substring(0,10)}')" title="Release ${c.draftIds.length} draft payslip(s) in this cutoff" style="margin-left:4px;">📤 Release (${c.draftIds.length})</button>`
           : ' <span style="color:#9CA3AF;font-size:11px;">all released</span>';
@@ -8611,7 +8614,7 @@ async function loadBbPayroll() {
           <td style="text-align:right;color:var(--bb-red);">${c.ic ? '−' + peso(c.ic) : '—'}</td>
           <td style="text-align:right;"><strong style="color:var(--bb-honey-dark);">${peso(c.net)}</strong></td>
           <td>${statusBadge}</td>
-          <td style="white-space:nowrap;">${recomputeBtn}${relBtn}</td>
+          <td style="white-space:nowrap;">${recomputeBtn}${dlBtn}${relBtn}</td>
         </tr>`;
       }).join('') : '<tr><td colspan="9" style="text-align:center;padding:14px;color:#999;">Walang payroll periods pa.</td></tr>';
     }
@@ -9152,9 +9155,9 @@ async function runComputePayroll() {
       const grossPay = regPay + livePay + otPay;
 
       // Deductions
-      const sssEE = dedGroup ? dedGroup.sss_amount : 581.30;
-      const phicEE = dedGroup ? (dedGroup.phic_percent || 200) : 200;
-      const pagibigEE = dedGroup ? dedGroup.pagibig_amount : 100;
+      const sssEE = dedGroup ? (dedGroup.sss_amount ?? 581.30) : 581.30;
+      const phicEE = dedGroup ? (dedGroup.phic_percent ?? 200) : 200;
+      const pagibigEE = dedGroup ? (dedGroup.pagibig_amount ?? 100) : 100;
       const caDeduct = empCA.reduce((s, c) => s + (c.deduct_per_cutoff || 0), 0);
       const icDeduct = empIC.reduce((s, ic) => s + (ic.amount || 0), 0);
       const lateDeductPeso = lateDeductHrs * regRate;  // peso deduction for late minutes (after tier)
@@ -9441,6 +9444,55 @@ async function savePayrollHoursOverride() {
   } catch (err) {
     alert('Save failed: ' + err.message);
   }
+}
+
+/* ===== ONE-CLICK: download a PDF payslip (with daily breakdown) per employee for a cutoff ===== */
+async function downloadCutoffPayslips(startStr, endStr) {
+  if (!window.jspdf || !window.html2canvas) { toast('PDF libraries not loaded — refresh page', 'err'); return; }
+  let periods;
+  try {
+    periods = await pbGetList('payroll_periods', { filter: `period_start>="${startStr} 00:00:00" && period_end<="${endStr} 23:59:59"`, expand: 'employee_id', sort: 'period_start', perPage: 200 });
+  } catch (e) { toast('Load failed: ' + e.message, 'err'); return; }
+  if (!periods.length) { toast('Walang payslip sa cutoff na ito', 'warn'); return; }
+  if (!confirm(`I-download ang ${periods.length} payslip PDF (${startStr} → ${endStr})?\nIsa-isang gagawin, naka-pangalan sa bawat empleyado.\n\nKung magtanong ang browser ng "allow multiple downloads", i-click ang Allow.`)) return;
+  const { jsPDF } = window.jspdf;
+  let ok = 0;
+  for (const p of periods) {
+    const e = (p.expand && p.expand.employee_id);
+    const name = e ? e.name : ('emp-' + p.employee_id);
+    toast(`Generating ${ok + 1}/${periods.length}: ${name}`);
+    try {
+      await viewBbPayslip(p.id);
+      await new Promise(r => setTimeout(r, 500));  // let layout render
+      const el = document.getElementById('payslipBody');
+      const canvas = await html2canvas(el, { scale: 2, backgroundColor: '#ffffff', windowWidth: el.scrollWidth, height: el.scrollHeight, windowHeight: el.scrollHeight });
+      const pdf = new jsPDF('p', 'pt', 'a4');
+      const pw = pdf.internal.pageSize.getWidth(), ph = pdf.internal.pageSize.getHeight();
+      const margin = 24, imgW = pw - margin * 2;
+      const imgH = canvas.height * imgW / canvas.width;
+      if (imgH <= ph - margin * 2) {
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, margin, imgW, imgH);
+      } else {
+        const pageSlicePx = Math.floor((ph - margin * 2) * canvas.width / imgW);
+        let sY = 0, page = 0;
+        while (sY < canvas.height) {
+          const sliceH = Math.min(pageSlicePx, canvas.height - sY);
+          const c2 = document.createElement('canvas');
+          c2.width = canvas.width; c2.height = sliceH;
+          c2.getContext('2d').drawImage(canvas, 0, sY, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
+          if (page > 0) pdf.addPage();
+          pdf.addImage(c2.toDataURL('image/png'), 'PNG', margin, margin, imgW, sliceH * imgW / canvas.width);
+          sY += sliceH; page++;
+        }
+      }
+      const safe = name.replace(/[\\/:*?"<>|]/g, '').trim();
+      pdf.save(`${safe} - Payslip ${startStr} to ${endStr}.pdf`);
+      ok++;
+      await new Promise(r => setTimeout(r, 350));  // spacing between downloads
+    } catch (err) { console.error('payslip pdf failed:', name, err); toast('Failed: ' + name + ' — ' + err.message, 'err'); }
+  }
+  closeModal('payslipModal');
+  toast(`✓ ${ok}/${periods.length} payslip PDF na-download`, 'ok');
 }
 
 async function viewBbPayslip(periodId) {
